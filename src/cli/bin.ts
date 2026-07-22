@@ -1,5 +1,5 @@
 #!/usr/bin/env node
 
-import { runCli } from "./main.js";
+import { runNodeCli } from "../infrastructure/process/node-cli-runtime.js";
 
-void runCli();
+void runNodeCli();

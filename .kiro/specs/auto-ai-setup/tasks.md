@@ -180,14 +180,14 @@ Implementation language: **TypeScript**, strict mode, Node.js 20+ runtime, Vites
   - [ ]* 7.8 Add fault-injection integration tests for every transaction phase, successful/failed recovery, Ctrl+C before and during application, stale concurrent changes, non-terminal journals, and exit-code summaries.
     - **Requirements: 8.1–8.17, 13.15**
 
-- [ ] 8. Wire the interactive CLI and session orchestrator
-  - [ ] 8.1 Implement flag parsing for `--path`, `--mode auto|manual`, `--verbose`, and `--recover`, TTY checks, prompts, plan previews, approval prompts, cancellation handling, and human-readable summaries.
+- [x] 8. Wire the interactive CLI and session orchestrator
+  - [x] 8.1 Implement flag parsing for `--path`, `--mode auto|manual`, `--verbose`, and `--recover`, TTY checks, prompts, plan previews, approval prompts, cancellation handling, and human-readable summaries.
     - Render canonical paths, actions, reasons, conflicts, external command/origin/destination/purpose/network, redacted previews, and all exit states without direct I/O outside adapters.
     - _Requirements: 1.1, 3.6–3.9, 4.1–4.12, 7.3–7.21, 8.11–8.17, 11.1–11.11_
-  - [ ] 8.2 Implement `SessionOrchestrator` as the designed state machine: recovery gate, project validation, analysis, authorized catalog query, stack resolution, mode selection, component selection, plan/approval, application, rollback, and summary.
+  - [x] 8.2 Implement `SessionOrchestrator` as the designed state machine: recovery gate, project validation, analysis, authorized catalog query, stack resolution, mode selection, component selection, plan/approval, application, rollback, and summary.
     - Ensure empty selections never create a plan or request approval, cancellation before prepare returns code 0, and invalid input returns code 2 without mutation.
     - _Requirements: 1.7–1.16, 2.7–2.16, 4.1–4.12, 5.1–5.15, 7.1–7.19, 8.1–8.17_
-  - [ ] 8.3 Wire every adapter through dependency injection and connect the package bin to the orchestrator while preserving the domain/application/infrastructure dependency direction.
+  - [x] 8.3 Wire every adapter through dependency injection and connect the package bin to the orchestrator while preserving the domain/application/infrastructure dependency direction.
     - Verify no AWS, backend, hooks, telemetry, arbitrary shell, recommended-CLI execution, or MCP startup path is reachable from the MVP runtime.
     - _Requirements: 13.1, 14.17–14.19, 15.1–15.16_
   - [ ]* 8.4 Add scripted integration tests for automatic and manual flows, recommendation removal, zero selection, invalid mode, stack conflict/no-stack fallback, new/existing projects, approval, cancellation, and incompatible overrides.

@@ -11,13 +11,13 @@
   },
   "files": ["dist"],
   "scripts": {
-    "build": "npm run clean && tsc -p tsconfig.json",
+    "build": "pnpm run clean && pnpm exec tsc -p tsconfig.json",
     "clean": "node --input-type=module -e \"import { rm } from 'node:fs/promises'; await rm('dist', { recursive: true, force: true })\"",
-    "typecheck": "tsc -p tsconfig.test.json --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "lint": "eslint . --max-warnings 0"
+    "typecheck": "pnpm exec tsc -p tsconfig.test.json --noEmit",
+    "test": "pnpm exec vitest run",
+    "test:watch": "pnpm exec vitest",
+    "test:coverage": "pnpm exec vitest run --coverage",
+    "lint": "pnpm exec eslint . --max-warnings 0"
   },
   "dependencies": {},
   "devDependencies": {

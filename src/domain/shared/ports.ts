@@ -14,7 +14,7 @@ import type {
   RunMode,
 } from "./types.js";
 
-export interface SessionOrchestrator {
+export interface SessionOrchestratorPort {
   run(input: SessionInput, ui: UserInteraction): Promise<import("../observability/models.js").ExecutionSummary>;
 }
 
@@ -28,8 +28,13 @@ export interface SessionInput {
 export interface UserInteraction {
   chooseTarget(initial?: string): Promise<string>;
   resolveStack(conflicts: readonly import("../project/models.js").StackConflict[]): Promise<ConfirmedStack>;
+  /** Optional selection-only resolver; the orchestrator confirms the full stack. */
+  resolveStackSelection?(conflicts: readonly import("../project/models.js").StackConflict[]): Promise<Readonly<Partial<Record<import("../project/models.js").StackCategory, string>>>>;
   chooseMode(initial?: string): Promise<RunMode>;
   selectComponents(view: import("../catalog/models.js").ComponentSelectionView): Promise<readonly ComponentId[]>;
+  confirmIncompatible?(component: ComponentDefinition, decision: import("../planning/models.js").CompatibilityDecision): Promise<boolean>;
+  confirmExternal?(command: readonly string[], purpose: string): Promise<boolean>;
+  confirmRecovery?(journal: RecoveryJournal): Promise<boolean>;
   reviewPlan(plan: ChangePlan): Promise<ApprovalDecisions>;
   render(event: RedactedEvent): void;
 }
