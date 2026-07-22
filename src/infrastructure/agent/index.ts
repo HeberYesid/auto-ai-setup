@@ -44,6 +44,7 @@ export type {
   KiroCommandIndexAdaptation,
   KiroCommandDocumentsAdaptation,
 } from "./kiro-command-adapter.js";
+export { builtinAgentComponents, createBuiltinAgentComponents } from "./builtin-components.js";
 export {
   ComponentInspectionProjection,
   ComponentInspector,

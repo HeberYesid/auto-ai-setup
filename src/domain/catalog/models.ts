@@ -31,6 +31,8 @@ export interface ComponentSelectionView {
   readonly components: readonly ComponentView[];
   /** Groups are ordered by the stable component type order. */
   readonly groups?: readonly ComponentGroup[];
+  /** Documentation-only CLI recommendations shown before plan approval. */
+  readonly cliRecommendations?: readonly import("../project/models.js").CliRecommendation[];
 }
 
 export interface ComponentGroup {

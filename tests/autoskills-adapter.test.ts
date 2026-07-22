@@ -1,178 +1,78 @@
-import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
-  AUTOSKILLS_SOURCE_REPOSITORY,
   asCanonicalPath,
   asSafeProjectPath,
+  type ProcessExecutor,
   type ProcessResult,
   type RegisteredProcessRequest,
-  type SkillCatalogEntry,
 } from "../src/domain/index.js";
 import { MidudevAutoSkillsGateway } from "../src/infrastructure/catalog/autoskills-gateway.js";
 import { RegisteredAutoSkillsProcessAdapter } from "../src/infrastructure/process/autoskills-process.js";
-import { FakeFileSystem } from "./support/fakes.js";
-import type { ProcessExecutor } from "../src/domain/index.js";
 
 const root = asCanonicalPath("C:/workspace/project");
 if (!root.ok) throw new Error(root.error.message);
-const target = asSafeProjectPath(".kiro/skills/testing");
-if (!target.ok) throw new Error(target.error.message);
-const fileContent = new TextEncoder().encode("testing skill");
-const sha = createHash("sha256").update(fileContent).digest("hex");
-const commit = "0123456789abcdef0123456789abcdef01234567";
-const payload = {
-  schemaVersion: 1,
-  catalogId: "midudev-main",
-  sourceRepository: AUTOSKILLS_SOURCE_REPOSITORY,
-  sourceCommit: commit,
-  generatedAt: "2025-01-01T00:00:00.000Z",
-  entries: [
-    {
-      type: "skill",
-      id: "testing",
-      name: "Testing",
-      description: "Testing guidance",
-      origin: { repository: AUTOSKILLS_SOURCE_REPOSITORY, commit, relativePath: "skills/testing" },
-      files: [{ relativePath: "SKILL.md", size: fileContent.byteLength, sha256: sha }],
-      compatibility: { op: "always" },
-      destinationTemplate: ".kiro/skills/{id}",
-    },
-  ],
-};
+const successful = (overrides: Partial<ProcessResult> = {}): ProcessResult => ({
+  exitCode: 0,
+  stdout: "",
+  stderr: "",
+  durationMs: 2,
+  timedOut: false,
+  truncated: false,
+  ...overrides,
+});
 
 class FakeExecutor implements ProcessExecutor {
   readonly requests: RegisteredProcessRequest[] = [];
-  constructor(private result: ProcessResult) {}
-  setResult(result: ProcessResult): void {
-    this.result = result;
-  }
+  constructor(private readonly result: ProcessResult) {}
   async execute(request: RegisteredProcessRequest): Promise<ProcessResult> {
     this.requests.push(request);
     return this.result;
   }
 }
-const successful = (stdout: string): ProcessResult => ({
-  exitCode: 0,
-  stdout,
-  stderr: "",
-  durationMs: 2,
-  timedOut: false,
-  truncated: false,
-});
 
 describe("registered autoskills adapter", () => {
-  it("requires listing authorization before invoking the process", async () => {
-    const executor = new FakeExecutor(successful(JSON.stringify(payload)));
-    const gateway = new MidudevAutoSkillsGateway(executor, { root: root.value });
-    const denied = await gateway.list();
-    expect(denied.ok).toBe(false);
-    expect(executor.requests).toHaveLength(0);
+  it("requires authorization and executes only the official interactive TUI", async () => {
+    const deniedExecutor = new FakeExecutor(successful());
+    const denied = new MidudevAutoSkillsGateway(deniedExecutor, { root: root.value });
+    expect((await denied.runInteractive()).ok).toBe(false);
+    expect(deniedExecutor.requests).toHaveLength(0);
 
-    const allowed = new MidudevAutoSkillsGateway(executor, { root: root.value, authorizeListing: () => true });
-    const result = await allowed.list();
-    expect(result.ok).toBe(true);
-    expect(executor.requests[0]?.args).toEqual(["list", "--json"]);
-    if (result.ok) {
-      expect(result.value.sourceRepository).toBe(AUTOSKILLS_SOURCE_REPOSITORY);
-      expect(result.value.sourceCommit).toBe(commit);
-      expect(result.value.manifestDigest).toMatch(/^[a-f0-9]{64}$/);
-    }
-  });
-
-  it("accepts only validated midudev catalog output", async () => {
-    const altered = {
-      ...payload,
-      entries: [{ ...payload.entries[0], origin: { ...payload.entries[0].origin, repository: "https://example.com/skills" } }],
-    };
-    const executor = new FakeExecutor(successful(JSON.stringify(altered)));
+    const executor = new FakeExecutor(successful());
     const gateway = new MidudevAutoSkillsGateway(executor, { root: root.value, authorizeListing: () => true });
-    const result = await gateway.list();
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.code).toBe("CATALOG_INVALID_RESPONSE");
+    expect((await gateway.runInteractive()).ok).toBe(true);
+    expect(executor.requests[0]?.args).toEqual([]);
   });
 
-  it("uses the official fixed install invocation and verifies the presented snapshot and files", async () => {
-    const executor = new FakeExecutor(successful(JSON.stringify(payload)));
-    const fileSystem = new FakeFileSystem();
-    fileSystem.seed(".kiro/skills/testing/SKILL.md", fileContent);
-    const gateway = new MidudevAutoSkillsGateway(executor, { root: root.value, authorizeListing: () => true, fileSystem });
-    const listed = await gateway.list();
-    expect(listed.ok).toBe(true);
-    const entry = payload.entries[0] as unknown as SkillCatalogEntry;
-    const invalidTarget = asSafeProjectPath(".kiro/skills/../escape");
-    expect(invalidTarget.ok).toBe(false);
-    const denied = await gateway.install(
-      entry,
-      { planHash: sha as never, operationId: "op-1", approved: true },
-      ".kiro/skills/other" as never,
-    );
-    expect(denied.ok).toBe(false);
-
-    executor.setResult(successful("installed"));
-    const installed = await gateway.install(entry, { planHash: sha as never, operationId: "op-1", approved: true }, target.value);
-    expect(installed.ok).toBe(true);
-    expect(executor.requests[1]?.args).toEqual(["install", "testing"]);
-  });
-
-  it("denies malformed, timed-out, and failed catalog process results", async () => {
-    const executor = new FakeExecutor({ ...successful("not-json"), exitCode: 0 });
+  it("reports the real CLI limitation without spawning fake catalog commands", async () => {
+    const executor = new FakeExecutor(successful());
     const gateway = new MidudevAutoSkillsGateway(executor, { root: root.value, authorizeListing: () => true });
-    expect(await gateway.list()).toMatchObject({ ok: false, error: { code: "CATALOG_INVALID_RESPONSE" } });
-
-    executor.setResult({ ...successful(JSON.stringify(payload)), exitCode: 1, stderr: "failed" });
     expect(await gateway.list()).toMatchObject({ ok: false, error: { code: "CATALOG_EXECUTION_FAILED" } });
-    executor.setResult({ ...successful(JSON.stringify(payload)), timedOut: true });
-    expect(await gateway.list()).toMatchObject({ ok: false, error: { code: "CATALOG_EXECUTION_FAILED" } });
-  });
-
-  it("requires a presented snapshot, exact approval, and verified files before install", async () => {
-    const executor = new FakeExecutor(successful(JSON.stringify(payload)));
-    const entry = payload.entries[0] as unknown as SkillCatalogEntry;
-    const withoutSnapshot = new MidudevAutoSkillsGateway(executor, { root: root.value });
-    expect(
-      await withoutSnapshot.install(entry, { planHash: sha as never, operationId: "op-1", approved: true }, target.value),
-    ).toMatchObject({
-      ok: false,
-      error: { code: "INSTALLATION_IDENTITY_MISMATCH" },
-    });
-
-    const fileSystem = new FakeFileSystem();
-    const gateway = new MidudevAutoSkillsGateway(executor, { root: root.value, authorizeListing: () => true, fileSystem });
-    expect((await gateway.list()).ok).toBe(true);
-    expect(await gateway.install(entry, { planHash: sha as never, operationId: "", approved: false }, target.value)).toMatchObject({
+    expect(await gateway.install({} as never, {} as never, asSafeProjectPath(".kiro/skills/test").value as never)).toMatchObject({
       ok: false,
       error: { code: "INSTALLATION_FAILED" },
     });
-    executor.setResult(successful("installed"));
-    expect(await gateway.install(entry, { planHash: sha as never, operationId: "op-1", approved: true }, target.value)).toMatchObject({
-      ok: false,
-      error: { code: "INSTALLATION_IDENTITY_MISMATCH" },
-    });
+    expect(executor.requests).toHaveLength(0);
   });
 
-  it("returns a process error when the catalog executor throws", async () => {
-    const executor: ProcessExecutor = {
-      execute: async () => {
-        throw new Error("spawn failed");
-      },
-    };
-    const gateway = new MidudevAutoSkillsGateway(executor, { root: root.value, authorizeListing: () => true });
-    expect(await gateway.list()).toMatchObject({ ok: false, error: { code: "CATALOG_EXECUTION_FAILED" } });
-  });
-
-  it("returns bounded process failures and supports cancellation before spawn", async () => {
-    const executor = new FakeExecutor({ ...successful(JSON.stringify(payload)), truncated: true });
-    const gateway = new MidudevAutoSkillsGateway(executor, { root: root.value, authorizeListing: () => true });
-    const result = await gateway.list();
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.code).toBe("CATALOG_EXECUTION_FAILED");
-
+  it("rejects non-interactive registered requests and supports cancellation before spawn", async () => {
     const adapter = new RegisteredAutoSkillsProcessAdapter();
+    const invalid = {
+      command: "npx-autoskills",
+      operation: "list",
+      args: ["list", "--json"],
+      cwd: root.value,
+      authorized: true,
+    } as never;
+    await expect(adapter.execute(invalid)).rejects.toThrow("PROCESS_NOT_ALLOWED");
     const controller = new AbortController();
     controller.abort();
-    const request = { command: "npx-autoskills", operation: "list", args: ["list", "--json"], cwd: root.value, authorized: true } as const;
-    const cancelled = await adapter.execute(request, controller.signal);
-    expect(cancelled.timedOut).toBe(true);
-    expect(cancelled.exitCode).toBe(130);
+    const request = { command: "npx-autoskills", operation: "interactive", args: [], cwd: root.value, authorized: true } as const;
+    await expect(adapter.execute(request, controller.signal)).resolves.toMatchObject({ exitCode: 130, timedOut: true });
+  });
+
+  it("reports failures from the official interactive process", async () => {
+    const executor = new FakeExecutor(successful({ exitCode: 1, stderr: "failed" }));
+    const gateway = new MidudevAutoSkillsGateway(executor, { root: root.value, authorizeListing: () => true });
+    expect(await gateway.runInteractive()).toMatchObject({ ok: false, error: { code: "CATALOG_EXECUTION_FAILED" } });
   });
 });

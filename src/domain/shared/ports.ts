@@ -143,6 +143,8 @@ export interface PlanningInput {
   readonly catalogDigest?: import("./types.js").Sha256;
   /** Source revision paired with catalogDigest for stale/mismatched catalog detection. */
   readonly catalogSourceRevision?: string;
+  /** Documentation-only recommendations; no process or network operation is created. */
+  readonly cliRecommendations?: readonly import("../project/models.js").CliRecommendation[];
   readonly now: string;
 }
 

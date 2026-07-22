@@ -12,12 +12,10 @@ import type {
   ProposedOperation,
   Result,
   RunId,
-  SafeProjectPath,
   Sha256,
 } from "../../domain/index.js";
-import { asSafeProjectPath, err, evaluateCompatibility, ok } from "../../domain/index.js";
+import { err, evaluateCompatibility, ok } from "../../domain/index.js";
 import type { CompatibilityInput } from "../../domain/catalog/models.js";
-import type { SkillCatalogEntry } from "../../domain/catalog/models.js";
 import { createHash } from "node:crypto";
 
 export interface SelectedComponent {
@@ -93,22 +91,6 @@ const canonicalComponent = (component: ComponentDefinition): string =>
     compatibility: component.compatibility,
     origin: originFor(component),
   });
-const skillTarget = (entry: SkillCatalogEntry): Result<SafeProjectPath, ProjectionError> => {
-  const destination = asSafeProjectPath(`.kiro/skills/${entry.id}`);
-  return destination.ok ? ok(destination.value) : err({ code: "INVALID_PLAN", message: destination.error.message, recoverability: "none" });
-};
-const skillOrigin = (entry: SkillCatalogEntry): string => `${entry.origin.repository}#${entry.origin.commit}/${entry.origin.relativePath}`;
-const skillOperation = (component: ComponentDefinition, entry: SkillCatalogEntry, destination: SafeProjectPath): ExternalOperation => ({
-  id: `skill-install:${component.id}` as ExternalOperation["id"],
-  componentId: component.id,
-  kind: "skill-install",
-  command: ["npx", "autoskills", "install", entry.id],
-  origin: skillOrigin(entry),
-  destination,
-  purpose: `Install the catalog Skill ${entry.name} through the official autoskills command.`,
-  usesNetwork: true,
-  expectedFiles: entry.files.map((file) => ({ path: `${destination}/${file.relativePath}`, size: file.size, sha256: file.sha256 })),
-});
 
 /**
  * Shared adapter coordinator. It performs inspection before projection and
@@ -149,37 +131,13 @@ export class ComponentInspectionProjection {
       }
 
       const safeDefinition = sanitize(component) as ComponentDefinition;
-      if (component.type === "skill") {
-        const entry = input.catalog?.entries.find((candidate) => candidate.id === component.id);
-        if (
-          entry === undefined ||
-          entry.origin.repository !== "https://github.com/midudev/autoskills" ||
-          (component.source.kind === "catalog" &&
-            (component.source.origin !== entry.origin.repository || component.source.revision !== entry.origin.commit))
-        )
-          return err({
-            code: "CATALOG_SOURCE_MISMATCH",
-            message: `Skill ${component.id} is not present in the presented autoskills catalog.`,
-            recoverability: "none",
-            componentId: component.id,
-          });
-        const target = skillTarget(entry);
-        if (!target.ok) return target;
-        const present = await this.skillIsPresent(entry, target.value);
-        const external = present ? [] : [skillOperation(component, entry, target.value)];
-        const projection: ComponentProjection = {
-          component: safeDefinition,
-          compatibility: decision,
-          incompatibleOverride: override,
-          present,
-          destinations: [target.value],
-          fileChanges: [],
-          externalOperations: external,
-        };
-        components.push(projection);
-        externalOperations.push(...external);
-        continue;
-      }
+      if (component.type === "skill")
+        return err({
+          code: "CATALOG_SOURCE_MISMATCH",
+          message: "autoskills no expone un catálogo estructurado ni instalación individual; selecciona Skills en su TUI oficial.",
+          recoverability: "none",
+          componentId: component.id,
+        });
 
       const adapter = this.options.adapters.find((candidate) => candidate.supports(component));
       if (adapter === undefined)
@@ -206,18 +164,6 @@ export class ComponentInspectionProjection {
       fileChanges.push(...changes);
     }
     return ok({ components, fileChanges, externalOperations, warnings });
-  }
-
-  private async skillIsPresent(entry: SkillCatalogEntry, destination: SafeProjectPath): Promise<boolean> {
-    for (const file of entry.files) {
-      const path = asSafeProjectPath(`${destination}/${file.relativePath}`);
-      if (!path.ok || !(await this.options.fileSystem.exists(path.value))) return false;
-      const digest = createHash("sha256")
-        .update(await this.options.fileSystem.read(path.value))
-        .digest("hex");
-      if (digest.toLowerCase() !== file.sha256.toLowerCase()) return false;
-    }
-    return true;
   }
 }
 

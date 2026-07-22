@@ -68,12 +68,6 @@ const project = (fileSystem: FakeFileSystem, selected: readonly { definition: Co
 describe("component inspection and projection", () => {
   it("projects all selected component types with complete provenance and destinations", async () => {
     const fileSystem = new FakeFileSystem();
-    const skill = component("review", "skill", {
-      kind: "catalog",
-      origin: catalog.sourceRepository,
-      revision: catalog.sourceCommit,
-      digest: catalog.manifestDigest,
-    });
     const mcp = {
       ...component("mcp.testing", "mcp-server"),
       mcp: { id: "testing", command: "node", env: { API_TOKEN: "super-secret" } },
@@ -87,7 +81,6 @@ describe("component inspection and projection", () => {
       command: { id: "testing", name: "Testing", prompt: "Run the tests" },
     } as ComponentDefinition & { command: unknown };
     const result = await project(fileSystem, [
-      { definition: skill },
       { definition: mcp as never },
       { definition: rule as never },
       { definition: command as never },
@@ -95,24 +88,17 @@ describe("component inspection and projection", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.components.map((item) => item.component.type)).toEqual(["skill", "mcp-server", "agent-rule", "agent-command"]);
+      expect(result.value.components.map((item) => item.component.type)).toEqual(["mcp-server", "agent-rule", "agent-command"]);
       expect(result.value.fileChanges).toHaveLength(4);
-      expect(result.value.externalOperations).toHaveLength(1);
-      expect(result.value.externalOperations[0]).toMatchObject({
-        componentId: "review",
-        origin: "https://github.com/midudev/autoskills#abcdef1/skills/review",
-        destination: ".kiro/skills/review",
-        usesNetwork: true,
-      });
+      expect(result.value.externalOperations).toHaveLength(0);
       expect(result.value.fileChanges.every((change) => change.origin !== undefined && change.destination.length > 0)).toBe(true);
       expect(JSON.stringify(result.value)).not.toContain("super-secret");
       expect(JSON.stringify(result.value)).toContain("${API_TOKEN}");
     }
   });
 
-  it("omits an external Skill operation when every catalog file is already equivalent", async () => {
+  it("does not invent a structured Skill installation from a synthetic catalog", async () => {
     const fileSystem = new FakeFileSystem();
-    fileSystem.seed(".kiro/skills/review/SKILL.md", skillText);
     const skill = component("review", "skill", {
       kind: "catalog",
       origin: catalog.sourceRepository,
@@ -120,8 +106,7 @@ describe("component inspection and projection", () => {
       digest: catalog.manifestDigest,
     });
     const result = await project(fileSystem, [{ definition: skill }]);
-    expect(result.ok && result.value.externalOperations).toHaveLength(0);
-    expect(result.ok && result.value.components[0]?.present).toBe(true);
+    expect(result).toMatchObject({ ok: false, error: { code: "CATALOG_SOURCE_MISMATCH" } });
   });
 
   it("requires an explicit override before projecting an incompatible component", async () => {

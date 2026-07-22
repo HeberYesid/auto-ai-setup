@@ -238,18 +238,8 @@ export const catalogPlanningMetadata = (
 });
 
 export const isRegisteredAutoSkillsRequest = (value: unknown): value is RegisteredAutoSkillsRequest => {
-  if (!isRecord(value) || value.command !== "npx-autoskills" || value.authorized !== true || !isRecord(value)) return false;
-  if (value.operation === "interactive") return Array.isArray(value.args) && value.args.length === 0;
-  if (value.operation === "list")
-    return Array.isArray(value.args) && value.args.length === 2 && value.args[0] === "list" && value.args[1] === "--json";
-  return (
-    value.operation === "install" &&
-    Array.isArray(value.args) &&
-    value.args.length === 2 &&
-    value.args[0] === "install" &&
-    typeof value.args[1] === "string" &&
-    /^[a-z0-9][a-z0-9._-]*$/i.test(value.args[1])
-  );
+  if (!isRecord(value) || value.command !== "npx-autoskills" || value.authorized !== true) return false;
+  return value.operation === "interactive" && Array.isArray(value.args) && value.args.length === 0;
 };
 
 export const registerAutoSkillsInteractive = (
@@ -261,25 +251,22 @@ export const registerAutoSkillsInteractive = (
   return ok({ command: "npx-autoskills", operation: "interactive", args: [], cwd, authorized: true });
 };
 
-export const registerAutoSkillsList = (cwd: CanonicalPath, authorized: boolean): Result<AutoSkillsListProcessRequest, CatalogError> => {
-  if (!authorized)
-    return err(catalogError("CATALOG_EXECUTION_FAILED", "autoskills listing requires explicit authorization", "authorization denied"));
-  return ok({ command: "npx-autoskills", operation: "list", args: ["list", "--json"], cwd, authorized: true });
+/**
+ * autoskills has no machine-readable `list --json` command. Keep this explicit
+ * failure for callers compiled against the old catalog contract; it must never
+ * be turned into a process invocation.
+ */
+export const registerAutoSkillsList = (...args: readonly unknown[]): Result<never, CatalogError> => {
+  void args;
+  return err(
+    catalogError("CATALOG_EXECUTION_FAILED", "autoskills does not expose a structured list command", "supported command: npx autoskills"),
+  );
 };
 
-export const registerAutoSkillsInstall = (
-  cwd: CanonicalPath,
-  entry: SkillCatalogEntry,
-  target: string,
-  authorized: boolean,
-): Result<AutoSkillsInstallProcessRequest, CatalogError> => {
-  if (!authorized)
-    return err(catalogError("CATALOG_EXECUTION_FAILED", "autoskills installation requires explicit approval", "approval denied"));
-  if (
-    !validateSkillCatalogEntry(entry) ||
-    entry.origin.repository !== AUTOSKILLS_SOURCE_REPOSITORY ||
-    !validateInstallTarget(entry, target)
-  )
-    return err(catalogError("CATALOG_SOURCE_MISMATCH", "Skill origin or destination is not authorized"));
-  return ok({ command: "npx-autoskills", operation: "install", args: ["install", entry.id], cwd, authorized: true });
+/** autoskills also has no `install <id>` command; installation is performed by its TUI. */
+export const registerAutoSkillsInstall = (...args: readonly unknown[]): Result<never, CatalogError> => {
+  void args;
+  return err(
+    catalogError("CATALOG_EXECUTION_FAILED", "autoskills does not expose per-Skill installation", "supported command: npx autoskills"),
+  );
 };

@@ -304,9 +304,9 @@ export const createComponentSelectionView = (
 ): ComponentSelectionView => {
   if (manual) {
     const grouped = groupComponentsByType(components, input);
-    return { components: grouped.components, groups: grouped.groups };
+    return { components: grouped.components, groups: grouped.groups, cliRecommendations: input.cliRecommendations };
   }
-  return { components: recommendComponents(components, input) };
+  return { components: recommendComponents(components, input), cliRecommendations: input.cliRecommendations };
 };
 
 export const removeComponentRecommendations = <T extends { readonly definition: ComponentDefinition }>(

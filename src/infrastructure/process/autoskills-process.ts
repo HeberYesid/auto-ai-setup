@@ -15,11 +15,15 @@ export interface AutoSkillsProcessOptions {
   readonly installTimeoutMs?: number;
 }
 
-const executable = process.platform === "win32" ? "npx.cmd" : "npx";
-const spawnExecutable = process.platform === "win32" ? "cmd.exe" : executable;
+export interface AutoSkillsSpawnSpec {
+  readonly executable: string;
+  readonly args: readonly string[];
+}
 
-const spawnArguments = (args: readonly string[]): readonly string[] =>
-  process.platform === "win32" ? ["/d", "/s", "/c", [executable, ...args].join(" ")] : args;
+export const getAutoSkillsSpawnSpec = (platform: NodeJS.Platform, args: readonly string[]): AutoSkillsSpawnSpec => {
+  const executable = platform === "win32" ? "npx.cmd" : "npx";
+  return platform === "win32" ? { executable: "cmd.exe", args: ["/d", "/s", "/c", [executable, ...args].join(" ")] } : { executable, args };
+};
 
 /** Executes only the fixed npx autoskills invocations registered by the domain. */
 export class RegisteredAutoSkillsProcessAdapter implements ProcessExecutor {
@@ -38,16 +42,14 @@ export class RegisteredAutoSkillsProcessAdapter implements ProcessExecutor {
       return Promise.reject(new Error("PROCESS_NOT_ALLOWED: invalid registered autoskills request"));
     }
     const interactive = request.operation === "interactive";
-    const timeoutMs = interactive ? 0 : request.operation === "list" ? this.listTimeoutMs : this.installTimeoutMs;
+    if (!interactive) return Promise.reject(new Error("PROCESS_NOT_ALLOWED: autoskills supports only its interactive TUI"));
     const args = ["--yes", "autoskills", ...request.args];
-    return this.run(request.cwd, args, timeoutMs, interactive, signal);
+    return this.run(request.cwd, args, 0, true, signal);
   }
 
   private validRequest(request: RegisteredAutoSkillsRequest): boolean {
     if (request.cwd.length === 0 || request.cwd.includes("\0") || !/^(?:[A-Za-z]:[\\/]|[\\/]{1,2})/.test(request.cwd)) return false;
-    if (request.operation === "interactive") return request.args.length === 0;
-    if (request.operation === "list") return request.args.length === 2 && request.args[0] === "list" && request.args[1] === "--json";
-    return request.args.length === 2 && request.args[0] === "install" && /^[a-z0-9][a-z0-9._-]*$/i.test(request.args[1]);
+    return request.operation === "interactive" && request.args.length === 0;
   }
 
   private run(
@@ -101,7 +103,8 @@ export class RegisteredAutoSkillsProcessAdapter implements ProcessExecutor {
         return;
       }
       try {
-        child = spawn(spawnExecutable, spawnArguments(args), {
+        const spawnSpec = getAutoSkillsSpawnSpec(process.platform, args);
+        child = spawn(spawnSpec.executable, spawnSpec.args, {
           cwd,
           shell: false,
           windowsHide: !interactive,

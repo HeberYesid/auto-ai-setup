@@ -401,6 +401,7 @@ export class SessionOrchestrator implements SessionOrchestratorPort {
       fileChanges: projection.value.fileChanges,
       externalOperations: projection.value.externalOperations,
       ...(catalog === undefined ? {} : { catalogDigest: catalog.manifestDigest, catalogSourceRevision: catalog.sourceCommit }),
+      cliRecommendations: recommendations,
       now: this.clock.now(),
     });
     if (!built.ok) return this.finish(withAnalysis(baseSummary(runId, "invalid-input", 2, [built.error.message]), analysis), ui, render);

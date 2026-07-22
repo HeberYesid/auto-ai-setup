@@ -67,6 +67,8 @@ export interface ChangePlan {
   readonly catalogSourceRevision?: string;
   readonly confirmedStackDigest: Sha256;
   readonly createdAt: string;
+  /** Documentation-only recommendations; never executable or installable. */
+  readonly cliRecommendations?: readonly import("../project/models.js").CliRecommendation[];
   readonly fileChanges: readonly FileChange[];
   readonly externalOperations: readonly ExternalOperation[];
   readonly warnings: readonly PlanWarning[];

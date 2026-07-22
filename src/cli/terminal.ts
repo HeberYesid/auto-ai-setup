@@ -33,6 +33,13 @@ const listInput = (value: string): readonly string[] => [
   ),
 ];
 const canonical = (root: string, destination: string): string => `${root.replace(/[\\/]+$/u, "")}/${destination.replace(/^[/\\]+/u, "")}`;
+const componentTypeLabel = (type: ComponentDefinition["type"]): string =>
+  ({
+    skill: "Skills",
+    "mcp-server": "Servidores MCP",
+    "agent-rule": "Reglas de agente",
+    "agent-command": "Comandos de agente",
+  })[type];
 
 export class InteractiveUserInteraction implements UserInteraction {
   public constructor(
@@ -81,10 +88,31 @@ export class InteractiveUserInteraction implements UserInteraction {
 
   async selectComponents(view: ComponentSelectionView): Promise<readonly import("../domain/index.js").ComponentId[]> {
     this.terminal.write("Componentes disponibles:");
-    for (const component of view.components)
-      this.terminal.write(
-        `  ${component.definition.id} — ${component.definition.name}${component.compatibility.compatible ? "" : ` [incompatible: ${component.compatibility.unsatisfied.join("; ")}]`}`,
-      );
+    if (view.cliRecommendations === undefined || view.cliRecommendations.length === 0)
+      this.terminal.write("Recomendaciones de CLI: ninguna basada en el Stack confirmado.");
+    else {
+      this.terminal.write("Recomendaciones de CLI (solo documentación; no se ejecutan):");
+      for (const recommendation of view.cliRecommendations) {
+        this.terminal.write(`  ${recommendation.cli} — ${recommendation.reason}`);
+        this.terminal.write(`    tecnologías: ${(recommendation.technologies ?? []).join(", ")}`);
+        this.terminal.write(`    evidencia: ${recommendation.evidenceRefs.join(", ") || "no disponible"}`);
+        this.terminal.write(`    ${recommendation.explanation}`);
+      }
+    }
+    const groups = view.groups ?? [{ type: undefined, components: view.components }];
+    for (const group of groups) {
+      if (group.type !== undefined) this.terminal.write(`\n${componentTypeLabel(group.type)}:`);
+      for (const component of group.components) {
+        const compatibility = component.compatibility.compatible
+          ? "compatible"
+          : `incompatible: ${component.compatibility.unsatisfied.join("; ")}`;
+        this.terminal.write(`  ${component.definition.id} — ${component.definition.name} [${compatibility}]`);
+        this.terminal.write(`    ${component.definition.description}`);
+        if (component.origin !== undefined) this.terminal.write(`    origen: ${component.origin}`);
+        if (component.compatibility.evidenceRefs.length > 0)
+          this.terminal.write(`    evidencia: ${component.compatibility.evidenceRefs.join(", ")}`);
+      }
+    }
     const selected = listInput(await this.terminal.question("IDs a incluir (separados por coma; vacío cancela): "));
     return selected as readonly import("../domain/index.js").ComponentId[];
   }
@@ -148,6 +176,14 @@ export class InteractiveUserInteraction implements UserInteraction {
 
   private renderPlan(plan: ChangePlan): void {
     this.terminal.write(`\nPlan ${plan.planHash}`);
+    for (const recommendation of plan.cliRecommendations ?? []) {
+      this.terminal.write(`- CLI RECOMENDADA ${recommendation.cli} | razón=${recommendation.reason}`);
+      this.terminal.write(
+        `  tecnologías=${(recommendation.technologies ?? []).join(", ")} | evidencia=${recommendation.evidenceRefs.join(", ") || "no disponible"}`,
+      );
+      for (const instruction of recommendation.documentedInstructions ?? []) this.terminal.write(`  instrucción: ${instruction}`);
+      this.terminal.write("  acción=documentar | ejecuta=no | instala=no | comprueba=no");
+    }
     for (const change of plan.fileChanges) {
       this.terminal.write(
         `- ${change.action.toUpperCase()} ${canonical(plan.root, change.destination)} | componente=${change.componentId} | motivo=${change.reason} | conflicto=${change.conflict}`,

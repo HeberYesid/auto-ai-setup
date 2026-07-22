@@ -1,20 +1,22 @@
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import type { CanonicalPath } from "../../domain/index.js";
-import { createAgentsRuleAdapter, createKiroCommandAdapter, createKiroMcpWorkspaceAdapter } from "../agent/index.js";
+import {
+  createAgentsRuleAdapter,
+  createBuiltinAgentComponents,
+  createKiroCommandAdapter,
+  createKiroMcpWorkspaceAdapter,
+} from "../agent/index.js";
 import { createMidudevAutoSkillsGateway, createFileSystemSkillOwnershipStore } from "../catalog/index.js";
 import { NodeProjectGateway, NodeTransactionalFileSystem } from "../fs/index.js";
 import { createDefaultDetectorRegistry } from "../../domain/project/detectors.js";
 import { createRegisteredAutoSkillsProcessAdapter } from "./autoskills-process.js";
 import { PersistentTransactionEngine } from "../transaction/engine.js";
-import { AutoSkillsInstallOperation } from "../transaction/autoskills-operation.js";
-import type { TransactionOperation } from "../../domain/index.js";
 import { ComponentInspectionProjection } from "../../application/session/component-inspection.js";
 import {
   FileSystemRecoveryJournalReader,
   ProjectEvidenceStackAnalyzer,
   createSessionOrchestrator,
-  type SessionTransactionContext,
 } from "../../application/session/orchestrator.js";
 import { createChangePlanner, ImmutableApprovalPolicy } from "../../domain/index.js";
 import { createInteractiveUserInteraction, runCli, type CliDependencies } from "../../cli/index.js";
@@ -53,7 +55,7 @@ export const createDefaultCliDependencies = (): { readonly terminal: NodeCliTerm
   const session = createSessionOrchestrator({
     projectGateway,
     stackAnalyzer,
-    componentDefinitions: [],
+    componentDefinitions: createBuiltinAgentComponents(),
     planner: createChangePlanner(),
     approvalPolicy: new ImmutableApprovalPolicy(),
     projectionFactory: (root) => {
@@ -63,20 +65,12 @@ export const createDefaultCliDependencies = (): { readonly terminal: NodeCliTerm
         adapters: [createKiroMcpWorkspaceAdapter(fileSystem), createAgentsRuleAdapter(fileSystem), createKiroCommandAdapter(fileSystem)],
       });
     },
-    transactionFactory: (root, context?: SessionTransactionContext) => {
+    transactionFactory: (root) => {
       const fileSystem = createRootFileSystem(root);
-      const operations = new Map<string, TransactionOperation>();
-      if (context?.plan !== undefined && context.catalogGateway !== undefined && context.catalog !== undefined) {
-        for (const operation of context.plan.externalOperations) {
-          const entry = context.catalog.entries.find((candidate) => candidate.id === operation.componentId);
-          if (entry !== undefined)
-            operations.set(
-              String(operation.id),
-              new AutoSkillsInstallOperation(context.catalogGateway, fileSystem, operation, entry, context.catalog),
-            );
-        }
-      }
-      return new PersistentTransactionEngine({ fileSystem, stateStore: createFileSystemSkillOwnershipStore(fileSystem), operations });
+      return new PersistentTransactionEngine({
+        fileSystem,
+        stateStore: createFileSystemSkillOwnershipStore(fileSystem),
+      });
     },
     catalogFactory: (root) => {
       const fileSystem = createRootFileSystem(root);

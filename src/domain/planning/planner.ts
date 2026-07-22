@@ -175,6 +175,7 @@ export class DeterministicChangePlanner {
       mode: input.mode,
       ...(input.catalogDigest === undefined ? {} : { catalogDigest: input.catalogDigest }),
       ...(input.catalogSourceRevision === undefined ? {} : { catalogSourceRevision: input.catalogSourceRevision }),
+      ...(input.cliRecommendations === undefined ? {} : { cliRecommendations: [...input.cliRecommendations] }),
       confirmedStackDigest: input.stack.digest,
       createdAt: input.now,
       fileChanges,
