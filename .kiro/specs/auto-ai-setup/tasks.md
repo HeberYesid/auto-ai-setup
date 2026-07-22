@@ -87,17 +87,17 @@ Implementation language: **TypeScript**, strict mode, Node.js 20+ runtime, Vites
     - Use fake local adapters/ports; do not depend on the public network in tests.
     - **Requirements: 5.1–5.15**
 
-- [ ] 5. Implement structured configuration and component adapters
-  - [ ] 5.1 Implement the JSON `StructuredConfigCodec` with syntax/schema diagnostics, JSON Pointer and line/column locations, dangerous-key rejection, duplicate-key handling, copy-on-write merge, style-preserving serialization, deep equivalence, and field diffs.
+- [x] 5. Implement structured configuration and component adapters
+  - [x] 5.1 Implement the JSON `StructuredConfigCodec` with syntax/schema diagnostics, JSON Pointer and line/column locations, dangerous-key rejection, duplicate-key handling, copy-on-write merge, style-preserving serialization, deep equivalence, and field diffs.
     - Preserve unknown fields, values, indentation, EOL style, and unrelated array order while adding only approved managed changes.
     - _Requirements: 6.7, 7.9–7.10, 9.2, 10.1–10.12_
-  - [ ] 5.2 Implement Kiro MCP workspace configuration adaptation at `.kiro/settings/mcp.json`.
+  - [x] 5.2 Implement Kiro MCP workspace configuration adaptation at `.kiro/settings/mcp.json`.
     - Merge by server ID, preserve unknown entries/fields, expose environment variable names only, never write secret values, and never start an MCP server.
     - _Requirements: 6.1–6.5, 9.6, 10.9–10.12, 15.3_
-  - [ ] 5.3 Implement `AGENTS.md` rule blocks and Kiro command adapters.
+  - [x] 5.3 Implement `AGENTS.md` rule blocks and Kiro command adapters.
     - Use the required rule markers, detect corrupt markers as conflicts, normalize only permitted whitespace/EOL differences, write prompts to `.kiro/prompts/<id>.md`, and merge `.auto-ai-setup/commands.json` while preserving unrelated fields.
     - _Requirements: 6.6–6.7, 9.5, 9.7, 10.9–10.12_
-  - [ ] 5.4 Implement the component inspection/projection layer and managed-state ownership model.
+  - [x] 5.4 Implement the component inspection/projection layer and managed-state ownership model.
     - Project selected Skills, MCP servers, rules, and commands into complete file/external operations with compatibility decisions, origins, destinations, and no secrets.
     - _Requirements: 5.6, 6.3–6.12, 9.4–9.7_
   - [ ]* 5.5 Write the fast-check property test for **Property 10: La proyección de componentes al plan es completa y no filtra secretos**.

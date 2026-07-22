@@ -57,8 +57,12 @@ export interface EvidenceError extends AppErrorBase<"INVALID_SYNTAX" | "UNREADAB
 
 export interface ConfigError extends AppErrorBase<"CONFIG_SYNTAX" | "CONFIG_SCHEMA" | "DANGEROUS_KEY" | "DUPLICATE_KEY" | "UNREPRESENTABLE_VALUE"> {
   readonly code: "CONFIG_SYNTAX" | "CONFIG_SCHEMA" | "DANGEROUS_KEY" | "DUPLICATE_KEY" | "UNREPRESENTABLE_VALUE";
+  /** JSON Pointer to the invalid value or object member. */
   readonly path: string;
+  /** Human-readable one-based `line:column` location. */
   readonly location: string;
+  readonly line?: number;
+  readonly column?: number;
   readonly recoverability: "none";
 }
 

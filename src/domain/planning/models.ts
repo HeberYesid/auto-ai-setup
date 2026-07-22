@@ -37,6 +37,8 @@ export interface ComponentDefinition {
 export interface ProposedOperation {
   readonly id: string;
   readonly componentId: ComponentId;
+  /** Canonical source/provenance copied into the plan without secret values. */
+  readonly origin?: string;
   readonly destination: SafeProjectPath;
   readonly action: "create" | "modify" | "preserve" | "skip";
   readonly reason: string;
@@ -74,6 +76,8 @@ export interface ChangePlan {
 export interface FileChange {
   readonly id: string;
   readonly componentId: ComponentId;
+  /** Canonical source/provenance copied into the plan without secret values. */
+  readonly origin?: string;
   readonly destination: SafeProjectPath;
   readonly action: "create" | "modify" | "preserve" | "skip";
   readonly reason: string;
@@ -128,6 +132,24 @@ export interface ManagedComponent {
   readonly sourceRevision?: string;
   readonly destinations: readonly SafeProjectPath[];
   readonly contentDigest: Sha256;
+}
+
+/** A projected component is the common, adapter-independent inspection result. */
+export interface ComponentProjection {
+  readonly component: ComponentDefinition;
+  readonly compatibility: CompatibilityDecision;
+  readonly incompatibleOverride: boolean;
+  readonly present: boolean;
+  readonly destinations: readonly SafeProjectPath[];
+  readonly fileChanges: readonly FileChange[];
+  readonly externalOperations: readonly ExternalOperation[];
+}
+
+export interface ComponentProjectionResult {
+  readonly components: readonly ComponentProjection[];
+  readonly fileChanges: readonly FileChange[];
+  readonly externalOperations: readonly ExternalOperation[];
+  readonly warnings: readonly PlanWarning[];
 }
 
 export interface RecoveryJournal {

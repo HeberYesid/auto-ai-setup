@@ -34,3 +34,24 @@ export interface StructuredConfigCodec<T extends JsonObject> {
   serialize(model: T, style: DocumentStyle): Result<string, ConfigError>;
   equivalent(a: T, b: T): boolean;
 }
+
+
+export interface ConfigFieldChange {
+  readonly path: string;
+  readonly action: "add" | "remove" | "change";
+  readonly before?: JsonValue;
+  readonly after?: JsonValue;
+}
+
+export interface ConfigFieldDiff {
+  readonly kind: "fields";
+  readonly changes: readonly ConfigFieldChange[];
+}
+
+export type JsonConfigSchema<T extends JsonObject> =
+  (model: T) => boolean | string | Result<T, ConfigError>;
+
+export interface JsonStructuredConfigCodecOptions<T extends JsonObject> {
+  /** Optional document-specific schema check. Unknown fields should be accepted by the check. */
+  readonly schema?: JsonConfigSchema<T>;
+}
