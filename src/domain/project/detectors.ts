@@ -179,6 +179,13 @@ const detectors: readonly StackDetector[] = [
   packageDependencyDetector("tool.vitest", "Vitest", ["vitest"], "tool"),
   packageDependencyDetector("tool.jest", "Jest", ["jest"], "tool"),
   packageDependencyDetector("tool.playwright", "Playwright", ["@playwright/test", "playwright"], "tool"),
+  packageDependencyDetector(
+    "tool.sentry",
+    "Sentry",
+    ["@sentry/node", "@sentry/react", "@sentry/nextjs", "@sentry/vue", "@sentry/browser"],
+    "tool",
+  ),
+  packageDependencyDetector("tool.cloudflare", "Cloudflare", ["wrangler", "cloudflare", "@cloudflare/workers-types"], "tool"),
   packageDependencyDetector("tool.eslint", "ESLint", ["eslint"], "tool"),
   packageDependencyDetector("tool.prettier", "Prettier", ["prettier"], "tool"),
   packageDependencyDetector("tool.tailwind", "Tailwind", ["tailwindcss"], "tool"),
@@ -223,6 +230,8 @@ const configDetector = (id: string, displayName: string, names: readonly string[
 
 const configDetectors: readonly StackDetector[] = [
   configDetector("tool.playwright.config", "Playwright", ["playwright.config.js", "playwright.config.ts", "playwright.config.mjs"], "tool"),
+  configDetector("tool.sentry.config", "Sentry", [".sentryclirc", "sentry.properties"], "tool"),
+  configDetector("tool.cloudflare.config", "Cloudflare", ["wrangler.toml", "wrangler.json", "wrangler.jsonc"], "tool"),
   configDetector("tool.eslint.config", "ESLint", [".eslintrc.json", "eslint.config.js", "eslint.config.mjs", "eslint.config.ts"], "tool"),
   configDetector(
     "tool.prettier.config",
