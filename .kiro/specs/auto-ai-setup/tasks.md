@@ -155,14 +155,14 @@ Implementation language: **TypeScript**, strict mode, Node.js 20+ runtime, Vites
   - [x]* 6.12 Add unit and integration tests for zero/create/modify/external/conflict plans, global and per-conflict approval, stale plans, path attacks, redaction, local-only sinks, and network denial.
     - **Requirements: 7.1–7.21, 11.1–11.11, 15.3–15.9**
 
-- [ ] 7. Implement the recoverable transaction engine and idempotent state
-  - [ ] 7.1 Implement transaction lock acquisition, persistent write-fsync-rename journals, staging, prepare/verify/commit phases, deterministic operation order, backups, atomic sibling writes, and managed-state persistence.
+- [x] 7. Implement the recoverable transaction engine and idempotent state
+  - [x] 7.1 Implement transaction lock acquisition, persistent write-fsync-rename journals, staging, prepare/verify/commit phases, deterministic operation order, backups, atomic sibling writes, and managed-state persistence.
     - Execute only approved file and external operation IDs; revalidate plan hash, paths, preconditions, schemas, and expected digests before commit.
     - _Requirements: 8.1–8.7, 9.1–9.3, 15.6–15.9_
-  - [ ] 7.2 Implement inverse rollback, partial-artifact cleanup, journal recovery, terminal-journal handling, active-lock handling, cancellation, and manual-review path tracking.
+  - [x] 7.2 Implement inverse rollback, partial-artifact cleanup, journal recovery, terminal-journal handling, active-lock handling, cancellation, and manual-review path tracking.
     - Restore bytes/existence for every affected destination, remove created artifacts, preserve useful evidence on failed recovery, and block new work on non-terminal journals.
     - _Requirements: 5.14–5.15, 8.8–8.16_
-  - [ ] 7.3 Implement idempotent semantic ownership checks and `ExecutionSummary` construction.
+  - [x] 7.3 Implement idempotent semantic ownership checks and `ExecutionSummary` construction.
     - Compare real state rather than trusting managed state alone; omit equivalent files, duplicate components, and already-present external operations while reporting applied/skipped/warnings/errors/recovery accurately.
     - _Requirements: 8.7, 8.11–8.17, 9.1–9.8_
   - [ ]* 7.4 Write the fast-check property test for **Property 15: Aplicación con autorización exacta**.

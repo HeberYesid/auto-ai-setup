@@ -12,3 +12,4 @@ export {
 export type { ScanClock } from "./scanner.js";
 export { NodePathPolicy, FileSystemPathPolicy, createPathPolicy } from "./path-policy.js";
 
+export { NodeTransactionalFileSystem, createNodeTransactionalFileSystem } from "./transaction-filesystem.js";
