@@ -16,6 +16,10 @@ export interface AutoSkillsProcessOptions {
 }
 
 const executable = process.platform === "win32" ? "npx.cmd" : "npx";
+const spawnExecutable = process.platform === "win32" ? "cmd.exe" : executable;
+
+const spawnArguments = (args: readonly string[]): readonly string[] =>
+  process.platform === "win32" ? ["/d", "/s", "/c", [executable, ...args].join(" ")] : args;
 
 /** Executes only the fixed npx autoskills invocations registered by the domain. */
 export class RegisteredAutoSkillsProcessAdapter implements ProcessExecutor {
@@ -33,18 +37,26 @@ export class RegisteredAutoSkillsProcessAdapter implements ProcessExecutor {
     if (request.command !== "npx-autoskills" || request.authorized !== true || !this.validRequest(request)) {
       return Promise.reject(new Error("PROCESS_NOT_ALLOWED: invalid registered autoskills request"));
     }
-    const timeoutMs = request.operation === "list" ? this.listTimeoutMs : this.installTimeoutMs;
+    const interactive = request.operation === "interactive";
+    const timeoutMs = interactive ? 0 : request.operation === "list" ? this.listTimeoutMs : this.installTimeoutMs;
     const args = ["--yes", "autoskills", ...request.args];
-    return this.run(request.cwd, args, timeoutMs, signal);
+    return this.run(request.cwd, args, timeoutMs, interactive, signal);
   }
 
   private validRequest(request: RegisteredAutoSkillsRequest): boolean {
     if (request.cwd.length === 0 || request.cwd.includes("\0") || !/^(?:[A-Za-z]:[\\/]|[\\/]{1,2})/.test(request.cwd)) return false;
+    if (request.operation === "interactive") return request.args.length === 0;
     if (request.operation === "list") return request.args.length === 2 && request.args[0] === "list" && request.args[1] === "--json";
     return request.args.length === 2 && request.args[0] === "install" && /^[a-z0-9][a-z0-9._-]*$/i.test(request.args[1]);
   }
 
-  private run(cwd: CanonicalPath, args: readonly string[], timeoutMs: number, signal?: AbortSignal): Promise<ProcessResult> {
+  private run(
+    cwd: CanonicalPath,
+    args: readonly string[],
+    timeoutMs: number,
+    interactive: boolean,
+    signal?: AbortSignal,
+  ): Promise<ProcessResult> {
     return new Promise((resolve) => {
       const started = performance.now();
       let stdout = "";
@@ -89,13 +101,18 @@ export class RegisteredAutoSkillsProcessAdapter implements ProcessExecutor {
         return;
       }
       try {
-        child = spawn(executable, args, { cwd, shell: false, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+        child = spawn(spawnExecutable, spawnArguments(args), {
+          cwd,
+          shell: false,
+          windowsHide: !interactive,
+          stdio: interactive ? "inherit" : ["ignore", "pipe", "pipe"],
+        });
       } catch (error) {
         stderr = error instanceof Error ? error.message : String(error);
         finish(1);
         return;
       }
-      timeoutHolder.value = setTimeout(() => stop(true), timeoutMs);
+      if (timeoutMs > 0) timeoutHolder.value = setTimeout(() => stop(true), timeoutMs);
       signal?.addEventListener("abort", abort, { once: true });
       child.stdout?.on("data", (chunk: Buffer) => {
         stdout = append(stdout, chunk);

@@ -8,6 +8,14 @@ export const AUTOSKILLS_MAX_OUTPUT_BYTES = 1024 * 1024;
 export const AUTOSKILLS_LIST_TIMEOUT_MS = 30_000;
 export const AUTOSKILLS_INSTALL_TIMEOUT_MS = 120_000;
 
+export interface AutoSkillsInteractiveProcessRequest {
+  readonly command: "npx-autoskills";
+  readonly operation: "interactive";
+  readonly args: readonly [];
+  readonly cwd: CanonicalPath;
+  readonly authorized: true;
+}
+
 export interface AutoSkillsListProcessRequest {
   readonly command: "npx-autoskills";
   readonly operation: "list";
@@ -24,7 +32,10 @@ export interface AutoSkillsInstallProcessRequest {
   readonly authorized: true;
 }
 
-export type RegisteredAutoSkillsRequest = AutoSkillsListProcessRequest | AutoSkillsInstallProcessRequest;
+export type RegisteredAutoSkillsRequest =
+  | AutoSkillsInteractiveProcessRequest
+  | AutoSkillsListProcessRequest
+  | AutoSkillsInstallProcessRequest;
 
 export const catalogError = (code: CatalogError["code"], message: string, cause?: string): CatalogError => ({
   code,
@@ -228,6 +239,7 @@ export const catalogPlanningMetadata = (
 
 export const isRegisteredAutoSkillsRequest = (value: unknown): value is RegisteredAutoSkillsRequest => {
   if (!isRecord(value) || value.command !== "npx-autoskills" || value.authorized !== true || !isRecord(value)) return false;
+  if (value.operation === "interactive") return Array.isArray(value.args) && value.args.length === 0;
   if (value.operation === "list")
     return Array.isArray(value.args) && value.args.length === 2 && value.args[0] === "list" && value.args[1] === "--json";
   return (
@@ -238,6 +250,15 @@ export const isRegisteredAutoSkillsRequest = (value: unknown): value is Register
     typeof value.args[1] === "string" &&
     /^[a-z0-9][a-z0-9._-]*$/i.test(value.args[1])
   );
+};
+
+export const registerAutoSkillsInteractive = (
+  cwd: CanonicalPath,
+  authorized: boolean,
+): Result<AutoSkillsInteractiveProcessRequest, CatalogError> => {
+  if (!authorized)
+    return err(catalogError("CATALOG_EXECUTION_FAILED", "autoskills requires explicit authorization", "authorization denied"));
+  return ok({ command: "npx-autoskills", operation: "interactive", args: [], cwd, authorized: true });
 };
 
 export const registerAutoSkillsList = (cwd: CanonicalPath, authorized: boolean): Result<AutoSkillsListProcessRequest, CatalogError> => {

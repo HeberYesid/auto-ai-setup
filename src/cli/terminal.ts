@@ -17,6 +17,8 @@ export interface CliTerminal {
   readonly outputIsTTY: boolean;
   question(prompt: string): Promise<string>;
   write(line: string): void;
+  pauseInput?(): void;
+  resumeInput?(): void;
   close?(): void;
 }
 
@@ -92,7 +94,15 @@ export class InteractiveUserInteraction implements UserInteraction {
   }
 
   async confirmExternal(command: readonly string[], purpose: string): Promise<boolean> {
-    return this.ask(`Se consultará el catálogo oficial mediante ${command.join(" ")} (${purpose}). ¿Autorizar?`);
+    return this.ask(`Se ejecutará ${command.join(" ")} (${purpose}). ¿Autorizar?`);
+  }
+
+  pauseForExternalProcess(): void {
+    this.terminal.pauseInput?.();
+  }
+
+  resumeAfterExternalProcess(): void {
+    this.terminal.resumeInput?.();
   }
 
   async confirmRecovery(journal: import("../domain/index.js").RecoveryJournal): Promise<boolean> {

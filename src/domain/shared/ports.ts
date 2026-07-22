@@ -34,6 +34,10 @@ export interface UserInteraction {
   selectComponents(view: import("../catalog/models.js").ComponentSelectionView): Promise<readonly ComponentId[]>;
   confirmIncompatible?(component: ComponentDefinition, decision: import("../planning/models.js").CompatibilityDecision): Promise<boolean>;
   confirmExternal?(command: readonly string[], purpose: string): Promise<boolean>;
+  /** Temporarily releases stdin so an approved interactive child process can own the TTY. */
+  pauseForExternalProcess?(): void;
+  /** Restores stdin handling after an interactive child process exits. */
+  resumeAfterExternalProcess?(): void;
   confirmRecovery?(journal: RecoveryJournal): Promise<boolean>;
   reviewPlan(plan: ChangePlan): Promise<ApprovalDecisions>;
   render(event: RedactedEvent): void;
@@ -78,6 +82,8 @@ export interface SkillOwnershipStore {
 }
 
 export interface AutoSkillsGateway {
+  /** Runs the official interactive autoskills TUI in the user's terminal. */
+  runInteractive?(): Promise<Result<void, import("./types.js").CatalogError>>;
   list(): Promise<Result<CatalogSnapshot, import("./types.js").CatalogError>>;
   install(
     entry: SkillCatalogEntry,

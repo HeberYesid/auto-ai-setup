@@ -16,6 +16,7 @@ import {
   catalogSnapshotDigestInput,
   findCatalogEntry,
   registerAutoSkillsInstall,
+  registerAutoSkillsInteractive,
   registerAutoSkillsList,
   upsertSkillOwnership,
   validateCatalogPayload,
@@ -77,6 +78,24 @@ export class MidudevAutoSkillsGateway implements AutoSkillsGateway {
   private readonly fileSystem: FileSystemPort | undefined;
   private readonly ownershipStore: SkillOwnershipStore | undefined;
   private readonly ownershipRunId: RunId | undefined;
+
+  public async runInteractive(): Promise<Result<void, import("../../domain/shared/types.js").CatalogError>> {
+    if (!(await this.authorizeListing())) return failed("autoskills was not authorized by the user", "authorization denied");
+    const request = registerAutoSkillsInteractive(this.root, true);
+    if (!request.ok) return request;
+    let result: ProcessResult;
+    try {
+      result = await this.executor.execute(request.value);
+    } catch (error) {
+      return failed("Unable to execute npx autoskills", error instanceof Error ? error.message : String(error));
+    }
+    if (result.timedOut || result.exitCode !== 0)
+      return failed(
+        "npx autoskills did not complete successfully",
+        result.timedOut ? "process timed out or was cancelled" : result.stderr.slice(0, 512),
+      );
+    return ok(undefined);
+  }
 
   public async list(): Promise<Result<CatalogSnapshot, import("../../domain/shared/types.js").CatalogError>> {
     if (!(await this.authorizeListing())) return failed("autoskills listing was not authorized by the user", "authorization denied");

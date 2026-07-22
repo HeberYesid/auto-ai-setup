@@ -30,6 +30,12 @@ export class NodeCliTerminal implements CliTerminal {
   public write(line: string): void {
     stdout.write(`${line}\n`);
   }
+  public pauseInput(): void {
+    this.reader.pause();
+  }
+  public resumeInput(): void {
+    this.reader.resume();
+  }
   public close(): void {
     this.reader.close();
   }

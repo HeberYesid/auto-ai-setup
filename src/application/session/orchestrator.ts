@@ -283,14 +283,29 @@ export class SessionOrchestrator implements SessionOrchestratorPort {
     const catalogWarnings: string[] = [];
     if (this.dependencies.catalogFactory !== undefined) {
       catalogGateway = this.dependencies.catalogFactory(root);
+      const command = ["npx", "autoskills"] as const;
       const authorized =
-        ui.confirmExternal === undefined ||
-        (await ui.confirmExternal(["npx", "autoskills", "list", "--json"], "Consultar el catálogo oficial de Skills"));
+        ui.confirmExternal === undefined || (await ui.confirmExternal(command, "Seleccionar e instalar Skills mediante la TUI oficial"));
       if (authorized) {
-        const listed = await catalogGateway.list();
-        if (listed.ok) catalog = listed.value;
-        else catalogWarnings.push(listed.error.message);
-      } else catalogWarnings.push("Consulta del catálogo de Skills cancelada");
+        const interactive = catalogGateway.runInteractive;
+        if (interactive !== undefined) {
+          ui.pauseForExternalProcess?.();
+          try {
+            const completed = await interactive.call(catalogGateway);
+            if (!completed.ok)
+              catalogWarnings.push(
+                completed.error.cause === undefined ? completed.error.message : `${completed.error.message}: ${completed.error.cause}`,
+              );
+            else render("info", "catalog", "Autoskills finalizó; continuando con la configuración del proyecto");
+          } finally {
+            ui.resumeAfterExternalProcess?.();
+          }
+        } else {
+          const listed = await catalogGateway.list();
+          if (listed.ok) catalog = listed.value;
+          else catalogWarnings.push(listed.error.message);
+        }
+      } else catalogWarnings.push("Ejecución de autoskills cancelada");
     }
     const definitions = [
       ...(this.dependencies.componentDefinitions ?? []),
@@ -314,24 +329,25 @@ export class SessionOrchestrator implements SessionOrchestratorPort {
       { stack, cliRecommendations: recommendations, ...(catalog === undefined ? {} : { catalog }) },
       modeResult.value === "manual",
     );
-    let selectedIds: readonly ComponentId[];
-    try {
-      selectedIds = await ui.selectComponents(view);
-    } catch (cause) {
-      return this.finish(
-        withAnalysis(
-          baseSummary(
-            runId,
-            isCancellation(cause) ? "cancelled" : "invalid-input",
-            isCancellation(cause) ? 0 : 2,
-            isCancellation(cause) ? [] : [messageOf(cause)],
+    let selectedIds: readonly ComponentId[] = [];
+    if (definitions.length > 0)
+      try {
+        selectedIds = await ui.selectComponents(view);
+      } catch (cause) {
+        return this.finish(
+          withAnalysis(
+            baseSummary(
+              runId,
+              isCancellation(cause) ? "cancelled" : "invalid-input",
+              isCancellation(cause) ? 0 : 2,
+              isCancellation(cause) ? [] : [messageOf(cause)],
+            ),
+            analysis,
           ),
-          analysis,
-        ),
-        ui,
-        render,
-      );
-    }
+          ui,
+          render,
+        );
+      }
     const byId = new Map(definitions.map((definition) => [definition.id, definition]));
     if (selectedIds.some((id) => !byId.has(id)))
       return this.finish(
