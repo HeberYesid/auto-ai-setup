@@ -118,7 +118,7 @@ Implementation language: **TypeScript**, strict mode, Node.js 20+ runtime, Vites
   - [ ]* 5.10 Add unit and integration tests for codecs, unknown-field preservation, MCP merge, rule conflicts, command index merge, component views, and second-run equivalence.
     - **Requirements: 6.1–6.12, 9.2, 9.4–9.7, 10.1–10.12**
 
-- [ ] 6. Implement deterministic planning, consent, path security, events, and redaction
+- [x] 6. Implement deterministic planning, consent, path security, events, and redaction
   - [ ] 6.1 Implement `PathPolicy` for normalized project-relative destinations, lexical/real containment, ancestor symlink checks, device/NUL/traversal rejection, and safe handling of new destinations.
     - Return exit-code-2 planning errors before any external operation or filesystem mutation.
     - _Requirements: 7.18–7.19, 15.3_

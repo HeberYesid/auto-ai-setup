@@ -93,6 +93,7 @@ export interface CompatibilityError extends AppErrorBase<"INCOMPATIBLE_COMPONENT
 
 export interface PlanningError extends AppErrorBase<"UNSAFE_DESTINATION" | "INVALID_PLAN" | "STALE_PLAN" | "INVALID_CONFIGURATION"> {
   readonly code: "UNSAFE_DESTINATION" | "INVALID_PLAN" | "STALE_PLAN" | "INVALID_CONFIGURATION";
+  readonly exitCode?: 2;
 }
 
 export interface ApprovalError extends AppErrorBase<"PLAN_HASH_MISMATCH" | "MISSING_APPROVAL" | "UNAPPROVED_NETWORK_OPERATION" | "APPROVAL_SUBSET_INVALID"> {

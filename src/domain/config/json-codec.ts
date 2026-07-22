@@ -25,7 +25,6 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const isJsonObject = (value: unknown): value is JsonObject => isObject(value);
-const isJsonArray = (value: unknown): value is readonly JsonValue[] => Array.isArray(value);
 
 const pointerSegment = (value: string): string => value.replaceAll("~", "~0").replaceAll("/", "~1");
 const pointerFor = (parent: string, segment: string): string => `${parent}/${pointerSegment(segment)}`;

@@ -10,4 +10,5 @@ export {
   isRecognizedPath,
 } from "./scanner.js";
 export type { ScanClock } from "./scanner.js";
+export { NodePathPolicy, FileSystemPathPolicy, createPathPolicy } from "./path-policy.js";
 
