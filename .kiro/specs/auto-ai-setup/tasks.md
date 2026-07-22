@@ -119,40 +119,40 @@ Implementation language: **TypeScript**, strict mode, Node.js 20+ runtime, Vites
     - **Requirements: 6.1–6.12, 9.2, 9.4–9.7, 10.1–10.12**
 
 - [x] 6. Implement deterministic planning, consent, path security, events, and redaction
-  - [ ] 6.1 Implement `PathPolicy` for normalized project-relative destinations, lexical/real containment, ancestor symlink checks, device/NUL/traversal rejection, and safe handling of new destinations.
+  - [x] 6.1 Implement `PathPolicy` for normalized project-relative destinations, lexical/real containment, ancestor symlink checks, device/NUL/traversal rejection, and safe handling of new destinations.
     - Return exit-code-2 planning errors before any external operation or filesystem mutation.
     - _Requirements: 7.18–7.19, 15.3_
-  - [ ] 6.2 Implement `ChangePlanner` with deterministic sorting, semantic diffing, previews/field diffs, conflict classification, precondition digests, external-operation metadata, canonical plan serialization, and SHA-256 `planHash`.
+  - [x] 6.2 Implement `ChangePlanner` with deterministic sorting, semantic diffing, previews/field diffs, conflict classification, precondition digests, external-operation metadata, canonical plan serialization, and SHA-256 `planHash`.
     - Treat equivalent state as `preserve`, never as a write or process operation.
     - _Requirements: 3.6–3.8, 7.1–7.10, 9.1–9.3_
-  - [ ] 6.3 Implement `ApprovalPolicy` and immutable `ApprovedPlan` creation.
+  - [x] 6.3 Implement `ApprovalPolicy` and immutable `ApprovedPlan` creation.
     - Bind all decisions to the exact `planHash`; require global approval without conflicts, per-file preserve/replace decisions for conflicts, incompatible-component confirmations, and exact network-operation approvals.
     - _Requirements: 4.8–4.12, 7.11–7.17, 15.4–15.9_
-  - [ ] 6.4 Implement the recursive secret redactor for strings, nested objects, sensitive keys, token/PEM/credential URL patterns, known secret values, previews, and event context.
+  - [x] 6.4 Implement the recursive secret redactor for strings, nested objects, sensitive keys, token/PEM/credential URL patterns, known secret values, previews, and event context.
     - Apply redaction before any terminal/file sink and omit downloaded bodies, complete environment contents, and potentially sensitive normal stdout.
     - _Requirements: 7.20–7.21, 11.8–11.10_
-  - [ ] 6.5 Implement local `EventSink`, verbose-mode context policy, and summary event mapping with injected timestamps and run IDs.
+  - [x] 6.5 Implement local `EventSink`, verbose-mode context policy, and summary event mapping with injected timestamps and run IDs.
     - Write only to terminal or project-local files; provide safe error causes and preserve base event fields in detailed mode.
     - _Requirements: 11.1–11.11_
-  - [ ]* 6.6 Write the fast-check property test for **Property 11: El diff de plan es determinista y completo**.
+  - [x]* 6.6 Write the fast-check property test for **Property 11: El diff de plan es determinista y completo**.
     - Generate equivalent current/desired states and assert one correct action per destination, complete component/reason/conflict metadata, complete external-operation metadata, and exact semantic previews/diffs.
     - **Validates: Requirements 7.3–7.10**
-  - [ ]* 6.7 Write the fast-check property test for **Property 12: Las decisiones de aprobación se vinculan al plan exacto**.
+  - [x]* 6.7 Write the fast-check property test for **Property 12: Las decisiones de aprobación se vinculan al plan exacto**.
     - Generate plans with and without conflicts and approval mutations; assert exact required decisions, preserve omission, replace approval, and stale-hash rejection.
     - **Validates: Requirements 7.11–7.17**
-  - [ ]* 6.8 Write the fast-check property test for **Property 13: Confinamiento físico y lógico de destinos**.
+  - [x]* 6.8 Write the fast-check property test for **Property 13: Confinamiento físico y lógico de destinos**.
     - Generate hostile relative/absolute/device/NUL/traversal paths and symlink ancestor chains; assert only physically and lexically contained destinations are accepted.
     - **Validates: Requirements 7.18–7.19, 15.3**
-  - [ ]* 6.9 Write the fast-check property test for **Property 14: La redacción es no filtrante e idempotente**.
+  - [x]* 6.9 Write the fast-check property test for **Property 14: La redacción es no filtrante e idempotente**.
     - Generate synthetic secrets, URLs with credentials, PEM values, nested events/previews, and false-positive controls; assert no original secret remains and repeated redaction is equivalent.
     - **Validates: Requirements 7.20–7.21, 11.10**
-  - [ ]* 6.10 Write the fast-check property test for **Property 23: Eventos locales completos según nivel y modo**.
+  - [x]* 6.10 Write the fast-check property test for **Property 23: Eventos locales completos según nivel y modo**.
     - Generate decisions, warnings, changes, and errors with verbose on/off; assert required base fields, optional evidence/compatibility context, unique run IDs, and no semantic loss.
     - **Validates: Requirements 11.1–11.7, 11.11**
-  - [ ]* 6.11 Write the fast-check property test for **Property 25: Operaciones de red completas y deny-by-default**.
+  - [x]* 6.11 Write the fast-check property test for **Property 25: Operaciones de red completas y deny-by-default**.
     - Generate candidate operations and approval mutations; assert missing metadata, foreign IDs, stale hashes, or absent approval reject before opening a connection or process.
     - **Validates: Requirements 15.4–15.9**
-  - [ ]* 6.12 Add unit and integration tests for zero/create/modify/external/conflict plans, global and per-conflict approval, stale plans, path attacks, redaction, local-only sinks, and network denial.
+  - [x]* 6.12 Add unit and integration tests for zero/create/modify/external/conflict plans, global and per-conflict approval, stale plans, path attacks, redaction, local-only sinks, and network denial.
     - **Requirements: 7.1–7.21, 11.1–11.11, 15.3–15.9**
 
 - [ ] 7. Implement the recoverable transaction engine and idempotent state
