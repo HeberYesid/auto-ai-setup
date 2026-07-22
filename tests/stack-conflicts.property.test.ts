@@ -1,18 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as fc from "fast-check";
-import {
-  aggregateDetections,
-  asSafeProjectPath,
-  resolveStackConflicts,
-  suspendDependentRecommendations,
-} from "../src/domain/index.js";
-import type {
-  CliRecommendation,
-  DetectionClaim,
-  InitialCli,
-  StackCategory,
-  StackEvidence,
-} from "../src/domain/index.js";
+import { aggregateDetections, asSafeProjectPath, resolveStackConflicts, suspendDependentRecommendations } from "../src/domain/index.js";
+import type { CliRecommendation, DetectionClaim, InitialCli, StackCategory, StackEvidence } from "../src/domain/index.js";
 import { deterministicFastCheckParameters } from "./support/fast-check.js";
 
 const stackCategories: readonly StackCategory[] = ["language", "package-manager", "framework", "tool"];
@@ -35,10 +24,10 @@ interface ConflictScenario {
 const scenarioArbitrary: fc.Arbitrary<ConflictScenario> = fc.record({
   conflictCategory: categoryArbitrary,
   candidateLabels: labelsArbitrary,
-  additionalItems: fc.array(
-    fc.record({ category: categoryArbitrary, label: fc.constantFrom(...candidateLabels) }),
-    { minLength: 0, maxLength: 6 },
-  ),
+  additionalItems: fc.array(fc.record({ category: categoryArbitrary, label: fc.constantFrom(...candidateLabels) }), {
+    minLength: 0,
+    maxLength: 6,
+  }),
   selectedClis: selectedClisArbitrary,
   dependencySets: fc.record({
     gh: dependenciesArbitrary,
@@ -61,28 +50,32 @@ const safeEvidence = (path: string, recognizedValue: string, detectorId: string)
 };
 
 const claimsFor = (scenario: ConflictScenario): readonly DetectionClaim[] => {
-  const candidateClaims = scenario.candidateLabels.map((label, index): DetectionClaim => ({
-    category: scenario.conflictCategory,
-    id: `${scenario.conflictCategory}.${label}`,
-    displayName: `${scenario.conflictCategory} ${label}`,
-    confidence: "explicit",
-    evidence: safeEvidence(
-      `evidence/${scenario.conflictCategory}-${index}.json`,
-      label,
-      `generated.${scenario.conflictCategory}.${label}`,
-    ),
-  }));
-  const additionalClaims = scenario.additionalItems.map((item, index): DetectionClaim => ({
-    category: item.category,
-    id: `${item.category}.${item.label}`,
-    displayName: `${item.category} ${item.label}`,
-    confidence: "derived",
-    evidence: safeEvidence(
-      `evidence/additional-${item.category}-${index}.json`,
-      item.label,
-      `generated.additional.${item.category}.${item.label}`,
-    ),
-  }));
+  const candidateClaims = scenario.candidateLabels.map(
+    (label, index): DetectionClaim => ({
+      category: scenario.conflictCategory,
+      id: `${scenario.conflictCategory}.${label}`,
+      displayName: `${scenario.conflictCategory} ${label}`,
+      confidence: "explicit",
+      evidence: safeEvidence(
+        `evidence/${scenario.conflictCategory}-${index}.json`,
+        label,
+        `generated.${scenario.conflictCategory}.${label}`,
+      ),
+    }),
+  );
+  const additionalClaims = scenario.additionalItems.map(
+    (item, index): DetectionClaim => ({
+      category: item.category,
+      id: `${item.category}.${item.label}`,
+      displayName: `${item.category} ${item.label}`,
+      confidence: "derived",
+      evidence: safeEvidence(
+        `evidence/additional-${item.category}-${index}.json`,
+        item.label,
+        `generated.additional.${item.category}.${item.label}`,
+      ),
+    }),
+  );
   return [...candidateClaims, ...additionalClaims];
 };
 
@@ -107,11 +100,7 @@ describe("Property 4: los conflictos suspenden únicamente recomendaciones depen
         if (conflict === undefined) return;
 
         const recommendations = recommendationsFor(scenario.selectedClis);
-        const suspended = suspendDependentRecommendations(
-          recommendations,
-          scenario.dependencySets,
-          analysis.conflicts,
-        );
+        const suspended = suspendDependentRecommendations(recommendations, scenario.dependencySets, analysis.conflicts);
 
         for (const [index, recommendation] of recommendations.entries()) {
           const dependsOnConflict = scenario.dependencySets[recommendation.cli].includes(scenario.conflictCategory);
@@ -133,17 +122,13 @@ describe("Property 4: los conflictos suspenden únicamente recomendaciones depen
         });
         expect(resolved.ok).toBe(true);
         if (!resolved.ok) return;
-        expect(resolved.value.items).toContainEqual(
-          expect.objectContaining({ category: scenario.conflictCategory, id: chosenValue }),
-        );
+        expect(resolved.value.items).toContainEqual(expect.objectContaining({ category: scenario.conflictCategory, id: chosenValue }));
 
         const remainingConflicts = analysis.conflicts.filter(
           (entry) => !resolved.value.items.some((item) => item.category === entry.category),
         );
         expect(remainingConflicts).toEqual([]);
-        expect(
-          suspendDependentRecommendations(recommendations, scenario.dependencySets, remainingConflicts),
-        ).toEqual(recommendations);
+        expect(suspendDependentRecommendations(recommendations, scenario.dependencySets, remainingConflicts)).toEqual(recommendations);
       }),
       deterministicFastCheckParameters(24028, 100),
     );

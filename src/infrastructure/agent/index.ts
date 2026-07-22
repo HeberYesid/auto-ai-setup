@@ -25,12 +25,7 @@ export {
   ruleEndMarker,
   agentRuleAdapter,
 } from "./agents-rules-adapter.js";
-export type {
-  AgentRuleDefinition,
-  AgentRuleComponentDefinition,
-  AgentsRuleAdaptation,
-  RuleConflict,
-} from "./agents-rules-adapter.js";
+export type { AgentRuleDefinition, AgentRuleComponentDefinition, AgentsRuleAdaptation, RuleConflict } from "./agents-rules-adapter.js";
 export {
   KIRO_COMMANDS_INDEX_PATH,
   KIRO_PROMPTS_PATH,

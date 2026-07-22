@@ -2,7 +2,12 @@ import { spawn } from "node:child_process";
 import { performance } from "node:perf_hooks";
 import type { ProcessExecutor, ProcessResult } from "../../domain/shared/ports.js";
 import type { CanonicalPath } from "../../domain/shared/types.js";
-import { AUTOSKILLS_INSTALL_TIMEOUT_MS, AUTOSKILLS_LIST_TIMEOUT_MS, AUTOSKILLS_MAX_OUTPUT_BYTES, type RegisteredAutoSkillsRequest } from "../../domain/catalog/autoskills.js";
+import {
+  AUTOSKILLS_INSTALL_TIMEOUT_MS,
+  AUTOSKILLS_LIST_TIMEOUT_MS,
+  AUTOSKILLS_MAX_OUTPUT_BYTES,
+  type RegisteredAutoSkillsRequest,
+} from "../../domain/catalog/autoskills.js";
 
 export interface AutoSkillsProcessOptions {
   readonly maxOutputBytes?: number;
@@ -70,7 +75,9 @@ export class RegisteredAutoSkillsProcessAdapter implements ProcessExecutor {
           truncated = true;
           stop(false);
           capturedBytes += remaining;
-          return Buffer.concat([Buffer.from(current), chunk]).subarray(0, this.maxOutputBytes).toString("utf8");
+          return Buffer.concat([Buffer.from(current), chunk])
+            .subarray(0, this.maxOutputBytes)
+            .toString("utf8");
         }
         capturedBytes += chunk.byteLength;
         return current + chunk.toString("utf8");
@@ -90,12 +97,20 @@ export class RegisteredAutoSkillsProcessAdapter implements ProcessExecutor {
       }
       timeoutHolder.value = setTimeout(() => stop(true), timeoutMs);
       signal?.addEventListener("abort", abort, { once: true });
-      child.stdout?.on("data", (chunk: Buffer) => { stdout = append(stdout, chunk); });
-      child.stderr?.on("data", (chunk: Buffer) => { stderr = append(stderr, chunk); });
-      child.once("error", (error: Error) => { stderr = error.message; finish(1); });
+      child.stdout?.on("data", (chunk: Buffer) => {
+        stdout = append(stdout, chunk);
+      });
+      child.stderr?.on("data", (chunk: Buffer) => {
+        stderr = append(stderr, chunk);
+      });
+      child.once("error", (error: Error) => {
+        stderr = error.message;
+        finish(1);
+      });
       child.once("close", (code: number | null) => finish(code ?? (timedOut || truncated ? 1 : 1)));
     });
   }
 }
 
-export const createRegisteredAutoSkillsProcessAdapter = (options?: AutoSkillsProcessOptions): RegisteredAutoSkillsProcessAdapter => new RegisteredAutoSkillsProcessAdapter(options);
+export const createRegisteredAutoSkillsProcessAdapter = (options?: AutoSkillsProcessOptions): RegisteredAutoSkillsProcessAdapter =>
+  new RegisteredAutoSkillsProcessAdapter(options);

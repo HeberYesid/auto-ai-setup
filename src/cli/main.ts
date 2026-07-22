@@ -26,16 +26,29 @@ export const parseArgsResult = (args: readonly string[]): CliParseResult => {
     const argument = args[index];
     if (argument === "--path" || argument === "--mode") {
       const next = args[index + 1];
-      if (next === undefined || next.startsWith("--")) return { ok: false, error: { code: "CLI_INVALID_ARGUMENT", message: `${argument} requiere un valor`, argument } };
+      if (next === undefined || next.startsWith("--"))
+        return { ok: false, error: { code: "CLI_INVALID_ARGUMENT", message: `${argument} requiere un valor`, argument } };
       if (argument === "--path") targetPath = next;
       else mode = next;
       index += 1;
     } else if (argument === "--verbose") verbose = true;
     else if (argument === "--recover") recover = true;
-    else return { ok: false, error: { code: "CLI_INVALID_ARGUMENT", message: `Argumento desconocido: ${argument}`, ...(argument === undefined ? {} : { argument }) } };
+    else
+      return {
+        ok: false,
+        error: {
+          code: "CLI_INVALID_ARGUMENT",
+          message: `Argumento desconocido: ${argument}`,
+          ...(argument === undefined ? {} : { argument }),
+        },
+      };
   }
-  if (mode !== undefined && mode !== "auto" && mode !== "manual") return { ok: false, error: { code: "CLI_INVALID_ARGUMENT", message: "--mode solo acepta auto o manual", argument: mode } };
-  return { ok: true, value: { ...(targetPath === undefined ? {} : { targetPath }), ...(mode === undefined ? {} : { mode }), verbose, recover } };
+  if (mode !== undefined && mode !== "auto" && mode !== "manual")
+    return { ok: false, error: { code: "CLI_INVALID_ARGUMENT", message: "--mode solo acepta auto o manual", argument: mode } };
+  return {
+    ok: true,
+    value: { ...(targetPath === undefined ? {} : { targetPath }), ...(mode === undefined ? {} : { mode }), verbose, recover },
+  };
 };
 
 /** Backwards-compatible parser for consumers that already use parseArgs. */
@@ -58,4 +71,5 @@ export const runCli = async (args: readonly string[] = [], dependencies: CliDepe
   }
 };
 
-export const createInteractiveUserInteraction = (terminal: CliTerminal, verbose = false): UserInteraction => new InteractiveUserInteraction(terminal, verbose);
+export const createInteractiveUserInteraction = (terminal: CliTerminal, verbose = false): UserInteraction =>
+  new InteractiveUserInteraction(terminal, verbose);

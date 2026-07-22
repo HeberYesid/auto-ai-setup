@@ -26,28 +26,39 @@ const payload = {
   sourceRepository: AUTOSKILLS_SOURCE_REPOSITORY,
   sourceCommit: commit,
   generatedAt: "2025-01-01T00:00:00.000Z",
-  entries: [{
-    type: "skill",
-    id: "testing",
-    name: "Testing",
-    description: "Testing guidance",
-    origin: { repository: AUTOSKILLS_SOURCE_REPOSITORY, commit, relativePath: "skills/testing" },
-    files: [{ relativePath: "SKILL.md", size: fileContent.byteLength, sha256: sha }],
-    compatibility: { op: "always" },
-    destinationTemplate: ".kiro/skills/{id}",
-  }],
+  entries: [
+    {
+      type: "skill",
+      id: "testing",
+      name: "Testing",
+      description: "Testing guidance",
+      origin: { repository: AUTOSKILLS_SOURCE_REPOSITORY, commit, relativePath: "skills/testing" },
+      files: [{ relativePath: "SKILL.md", size: fileContent.byteLength, sha256: sha }],
+      compatibility: { op: "always" },
+      destinationTemplate: ".kiro/skills/{id}",
+    },
+  ],
 };
 
 class FakeExecutor implements ProcessExecutor {
   readonly requests: RegisteredProcessRequest[] = [];
   constructor(private result: ProcessResult) {}
-  setResult(result: ProcessResult): void { this.result = result; }
+  setResult(result: ProcessResult): void {
+    this.result = result;
+  }
   async execute(request: RegisteredProcessRequest): Promise<ProcessResult> {
     this.requests.push(request);
     return this.result;
   }
 }
-const successful = (stdout: string): ProcessResult => ({ exitCode: 0, stdout, stderr: "", durationMs: 2, timedOut: false, truncated: false });
+const successful = (stdout: string): ProcessResult => ({
+  exitCode: 0,
+  stdout,
+  stderr: "",
+  durationMs: 2,
+  timedOut: false,
+  truncated: false,
+});
 
 describe("registered autoskills adapter", () => {
   it("requires listing authorization before invoking the process", async () => {
@@ -69,7 +80,10 @@ describe("registered autoskills adapter", () => {
   });
 
   it("accepts only validated midudev catalog output", async () => {
-    const altered = { ...payload, entries: [{ ...payload.entries[0], origin: { ...payload.entries[0].origin, repository: "https://example.com/skills" } }] };
+    const altered = {
+      ...payload,
+      entries: [{ ...payload.entries[0], origin: { ...payload.entries[0].origin, repository: "https://example.com/skills" } }],
+    };
     const executor = new FakeExecutor(successful(JSON.stringify(altered)));
     const gateway = new MidudevAutoSkillsGateway(executor, { root: root.value, authorizeListing: () => true });
     const result = await gateway.list();
@@ -87,7 +101,11 @@ describe("registered autoskills adapter", () => {
     const entry = payload.entries[0] as unknown as SkillCatalogEntry;
     const invalidTarget = asSafeProjectPath(".kiro/skills/../escape");
     expect(invalidTarget.ok).toBe(false);
-    const denied = await gateway.install(entry, { planHash: sha as never, operationId: "op-1", approved: true }, ".kiro/skills/other" as never);
+    const denied = await gateway.install(
+      entry,
+      { planHash: sha as never, operationId: "op-1", approved: true },
+      ".kiro/skills/other" as never,
+    );
     expect(denied.ok).toBe(false);
 
     executor.setResult(successful("installed"));

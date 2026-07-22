@@ -34,7 +34,14 @@ const projectRoot: CanonicalPath = root.value;
 const componentId = "component.example" as ComponentDefinition["id"];
 const stackItem: StackItem = { category: "language", id: "typescript", displayName: "TypeScript", confidence: "explicit", evidence: [] };
 const stack: ConfirmedStack = { items: [stackItem], resolvedConflicts: [], digest };
-const component: ComponentDefinition = { id: componentId, type: "agent-rule", name: "Example", description: "Example", compatibility: { op: "always" }, source: { kind: "builtin", origin: "test" } };
+const component: ComponentDefinition = {
+  id: componentId,
+  type: "agent-rule",
+  name: "Example",
+  description: "Example",
+  compatibility: { op: "always" },
+  source: { kind: "builtin", origin: "test" },
+};
 const input = (changes: readonly FileChange[], externalOperations: readonly ExternalOperation[] = []): PlanningInput => ({
   runId: "run-1" as RunId,
   root: projectRoot,
@@ -69,15 +76,19 @@ const external = (): ExternalOperation => ({
 describe("Task 6 planning, consent, security, events, and redaction", () => {
   it("builds deterministic plans and turns semantically equivalent state into preserve", async () => {
     const planner = new DeterministicChangePlanner();
-    const result = await planner.build(input([
-      { ...file(".kiro/z.md", "modify"), beforeDigest: digest, afterDigest: digest },
-      file(".kiro/a.md"),
-    ]));
+    const result = await planner.build(
+      input([{ ...file(".kiro/z.md", "modify"), beforeDigest: digest, afterDigest: digest }, file(".kiro/a.md")]),
+    );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.fileChanges.map((change) => [change.destination, change.action])).toEqual([[".kiro/a.md", "create"], [".kiro/z.md", "preserve"]]);
+    expect(result.value.fileChanges.map((change) => [change.destination, change.action])).toEqual([
+      [".kiro/a.md", "create"],
+      [".kiro/z.md", "preserve"],
+    ]);
     expect(result.value.planHash).toMatch(/^[a-f0-9]{64}$/);
-    const repeat = await planner.build(input([file(".kiro/a.md"), { ...file(".kiro/z.md", "modify"), beforeDigest: digest, afterDigest: digest }]));
+    const repeat = await planner.build(
+      input([file(".kiro/a.md"), { ...file(".kiro/z.md", "modify"), beforeDigest: digest, afterDigest: digest }]),
+    );
     expect(repeat.ok && repeat.value.planHash).toBe(result.value.planHash);
   });
 
@@ -87,9 +98,21 @@ describe("Task 6 planning, consent, security, events, and redaction", () => {
     expect(built.ok).toBe(true);
     if (!built.ok) return;
     const policy = new ImmutableApprovalPolicy();
-    const denied = policy.evaluate(built.value, { planHash: digest, globalApproved: true, conflicts: {}, incompatibleComponents: [], networkOperations: [] });
+    const denied = policy.evaluate(built.value, {
+      planHash: digest,
+      globalApproved: true,
+      conflicts: {},
+      incompatibleComponents: [],
+      networkOperations: [],
+    });
     expect(denied.ok).toBe(false);
-    const approved = policy.evaluate(built.value, { planHash: built.value.planHash, globalApproved: false, conflicts: { "change:AGENTS.md": "replace" }, incompatibleComponents: [], networkOperations: ["skill-install:component.example"] });
+    const approved = policy.evaluate(built.value, {
+      planHash: built.value.planHash,
+      globalApproved: false,
+      conflicts: { "change:AGENTS.md": "replace" },
+      incompatibleComponents: [],
+      networkOperations: ["skill-install:component.example"],
+    });
     expect(approved.ok).toBe(true);
     if (!approved.ok) return;
     expect(Object.isFrozen(approved.value)).toBe(true);
@@ -99,7 +122,15 @@ describe("Task 6 planning, consent, security, events, and redaction", () => {
 
   it("redacts recursive secret material and omits sensitive payload fields", () => {
     const redactor = new SecretRedactor();
-    const value = redactor.redact({ token: "known-token", nested: { url: "https://user:password@example.test/a", pem: "-----BEGIN PRIVATE KEY-----\nsecret\n-----END PRIVATE KEY-----" }, body: "downloaded body", stdout: "Bearer abc.def.ghi" }, ["known-token"]);
+    const value = redactor.redact(
+      {
+        token: "known-token",
+        nested: { url: "https://user:password@example.test/a", pem: "-----BEGIN PRIVATE KEY-----\nsecret\n-----END PRIVATE KEY-----" },
+        body: "downloaded body",
+        stdout: "Bearer abc.def.ghi",
+      },
+      ["known-token"],
+    );
     const encoded = JSON.stringify(value);
     expect(encoded).not.toContain("known-token");
     expect(encoded).not.toContain("password");
@@ -116,8 +147,16 @@ describe("Task 6 planning, consent, security, events, and redaction", () => {
       const lines: string[] = [];
       const clock: Clock = { now: () => "2025-01-01T00:00:00.000Z", monotonicMs: () => 0 };
       const factory = new LocalEventFactory({ clock, verbose: true });
-      const event = factory.create({ runId: "run-1" as RunId, level: "info", category: "plan", message: "preview", context: { evidence: "package.json", token: "secret" } });
-      new LocalEventSink({ root: canonical.value, filePath: ".auto-ai-setup/events.jsonl", terminal: (line) => lines.push(line) }).emit(event);
+      const event = factory.create({
+        runId: "run-1" as RunId,
+        level: "info",
+        category: "plan",
+        message: "preview",
+        context: { evidence: "package.json", token: "secret" },
+      });
+      new LocalEventSink({ root: canonical.value, filePath: ".auto-ai-setup/events.jsonl", terminal: (line) => lines.push(line) }).emit(
+        event,
+      );
       const content = await readFile(join(directory, ".auto-ai-setup/events.jsonl"), "utf8");
       expect(content).toContain("run-1");
       expect(content).not.toContain("secret");
@@ -129,7 +168,12 @@ describe("Task 6 planning, consent, security, events, and redaction", () => {
 
   it("does not delegate network requests without an exact approval", async () => {
     let calls = 0;
-    const delegate: NetworkGateway = { request: async () => { calls += 1; return ok(new Uint8Array()); } };
+    const delegate: NetworkGateway = {
+      request: async () => {
+        calls += 1;
+        return ok(new Uint8Array());
+      },
+    };
     const gateway = new ApprovedNetworkGateway(delegate);
     const operation = external();
     const denied = await gateway.request(operation, { planHash: digest, operationId: "foreign", approved: true });
@@ -147,7 +191,10 @@ describe("Task 6 planning, consent, security, events, and redaction", () => {
     const safeRequested = "new-directory/config.json" as unknown as import("../src/domain/index.js").ProjectRelativePath;
     const safe = await policy.resolveDestination(projectRoot, safeRequested);
     expect(safe.ok).toBe(true);
-    const hostile = await policy.resolveDestination(projectRoot, "../outside" as unknown as import("../src/domain/index.js").ProjectRelativePath);
+    const hostile = await policy.resolveDestination(
+      projectRoot,
+      "../outside" as unknown as import("../src/domain/index.js").ProjectRelativePath,
+    );
     expect(hostile.ok).toBe(false);
     if (!hostile.ok) expect(hostile.error.exitCode).toBe(2);
   });

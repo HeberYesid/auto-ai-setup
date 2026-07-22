@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FC_SEED: "20250213"
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm run format:check
+
+      - name: Run lint and static analysis
+        run: pnpm run lint
+
+      - name: Run strict typecheck
+        run: pnpm run typecheck
+
+      - name: Run unit tests
+        run: pnpm run test:unit
+
+      - name: Run integration tests
+        run: pnpm run test:integration
+
+      - name: Run property tests
+        run: pnpm run test:property
+
+      - name: Enforce coverage thresholds
+        run: pnpm run test:coverage
+
+      - name: Build package
+        run: pnpm run build
+
+      - name: Pack package
+        run: pnpm run pack
+
+      - name: Run package smoke validation
+        run: pnpm run smoke

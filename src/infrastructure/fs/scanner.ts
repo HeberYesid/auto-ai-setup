@@ -8,7 +8,21 @@ import type { FileDescriptor, ScanPolicy, ScanResult } from "../../domain/projec
 import type { ByteCount } from "../../domain/shared/types.js";
 
 export const DEFAULT_EXCLUDED_DIRECTORIES: readonly string[] = [
-  "node_modules", ".pnpm", ".yarn", "vendor", ".venv", "venv", ".git", ".hg", ".svn", "dist", "build", "out", ".next", "coverage", ".nyc_output",
+  "node_modules",
+  ".pnpm",
+  ".yarn",
+  "vendor",
+  ".venv",
+  "venv",
+  ".git",
+  ".hg",
+  ".svn",
+  "dist",
+  "build",
+  "out",
+  ".next",
+  "coverage",
+  ".nyc_output",
 ];
 
 export interface ScanClock {
@@ -16,7 +30,9 @@ export interface ScanClock {
 }
 
 export class SystemScanClock implements ScanClock {
-  monotonicMs(): number { return performance.now(); }
+  monotonicMs(): number {
+    return performance.now();
+  }
 }
 
 export class BoundedAsyncScanner {
@@ -61,11 +77,19 @@ export class BoundedAsyncScanner {
       directories.push(...discoveredDirectories);
 
       for (const relative of files) {
-        if (descriptors.length >= maxFiles) { skippedFiles += 1; limitsReached = true; break; }
+        if (descriptors.length >= maxFiles) {
+          skippedFiles += 1;
+          limitsReached = true;
+          break;
+        }
         const absolute = join(root, relative);
         let stats;
-        try { stats = await lstat(absolute); }
-        catch { skippedFiles += 1; continue; }
+        try {
+          stats = await lstat(absolute);
+        } catch {
+          skippedFiles += 1;
+          continue;
+        }
         if (stats.isSymbolicLink() || !stats.isFile()) continue;
         const bytes = stats.size;
         if (bytes > maxFileBytes || totalBytes + bytes > maxBytes) {
@@ -75,7 +99,10 @@ export class BoundedAsyncScanner {
           break;
         }
         const safe = asSafeProjectPath(relative.replaceAll("\\", "/"));
-        if (!safe.ok) { skippedFiles += 1; continue; }
+        if (!safe.ok) {
+          skippedFiles += 1;
+          continue;
+        }
         descriptors.push({ path: safe.value, extension: extensionOf(relative), bytes: bytes as ByteCount, isSymlink: false });
         totalBytes += bytes;
         if (descriptors.length >= maxFiles || totalBytes >= maxBytes) limitsReached = true;
@@ -83,7 +110,18 @@ export class BoundedAsyncScanner {
     }
 
     const elapsedMs = Math.max(0, this.clock.monotonicMs() - started);
-    return { descriptors, summary: { files: descriptors.length, bytes: totalBytes, skippedFiles, skippedBytes, skippedDirectories, elapsedMs, withinLimits: !limitsReached } };
+    return {
+      descriptors,
+      summary: {
+        files: descriptors.length,
+        bytes: totalBytes,
+        skippedFiles,
+        skippedBytes,
+        skippedDirectories,
+        elapsedMs,
+        withinLimits: !limitsReached,
+      },
+    };
   }
 
   async *inventory(root: CanonicalPath, policy: ScanPolicy): AsyncIterable<FileDescriptor> {
@@ -97,13 +135,19 @@ export class BoundedAsyncScanner {
     const files: string[] = [];
     const skippedDirectories: string[] = [];
     let entries;
-    try { entries = await readdir(absolute, { withFileTypes: true }); }
-    catch { return { directories, files, skippedDirectories }; }
+    try {
+      entries = await readdir(absolute, { withFileTypes: true });
+    } catch {
+      return { directories, files, skippedDirectories };
+    }
     for (const entry of entries) {
       const child = relative === "" ? entry.name : `${relative}/${entry.name}`;
       if (entry.isSymbolicLink()) continue;
       if (entry.isDirectory()) {
-        if (excluded.has(entry.name.toLowerCase())) { skippedDirectories.push(child); continue; }
+        if (excluded.has(entry.name.toLowerCase())) {
+          skippedDirectories.push(child);
+          continue;
+        }
         directories.push(child);
       } else if (entry.isFile()) files.push(child);
     }

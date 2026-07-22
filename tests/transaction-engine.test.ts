@@ -52,15 +52,25 @@ const planFor = (content: string, action: FileChange["action"], beforeDigest?: F
 describe("PersistentTransactionEngine", () => {
   it("commits approved content and makes a second equivalent run a no-op", async () => {
     const fileSystem = new FakeFileSystem();
-    const engine = new PersistentTransactionEngine({ fileSystem, fileContents: new Map([["file:demo", new TextEncoder().encode("hello")]]) });
+    const engine = new PersistentTransactionEngine({
+      fileSystem,
+      fileContents: new Map([["file:demo", new TextEncoder().encode("hello")]]),
+    });
     const first = await engine.apply(planFor("hello", "create"), new AbortController().signal);
     expect(first.status).toBe("committed");
     expect(new TextDecoder().decode(await fileSystem.read(safe(".kiro/prompts/demo.md")))).toBe("hello");
 
     const secondPlan = { ...planFor("hello", "create"), runId: "run-0002" as never };
-    const withoutHash = Object.fromEntries(Object.entries(secondPlan).filter(([key]) => !["planHash", "approval", "approvedFileChangeIds", "approvedExternalOperationIds"].includes(key)));
+    const withoutHash = Object.fromEntries(
+      Object.entries(secondPlan).filter(
+        ([key]) => !["planHash", "approval", "approvedFileChangeIds", "approvedExternalOperationIds"].includes(key),
+      ),
+    );
     const hash = calculatePlanHash(withoutHash as never);
-    const second = await engine.apply({ ...secondPlan, planHash: hash, approval: { ...secondPlan.approval, planHash: hash } }, new AbortController().signal);
+    const second = await engine.apply(
+      { ...secondPlan, planHash: hash, approval: { ...secondPlan.approval, planHash: hash } },
+      new AbortController().signal,
+    );
     expect(second.status).toBe("committed");
     expect(second.applied).toEqual([]);
     expect(second.skipped).toContain("file:demo");
@@ -72,10 +82,18 @@ describe("PersistentTransactionEngine", () => {
     fileSystem.seed(".kiro/prompts/demo.md", "old");
     const plan = planFor("new", "modify", sha("old"));
     const failing: TransactionOperation = {
-      async prepare() { return ok({ operationId: "file:demo", destination: safe(".kiro/prompts/demo.md"), desiredDigest: sha("new") }); },
-      async verify() { return ok(undefined); },
-      async commit() { return err({ code: "WRITE_FAILED", message: "injected write failure", recoverability: "rollback" }); },
-      async rollback() { return ok(undefined); },
+      async prepare() {
+        return ok({ operationId: "file:demo", destination: safe(".kiro/prompts/demo.md"), desiredDigest: sha("new") });
+      },
+      async verify() {
+        return ok(undefined);
+      },
+      async commit() {
+        return err({ code: "WRITE_FAILED", message: "injected write failure", recoverability: "rollback" });
+      },
+      async rollback() {
+        return ok(undefined);
+      },
     };
     const engine = new PersistentTransactionEngine({ fileSystem, operations: new Map([["file:demo", failing]]) });
     const result = await engine.apply(plan, new AbortController().signal);
@@ -88,7 +106,10 @@ describe("PersistentTransactionEngine", () => {
     const fileSystem = new FakeFileSystem();
     const controller = new AbortController();
     controller.abort();
-    const engine = new PersistentTransactionEngine({ fileSystem, fileContents: new Map([["file:demo", new TextEncoder().encode("hello")]]) });
+    const engine = new PersistentTransactionEngine({
+      fileSystem,
+      fileContents: new Map([["file:demo", new TextEncoder().encode("hello")]]),
+    });
     const result = await engine.apply(planFor("hello", "create"), controller.signal);
     expect(result).toMatchObject({ status: "rolled-back", exitCode: 0, applied: [] });
     expect(await fileSystem.exists(safe(".auto-ai-setup/transactions/active"))).toBe(false);

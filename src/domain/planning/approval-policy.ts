@@ -4,7 +4,8 @@ import type { ApprovalError, Result } from "../shared/types.js";
 import type { ApprovalDecisions, ApprovedPlan, ChangePlan, FileChange } from "./models.js";
 import { calculatePlanHash } from "./planner.js";
 
-const approvalError = (code: ApprovalError["code"], message: string): Result<ApprovedPlan, ApprovalError> => err({ code, message, recoverability: "none" });
+const approvalError = (code: ApprovalError["code"], message: string): Result<ApprovedPlan, ApprovalError> =>
+  err({ code, message, recoverability: "none" });
 const actionable = (change: FileChange): boolean => change.action === "create" || change.action === "modify";
 const unique = (values: readonly string[]): boolean => new Set(values).size === values.length;
 
@@ -28,34 +29,46 @@ const cloneDecisions = (decisions: ApprovalDecisions): ApprovalDecisions => ({
 /** Validates consent and returns a frozen plan containing only approved work. */
 export class ImmutableApprovalPolicy implements ApprovalPolicyPort {
   public evaluate(plan: ChangePlan, decisions: ApprovalDecisions): Result<ApprovedPlan, ApprovalError> {
-    if (decisions.planHash !== plan.planHash || calculatePlanHash(plan) !== plan.planHash) return approvalError("PLAN_HASH_MISMATCH", "Approval is not bound to the exact current plan hash");
-    if (!unique(decisions.incompatibleComponents) || !unique(decisions.networkOperations)) return approvalError("APPROVAL_SUBSET_INVALID", "Approval lists must not contain duplicates");
+    if (decisions.planHash !== plan.planHash || calculatePlanHash(plan) !== plan.planHash)
+      return approvalError("PLAN_HASH_MISMATCH", "Approval is not bound to the exact current plan hash");
+    if (!unique(decisions.incompatibleComponents) || !unique(decisions.networkOperations))
+      return approvalError("APPROVAL_SUBSET_INVALID", "Approval lists must not contain duplicates");
 
     const conflictChanges = plan.fileChanges.filter((change) => change.conflict !== "none" && actionable(change));
     const conflictIds = new Set(conflictChanges.map((change) => change.id));
     const conflictDestinations = new Set<string>(conflictChanges.map((change) => change.destination));
     for (const key of Object.keys(decisions.conflicts)) {
-      if (!conflictIds.has(key) && !conflictDestinations.has(key)) return approvalError("APPROVAL_SUBSET_INVALID", `Approval references an unknown conflict: ${key}`);
+      if (!conflictIds.has(key) && !conflictDestinations.has(key))
+        return approvalError("APPROVAL_SUBSET_INVALID", `Approval references an unknown conflict: ${key}`);
     }
     for (const change of conflictChanges) {
       const decision = decisions.conflicts[change.id] ?? decisions.conflicts[change.destination];
       if (decision === undefined) return approvalError("MISSING_APPROVAL", `Missing preserve/replace decision for ${change.destination}`);
     }
 
-    const incompatibleIds = new Set(plan.fileChanges.filter((change) => change.incompatibleOverride !== undefined).map((change) => change.componentId));
+    const incompatibleIds = new Set(
+      plan.fileChanges.filter((change) => change.incompatibleOverride !== undefined).map((change) => change.componentId),
+    );
     for (const componentId of decisions.incompatibleComponents) {
-      if (!incompatibleIds.has(componentId)) return approvalError("APPROVAL_SUBSET_INVALID", `Approval references an incompatible component not in the plan: ${componentId}`);
+      if (!incompatibleIds.has(componentId))
+        return approvalError("APPROVAL_SUBSET_INVALID", `Approval references an incompatible component not in the plan: ${componentId}`);
     }
     for (const componentId of incompatibleIds) {
-      if (!decisions.incompatibleComponents.includes(componentId)) return approvalError("MISSING_APPROVAL", `Missing incompatible-component confirmation for ${componentId}`);
+      if (!decisions.incompatibleComponents.includes(componentId))
+        return approvalError("MISSING_APPROVAL", `Missing incompatible-component confirmation for ${componentId}`);
     }
 
     const operationIds = plan.externalOperations.map((operation) => operation.id);
-    if (decisions.networkOperations.some((id) => !operationIds.includes(id))) return approvalError("APPROVAL_SUBSET_INVALID", "Network approval references an unknown operation");
-    if (decisions.networkOperations.length !== operationIds.length || operationIds.some((id) => !decisions.networkOperations.includes(id))) return approvalError("UNAPPROVED_NETWORK_OPERATION", "Every network operation requires exact explicit approval");
+    if (decisions.networkOperations.some((id) => !operationIds.includes(id)))
+      return approvalError("APPROVAL_SUBSET_INVALID", "Network approval references an unknown operation");
+    if (decisions.networkOperations.length !== operationIds.length || operationIds.some((id) => !decisions.networkOperations.includes(id)))
+      return approvalError("UNAPPROVED_NETWORK_OPERATION", "Every network operation requires exact explicit approval");
 
     const hasNonConflictWork = plan.fileChanges.some((change) => change.conflict === "none" && actionable(change));
-    if ((conflictChanges.length === 0 && (hasNonConflictWork || plan.externalOperations.length > 0) && !decisions.globalApproved) || (conflictChanges.length > 0 && hasNonConflictWork && !decisions.globalApproved)) {
+    if (
+      (conflictChanges.length === 0 && (hasNonConflictWork || plan.externalOperations.length > 0) && !decisions.globalApproved) ||
+      (conflictChanges.length > 0 && hasNonConflictWork && !decisions.globalApproved)
+    ) {
       return approvalError("MISSING_APPROVAL", "Global approval is required for non-conflicting changes");
     }
 
@@ -81,4 +94,5 @@ export class ImmutableApprovalPolicy implements ApprovalPolicyPort {
 }
 
 export const ApprovalPolicyImplementation = ImmutableApprovalPolicy;
-export const createApprovedPlan = (plan: ChangePlan, decisions: ApprovalDecisions): Result<ApprovedPlan, ApprovalError> => new ImmutableApprovalPolicy().evaluate(plan, decisions);
+export const createApprovedPlan = (plan: ChangePlan, decisions: ApprovalDecisions): Result<ApprovedPlan, ApprovalError> =>
+  new ImmutableApprovalPolicy().evaluate(plan, decisions);

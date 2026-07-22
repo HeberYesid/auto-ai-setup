@@ -2,16 +2,15 @@ import type { ExecutionSummary, RecoveryResult, TransactionResult } from "../../
 import type { RunId } from "../../domain/shared/types.js";
 
 /** Maps the complete transactional result to the public, stable execution summary. */
-export const createExecutionSummary = (
-  runId: RunId,
-  result: TransactionResult,
-  recovery?: RecoveryResult,
-): ExecutionSummary => {
-  const status: ExecutionSummary["status"] = result.status === "committed"
-    ? "success"
-    : result.status === "rolled-back"
-      ? (result.exitCode === 0 ? "cancelled" : "failed-recovered")
-      : "incomplete";
+export const createExecutionSummary = (runId: RunId, result: TransactionResult, recovery?: RecoveryResult): ExecutionSummary => {
+  const status: ExecutionSummary["status"] =
+    result.status === "committed"
+      ? "success"
+      : result.status === "rolled-back"
+        ? result.exitCode === 0
+          ? "cancelled"
+          : "failed-recovered"
+        : "incomplete";
   return {
     runId,
     status,

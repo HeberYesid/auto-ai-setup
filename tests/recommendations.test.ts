@@ -30,7 +30,12 @@ const item = (category: StackItem["category"], id: string, displayName: string, 
 });
 const stack = (items: readonly StackItem[]): ConfirmedStack => ({ items, resolvedConflicts: [], digest: "a".repeat(64) as never });
 const inputFor = (items: readonly StackItem[]) => ({ stack: stack(items), cliRecommendations: recommendClis(stack(items)) });
-const builtin = (id: string, type: ComponentDefinition["type"], compatibility: ComponentDefinition["compatibility"], priority?: number): ComponentDefinition => ({
+const builtin = (
+  id: string,
+  type: ComponentDefinition["type"],
+  compatibility: ComponentDefinition["compatibility"],
+  priority?: number,
+): ComponentDefinition => ({
   id: componentId(id),
   type,
   name: id,
@@ -71,10 +76,16 @@ describe("compatibility and component selection", () => {
   const input = inputFor(items);
 
   it("evaluates stack, CLI, all, any, not, and noneOf expressions with explanations", () => {
-    const decision = evaluateCompatibility({ op: "all", clauses: [
-      { op: "stack", category: "framework", oneOf: ["next"] },
-      { op: "cli", oneOf: ["vercel"] },
-    ] }, input);
+    const decision = evaluateCompatibility(
+      {
+        op: "all",
+        clauses: [
+          { op: "stack", category: "framework", oneOf: ["next"] },
+          { op: "cli", oneOf: ["vercel"] },
+        ],
+      },
+      input,
+    );
     expect(decision.compatible).toBe(true);
     expect(decision.evidenceRefs).toContain("package.json#1:1:detector.next:next");
     const incompatible = evaluateCompatibility({ op: "noneOf", clauses: [{ op: "stack", category: "framework", oneOf: ["next"] }] }, input);
@@ -90,7 +101,11 @@ describe("compatibility and component selection", () => {
       builtin("command.never", "agent-command", { op: "stack", category: "framework", oneOf: ["vue"] }),
     ];
     const automatic = createComponentSelectionView(components, input);
-    expect(automatic.components.map((view) => view.definition.id)).toEqual([componentId("skill.vercel"), componentId("mcp.next"), componentId("rule.next")]);
+    expect(automatic.components.map((view) => view.definition.id)).toEqual([
+      componentId("skill.vercel"),
+      componentId("mcp.next"),
+      componentId("rule.next"),
+    ]);
     const manual = groupComponentsByType(components, input);
     expect(manual.groups.map((group) => group.type)).toEqual(["skill", "mcp-server", "agent-rule", "agent-command"]);
     expect(manual.components).toHaveLength(4);

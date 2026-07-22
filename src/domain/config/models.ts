@@ -35,7 +35,6 @@ export interface StructuredConfigCodec<T extends JsonObject> {
   equivalent(a: T, b: T): boolean;
 }
 
-
 export interface ConfigFieldChange {
   readonly path: string;
   readonly action: "add" | "remove" | "change";
@@ -48,8 +47,7 @@ export interface ConfigFieldDiff {
   readonly changes: readonly ConfigFieldChange[];
 }
 
-export type JsonConfigSchema<T extends JsonObject> =
-  (model: T) => boolean | string | Result<T, ConfigError>;
+export type JsonConfigSchema<T extends JsonObject> = (model: T) => boolean | string | Result<T, ConfigError>;
 
 export interface JsonStructuredConfigCodecOptions<T extends JsonObject> {
   /** Optional document-specific schema check. Unknown fields should be accepted by the check. */

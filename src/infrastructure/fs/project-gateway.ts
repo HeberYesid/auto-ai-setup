@@ -8,8 +8,21 @@ import { asCanonicalPath, asSafeProjectPath, err, ok } from "../../domain/shared
 
 const DEFAULT_PROBE_CONTENT = new TextEncoder().encode("auto-ai-setup-validation");
 const DEFAULT_EXCLUDED_DIRECTORIES = new Set([
-  "node_modules", ".pnpm", ".yarn", "vendor", ".venv", "venv", ".git", ".hg", ".svn",
-  "dist", "build", "out", ".next", "coverage", ".nyc_output",
+  "node_modules",
+  ".pnpm",
+  ".yarn",
+  "vendor",
+  ".venv",
+  "venv",
+  ".git",
+  ".hg",
+  ".svn",
+  "dist",
+  "build",
+  "out",
+  ".next",
+  "coverage",
+  ".nyc_output",
 ]);
 const RECOGNIZED_SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts", ".py", ".rb", ".php"]);
 
@@ -169,9 +182,11 @@ export class NodeProjectGateway implements ProjectGateway {
     if (!isContained(root, target)) return err(this.directoryError("read", String(path), "The path escapes the canonical project root"));
     try {
       const targetRealpath = await this.filesystem.realpath(target);
-      if (!isContained(root, targetRealpath)) return err(this.directoryError("read", String(path), "The path resolves outside the canonical project root"));
+      if (!isContained(root, targetRealpath))
+        return err(this.directoryError("read", String(path), "The path resolves outside the canonical project root"));
       const bytes = await this.filesystem.readFile(target);
-      if (bytes.byteLength > Number(limit)) return err(this.directoryError("read", String(path), "The recognized file exceeds the configured byte limit"));
+      if (bytes.byteLength > Number(limit))
+        return err(this.directoryError("read", String(path), "The recognized file exceeds the configured byte limit"));
       return ok(bytes);
     } catch (cause) {
       return err(this.directoryError("read", String(path), cause));
@@ -207,11 +222,7 @@ export class NodeProjectGateway implements ProjectGateway {
     }
   }
 
-  private directoryError(
-    check: DirectoryError["check"],
-    path: string,
-    cause: unknown,
-  ): DirectoryError {
+  private directoryError(check: DirectoryError["check"], path: string, cause: unknown): DirectoryError {
     const codeByCheck: Record<DirectoryError["check"], DirectoryError["code"]> = {
       exists: "DIRECTORY_NOT_FOUND",
       directory: "NOT_DIRECTORY",
@@ -263,31 +274,35 @@ const isToolOwned = (relativePath: string): boolean => {
 };
 
 const isRecognizedAiConfig = (relativePath: string): boolean => {
-  return relativePath === "AGENTS.md"
-    || relativePath === ".kiro/settings/mcp.json"
-    || /^\.kiro\/prompts\/[^/]+\.md$/i.test(relativePath)
-    || relativePath === ".auto-ai-setup/commands.json";
+  return (
+    relativePath === "AGENTS.md" ||
+    relativePath === ".kiro/settings/mcp.json" ||
+    /^\.kiro\/prompts\/[^/]+\.md$/i.test(relativePath) ||
+    relativePath === ".auto-ai-setup/commands.json"
+  );
 };
 
 const isRecognizedEvidence = (relativePath: string): boolean => {
   const name = relativePath.split("/").pop()?.toLowerCase() ?? "";
   const extension = extname(name);
-  return RECOGNIZED_SOURCE_EXTENSIONS.has(extension)
-    || name === "package.json"
-    || name === "package-lock.json"
-    || name === "pnpm-lock.yaml"
-    || name === "yarn.lock"
-    || name === "bun.lock"
-    || name === "bun.lockb"
-    || name === "pyproject.toml"
-    || name === "poetry.lock"
-    || name === "uv.lock"
-    || name === "requirements.txt"
-    || name === "gemfile"
-    || name === "gemfile.lock"
-    || name === "composer.json"
-    || name === "composer.lock"
-    || /^(tsconfig|jsconfig)(\..+)?\.json$/.test(name)
-    || /^(vite|next|nuxt|webpack|rollup|astro|svelte|playwright|vitest|jest|eslint|prettier|tailwind|vercel)\.config\./.test(name)
-    || /^\.github\/workflows\/.*\.ya?ml$/.test(relativePath.toLowerCase());
+  return (
+    RECOGNIZED_SOURCE_EXTENSIONS.has(extension) ||
+    name === "package.json" ||
+    name === "package-lock.json" ||
+    name === "pnpm-lock.yaml" ||
+    name === "yarn.lock" ||
+    name === "bun.lock" ||
+    name === "bun.lockb" ||
+    name === "pyproject.toml" ||
+    name === "poetry.lock" ||
+    name === "uv.lock" ||
+    name === "requirements.txt" ||
+    name === "gemfile" ||
+    name === "gemfile.lock" ||
+    name === "composer.json" ||
+    name === "composer.lock" ||
+    /^(tsconfig|jsconfig)(\..+)?\.json$/.test(name) ||
+    /^(vite|next|nuxt|webpack|rollup|astro|svelte|playwright|vitest|jest|eslint|prettier|tailwind|vercel)\.config\./.test(name) ||
+    /^\.github\/workflows\/.*\.ya?ml$/.test(relativePath.toLowerCase())
+  );
 };

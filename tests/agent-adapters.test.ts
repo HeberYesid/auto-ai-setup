@@ -15,14 +15,21 @@ import { asCanonicalPath, asSafeProjectPath } from "../src/domain/index.js";
 import type { SourceDocument } from "../src/domain/index.js";
 import { FakeFileSystem } from "./support/fakes.js";
 
-const source = (path: string, text: string): SourceDocument => ({ path: asSafeProjectPath(path).ok ? asSafeProjectPath(path).value : (path as never), text, format: "json" });
+const source = (path: string, text: string): SourceDocument => ({
+  path: asSafeProjectPath(path).ok ? asSafeProjectPath(path).value : (path as never),
+  text,
+  format: "json",
+});
 const root = asCanonicalPath("/virtual/project");
 if (!root.ok) throw new Error(root.error.message);
 const stack = { items: [], resolvedConflicts: [], digest: "a".repeat(64) as never };
 
 describe("AGENTS.md rule adapter", () => {
   it("appends an identifiable managed block without changing existing text", () => {
-    const result = adaptAgentsDocument(source(AGENTS_RULES_PATH, "# Project\r\n"), { id: "testing.rule", content: "Use strict mode.\nDo not mutate user text." });
+    const result = adaptAgentsDocument(source(AGENTS_RULES_PATH, "# Project\r\n"), {
+      id: "testing.rule",
+      content: "Use strict mode.\nDo not mutate user text.",
+    });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.text).toContain(ruleBeginMarker("testing.rule"));
@@ -44,8 +51,14 @@ describe("AGENTS.md rule adapter", () => {
   });
 
   it("reports content differences and corrupt marker structure as conflicts", () => {
-    const different = adaptAgentsDocument(source(AGENTS_RULES_PATH, `${ruleBeginMarker("rule")}\nold\n${ruleEndMarker("rule")}\n`), { id: "rule", content: "new" });
-    const corrupt = adaptAgentsDocument(source(AGENTS_RULES_PATH, "<!-- auto-ai-setup:rule:rule:begin -->\nold\n"), { id: "rule", content: "new" });
+    const different = adaptAgentsDocument(source(AGENTS_RULES_PATH, `${ruleBeginMarker("rule")}\nold\n${ruleEndMarker("rule")}\n`), {
+      id: "rule",
+      content: "new",
+    });
+    const corrupt = adaptAgentsDocument(source(AGENTS_RULES_PATH, "<!-- auto-ai-setup:rule:rule:begin -->\nold\n"), {
+      id: "rule",
+      content: "new",
+    });
     expect(different.ok && different.value.conflict).toBe("content-differs");
     expect(corrupt.ok && corrupt.value.conflict).toBe("invalid-managed-markers");
     expect(corrupt.ok && corrupt.value.corruptMarkers.length).toBeGreaterThan(0);
@@ -55,7 +68,15 @@ describe("AGENTS.md rule adapter", () => {
     const fileSystem = new FakeFileSystem();
     fileSystem.seed(AGENTS_RULES_PATH, "# Existing\n");
     const adapter = new AgentsRuleAdapter(fileSystem);
-    const component = { id: "rule.testing", type: "agent-rule" as const, name: "Testing rule", description: "Rule", compatibility: { op: "always" as const }, source: { kind: "builtin" as const, origin: "test" }, rule: { id: "testing", content: "Be deterministic." } };
+    const component = {
+      id: "rule.testing",
+      type: "agent-rule" as const,
+      name: "Testing rule",
+      description: "Rule",
+      compatibility: { op: "always" as const },
+      source: { kind: "builtin" as const, origin: "test" },
+      rule: { id: "testing", content: "Be deterministic." },
+    };
     const operations = await adapter.propose({ root: root.value, stack, runId: "run-1" as never }, component);
     expect(operations).toHaveLength(1);
     expect(operations[0]?.destination).toBe(AGENTS_RULES_PATH);
@@ -65,23 +86,36 @@ describe("AGENTS.md rule adapter", () => {
 
 describe("Kiro command adapter", () => {
   it("merges command metadata by ID while preserving unrelated root and entry fields", () => {
-    const result = adaptKiroCommandIndex(source(KIRO_COMMANDS_INDEX_PATH, '{"unknown": {"keep": true}, "commands": {"build": {"legacy": "keep"}}}\n'), { id: "build", name: "Build", description: "Build project", prompt: "run build", metadata: { category: "development" } });
+    const result = adaptKiroCommandIndex(
+      source(KIRO_COMMANDS_INDEX_PATH, '{"unknown": {"keep": true}, "commands": {"build": {"legacy": "keep"}}}\n'),
+      { id: "build", name: "Build", description: "Build project", prompt: "run build", metadata: { category: "development" } },
+    );
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.model.unknown).toEqual({ keep: true });
-      expect(result.value.model.commands).toMatchObject({ build: { legacy: "keep", category: "development", promptPath: `${KIRO_PROMPTS_PATH}/build.md`, name: "Build" } });
+      expect(result.value.model.commands).toMatchObject({
+        build: { legacy: "keep", category: "development", promptPath: `${KIRO_PROMPTS_PATH}/build.md`, name: "Build" },
+      });
       expect(result.value.text).not.toContain("run build");
     }
   });
 
   it("writes prompt content separately and preserves an equivalent command on the second projection", () => {
     const definition = { id: "review", name: "Review", description: "Review code", prompt: "Review this code." };
-    const first = adaptKiroCommandDocuments(source(`${KIRO_PROMPTS_PATH}/review.md`, ""), source(KIRO_COMMANDS_INDEX_PATH, "{}\n"), definition);
+    const first = adaptKiroCommandDocuments(
+      source(`${KIRO_PROMPTS_PATH}/review.md`, ""),
+      source(KIRO_COMMANDS_INDEX_PATH, "{}\n"),
+      definition,
+    );
     expect(first.ok).toBe(true);
     if (first.ok) {
       expect(first.value.promptChanged).toBe(true);
       expect(first.value.index.changed).toBe(true);
-      const second = adaptKiroCommandDocuments(source(`${KIRO_PROMPTS_PATH}/review.md`, first.value.promptText), source(KIRO_COMMANDS_INDEX_PATH, first.value.index.text), definition);
+      const second = adaptKiroCommandDocuments(
+        source(`${KIRO_PROMPTS_PATH}/review.md`, first.value.promptText),
+        source(KIRO_COMMANDS_INDEX_PATH, first.value.index.text),
+        definition,
+      );
       expect(second.ok).toBe(true);
       if (second.ok) {
         expect(second.value.promptChanged).toBe(false);
@@ -93,7 +127,15 @@ describe("Kiro command adapter", () => {
   it("proposes prompt and index operations with safe destinations", async () => {
     const fileSystem = new FakeFileSystem();
     const adapter = new KiroCommandAdapter(fileSystem);
-    const component = { id: "command.testing", type: "agent-command" as const, name: "Testing command", description: "Command", compatibility: { op: "always" as const }, source: { kind: "builtin" as const, origin: "test" }, command: { id: "testing", prompt: "Do the thing" } };
+    const component = {
+      id: "command.testing",
+      type: "agent-command" as const,
+      name: "Testing command",
+      description: "Command",
+      compatibility: { op: "always" as const },
+      source: { kind: "builtin" as const, origin: "test" },
+      command: { id: "testing", prompt: "Do the thing" },
+    };
     const operations = await adapter.propose({ root: root.value, stack, runId: "run-1" as never }, component);
     expect(operations.map((operation) => operation.destination)).toEqual([`${KIRO_PROMPTS_PATH}/testing.md`, KIRO_COMMANDS_INDEX_PATH]);
     expect(operations.every((operation) => operation.action === "create")).toBe(true);
@@ -101,7 +143,15 @@ describe("Kiro command adapter", () => {
 
   it("rejects command IDs that could escape the prompt directory", async () => {
     const adapter = new KiroCommandAdapter(new FakeFileSystem());
-    const component = { id: "command.bad", type: "agent-command" as const, name: "Bad", description: "Bad", compatibility: { op: "always" as const }, source: { kind: "builtin" as const, origin: "test" }, command: { id: "../bad", prompt: "bad" } };
+    const component = {
+      id: "command.bad",
+      type: "agent-command" as const,
+      name: "Bad",
+      description: "Bad",
+      compatibility: { op: "always" as const },
+      source: { kind: "builtin" as const, origin: "test" },
+      command: { id: "../bad", prompt: "bad" },
+    };
     await expect(adapter.propose({ root: root.value, stack, runId: "run-1" as never }, component)).resolves.toEqual([]);
   });
 });

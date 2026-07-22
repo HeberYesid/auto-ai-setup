@@ -20,13 +20,21 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 const isNonEmptyString = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
 
 const parseComponent = (value: unknown): value is ManagedComponent => {
-  if (!isRecord(value) || !["skill", "mcp-server", "agent-rule", "agent-command"].includes(String(value.type)) || !isNonEmptyString(value.origin) || !Array.isArray(value.destinations) || !isNonEmptyString(value.contentDigest)) return false;
+  if (
+    !isRecord(value) ||
+    !["skill", "mcp-server", "agent-rule", "agent-command"].includes(String(value.type)) ||
+    !isNonEmptyString(value.origin) ||
+    !Array.isArray(value.destinations) ||
+    !isNonEmptyString(value.contentDigest)
+  )
+    return false;
   if (!asSha256(value.contentDigest).ok) return false;
   return value.destinations.every((destination) => typeof destination === "string" && asSafeProjectPath(destination).ok);
 };
 
 export const validateManagedState = (value: unknown): Result<ManagedState, ManagedStateError> => {
-  if (!isRecord(value) || value.schemaVersion !== 1 || !isRecord(value.components) || !isNonEmptyString(value.lastSuccessfulRunId)) return stateError("Managed state has an invalid schema");
+  if (!isRecord(value) || value.schemaVersion !== 1 || !isRecord(value.components) || !isNonEmptyString(value.lastSuccessfulRunId))
+    return stateError("Managed state has an invalid schema");
   const components: Record<string, ManagedComponent> = {};
   for (const [key, component] of Object.entries(value.components)) {
     if (!parseComponent(component)) return stateError(`Managed state has an invalid component: ${key}`);
@@ -50,7 +58,9 @@ export class FileSystemSkillOwnershipStore implements SkillOwnershipStore {
       if (!(await this.fileSystem.exists(this.statePathValue))) return ok(undefined);
       const bytes = await this.fileSystem.read(this.statePathValue);
       let parsed: unknown;
-      try { parsed = JSON.parse(new TextDecoder().decode(bytes)) as unknown; } catch (error) {
+      try {
+        parsed = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+      } catch (error) {
         return stateError("Managed state is not valid JSON", error instanceof Error ? error.message : String(error));
       }
       return validateManagedState(parsed);
@@ -62,9 +72,13 @@ export class FileSystemSkillOwnershipStore implements SkillOwnershipStore {
   public async save(state: ManagedState): Promise<Result<void>> {
     const validated = validateManagedState(state);
     if (!validated.ok) return validated;
-    const result = await this.fileSystem.write(this.statePathValue, new TextEncoder().encode(`${JSON.stringify(validated.value, null, 2)}\n`));
+    const result = await this.fileSystem.write(
+      this.statePathValue,
+      new TextEncoder().encode(`${JSON.stringify(validated.value, null, 2)}\n`),
+    );
     return result.ok ? ok(undefined) : result;
   }
 }
 
-export const createFileSystemSkillOwnershipStore = (fileSystem: FileSystemPort): FileSystemSkillOwnershipStore => new FileSystemSkillOwnershipStore(fileSystem);
+export const createFileSystemSkillOwnershipStore = (fileSystem: FileSystemPort): FileSystemSkillOwnershipStore =>
+  new FileSystemSkillOwnershipStore(fileSystem);

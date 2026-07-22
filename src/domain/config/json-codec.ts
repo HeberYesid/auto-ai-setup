@@ -21,8 +21,7 @@ const HEX_DIGITS = /^[0-9a-fA-F]$/;
 type MutableJsonObject = { [key: string]: JsonValue };
 type MutableJsonArray = JsonValue[];
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 
 const isJsonObject = (value: unknown): value is JsonObject => isObject(value);
 
@@ -44,14 +43,7 @@ const locationAt = (text: string, index: number): { readonly line: number; reado
   return { line, column };
 };
 
-const configError = (
-  code: ConfigError["code"],
-  message: string,
-  path: string,
-  text: string,
-  index = 0,
-  cause?: string,
-): ConfigError => {
+const configError = (code: ConfigError["code"], message: string, path: string, text: string, index = 0, cause?: string): ConfigError => {
   const { line, column } = locationAt(text, index);
   const result: ConfigError = {
     code,
@@ -66,12 +58,8 @@ const configError = (
   return result;
 };
 
-const configRuntimeError = (
-  code: ConfigError["code"],
-  message: string,
-  path: string,
-  cause?: string,
-): ConfigError => configError(code, message, path, "", 0, cause);
+const configRuntimeError = (code: ConfigError["code"], message: string, path: string, cause?: string): ConfigError =>
+  configError(code, message, path, "", 0, cause);
 
 const cloneJson = (value: JsonValue): JsonValue => {
   if (Array.isArray(value)) return value.map((entry) => cloneJson(entry));
@@ -208,11 +196,18 @@ class JsonParser {
         this.index += 1;
         try {
           const parsed: unknown = JSON.parse(this.text.slice(start, this.index));
-          return typeof parsed === "string"
-            ? ok(parsed)
-            : err(configError("CONFIG_SYNTAX", "Invalid JSON string", "", this.text, start));
+          return typeof parsed === "string" ? ok(parsed) : err(configError("CONFIG_SYNTAX", "Invalid JSON string", "", this.text, start));
         } catch (cause: unknown) {
-          return err(configError("CONFIG_SYNTAX", "Invalid JSON string escape", "", this.text, start, cause instanceof Error ? cause.message : String(cause)));
+          return err(
+            configError(
+              "CONFIG_SYNTAX",
+              "Invalid JSON string escape",
+              "",
+              this.text,
+              start,
+              cause instanceof Error ? cause.message : String(cause),
+            ),
+          );
         }
       }
       if (character < " ") {
@@ -243,7 +238,9 @@ class JsonParser {
     this.index += match[0].length;
     const value = Number(match[0]);
     if (!Number.isFinite(value)) {
-      return err(configError("UNREPRESENTABLE_VALUE", "JSON number cannot be represented safely", path, this.text, this.index - match[0].length));
+      return err(
+        configError("UNREPRESENTABLE_VALUE", "JSON number cannot be represented safely", path, this.text, this.index - match[0].length),
+      );
     }
     return ok(value);
   }
@@ -259,16 +256,10 @@ class JsonParser {
   }
 }
 
-const validateJsonValue = (
-  value: unknown,
-  path: string,
-  seen: WeakSet<object> = new WeakSet<object>(),
-): ConfigError | undefined => {
+const validateJsonValue = (value: unknown, path: string, seen: WeakSet<object> = new WeakSet<object>()): ConfigError | undefined => {
   if (value === null || typeof value === "string" || typeof value === "boolean") return undefined;
   if (typeof value === "number") {
-    return Number.isFinite(value)
-      ? undefined
-      : configRuntimeError("UNREPRESENTABLE_VALUE", "JSON numbers must be finite", path);
+    return Number.isFinite(value) ? undefined : configRuntimeError("UNREPRESENTABLE_VALUE", "JSON numbers must be finite", path);
   }
   if (typeof value !== "object") {
     return configRuntimeError("UNREPRESENTABLE_VALUE", "Value is not representable as JSON", path);
@@ -294,9 +285,7 @@ const validateJsonValue = (
   return undefined;
 };
 
-const schemaError = <T extends JsonObject>(
-  result: boolean | string | Result<T, ConfigError>,
-): ConfigError | undefined => {
+const schemaError = <T extends JsonObject>(result: boolean | string | Result<T, ConfigError>): ConfigError | undefined => {
   if (result === true) return undefined;
   if (result === false) return configRuntimeError("CONFIG_SCHEMA", "Configuration does not satisfy its schema", "");
   if (typeof result === "string") return configRuntimeError("CONFIG_SCHEMA", result, "");
@@ -309,21 +298,24 @@ const decodePointer = (pointer: string): Result<readonly string[], ConfigError> 
   if (!pointer.startsWith("/")) {
     return err(configRuntimeError("CONFIG_SCHEMA", "Managed patch paths must be JSON Pointers", pointer));
   }
-  const segments = pointer.slice(1).split("/").map((segment) => {
-    let decoded = "";
-    for (let index = 0; index < segment.length; index += 1) {
-      const character = segment.charAt(index);
-      if (character !== "~") {
-        decoded += character;
-      } else {
-        const escape = segment.charAt(index + 1);
-        if (escape !== "0" && escape !== "1") return undefined;
-        decoded += escape === "0" ? "~" : "/";
-        index += 1;
+  const segments = pointer
+    .slice(1)
+    .split("/")
+    .map((segment) => {
+      let decoded = "";
+      for (let index = 0; index < segment.length; index += 1) {
+        const character = segment.charAt(index);
+        if (character !== "~") {
+          decoded += character;
+        } else {
+          const escape = segment.charAt(index + 1);
+          if (escape !== "0" && escape !== "1") return undefined;
+          decoded += escape === "0" ? "~" : "/";
+          index += 1;
+        }
       }
-    }
-    return decoded;
-  });
+      return decoded;
+    });
   if (segments.some((segment) => segment === undefined)) {
     return err(configRuntimeError("CONFIG_SCHEMA", "Managed patch contains an invalid JSON Pointer escape", pointer));
   }
@@ -358,7 +350,8 @@ const setAtPointer = (
         array.push(cloneJson(value));
         return ok(root);
       }
-      if (!/^0|[1-9]\d*$/.test(segment)) return err(configRuntimeError("CONFIG_SCHEMA", "Array JSON Pointer segment must be an index", pointer));
+      if (!/^0|[1-9]\d*$/.test(segment))
+        return err(configRuntimeError("CONFIG_SCHEMA", "Array JSON Pointer segment must be an index", pointer));
       const arrayIndex = Number(segment);
       if (!Number.isSafeInteger(arrayIndex) || arrayIndex >= array.length) {
         return err(configRuntimeError("CONFIG_SCHEMA", "Array JSON Pointer index does not exist", pointer));
@@ -405,14 +398,18 @@ const renderJson = (value: JsonValue, indentation: string, eol: "\n" | "\r\n", l
   if (Array.isArray(value)) {
     if (value.length === 0) return "[]";
     const entries = value.map((entry) => `${childPad}${renderJson(entry, indentation, eol, level + 1)}`);
-    return indentation.length === 0 ? `[${entries.map((entry) => entry.trimStart()).join(",")}]` : `[${eol}${entries.join(`,${eol}`)}${eol}${pad}]`;
+    return indentation.length === 0
+      ? `[${entries.map((entry) => entry.trimStart()).join(",")}]`
+      : `[${eol}${entries.join(`,${eol}`)}${eol}${pad}]`;
   }
   const object = value as JsonObject;
   const entries = Object.keys(object).map((key) => {
     const renderedKey = JSON.stringify(key) as string;
     return `${childPad}${renderedKey}:${indentation.length === 0 ? "" : " "}${renderJson(object[key] as JsonValue, indentation, eol, level + 1)}`;
   });
-  return indentation.length === 0 ? `{${entries.map((entry) => entry.trimStart()).join(",")}}` : `{${eol}${entries.join(`,${eol}`)}${eol}${pad}}`;
+  return indentation.length === 0
+    ? `{${entries.map((entry) => entry.trimStart()).join(",")}}`
+    : `{${eol}${entries.join(`,${eol}`)}${eol}${pad}}`;
 };
 
 const diffValue = (before: JsonValue | undefined, after: JsonValue | undefined, path: string): ConfigFieldChange[] => {
@@ -455,7 +452,10 @@ const deepEquivalent = (a: JsonValue, b: JsonValue): boolean => {
     if (!isJsonObject(a) || !isJsonObject(b)) return false;
     const aKeys = Object.keys(a).sort();
     const bKeys = Object.keys(b).sort();
-    return aKeys.length === bKeys.length && aKeys.every((key, index) => key === bKeys[index] && deepEquivalent(a[key] as JsonValue, b[key] as JsonValue));
+    return (
+      aKeys.length === bKeys.length &&
+      aKeys.every((key, index) => key === bKeys[index] && deepEquivalent(a[key] as JsonValue, b[key] as JsonValue))
+    );
   }
   return false;
 };

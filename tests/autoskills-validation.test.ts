@@ -17,24 +17,40 @@ const payload = {
   sourceRepository: AUTOSKILLS_SOURCE_REPOSITORY,
   sourceCommit: commit,
   generatedAt: "2025-01-01T00:00:00.000Z",
-  entries: [{
-    type: "skill" as const,
-    id: "verified-skill",
-    name: "Verified Skill",
-    description: "A deterministic test skill",
-    origin: { repository: AUTOSKILLS_SOURCE_REPOSITORY, commit, relativePath: "skills/verified-skill" },
-    files: [{ relativePath: "SKILL.md", size: bytes.byteLength, sha256: fileHash }],
-    compatibility: { op: "always" as const },
-    destinationTemplate: ".kiro/skills/{id}" as const,
-  }],
+  entries: [
+    {
+      type: "skill" as const,
+      id: "verified-skill",
+      name: "Verified Skill",
+      description: "A deterministic test skill",
+      origin: { repository: AUTOSKILLS_SOURCE_REPOSITORY, commit, relativePath: "skills/verified-skill" },
+      files: [{ relativePath: "SKILL.md", size: bytes.byteLength, sha256: fileHash }],
+      compatibility: { op: "always" as const },
+      destinationTemplate: ".kiro/skills/{id}" as const,
+    },
+  ],
 };
-const successful = (stdout: string): ProcessResult => ({ exitCode: 0, stdout, stderr: "", durationMs: 1, timedOut: false, truncated: false });
+const successful = (stdout: string): ProcessResult => ({
+  exitCode: 0,
+  stdout,
+  stderr: "",
+  durationMs: 1,
+  timedOut: false,
+  truncated: false,
+});
 
 class InstallingExecutor implements ProcessExecutor {
   readonly requests: RegisteredProcessRequest[] = [];
   private result: ProcessResult;
-  constructor(private readonly fileSystem: FakeFileSystem, result: ProcessResult = successful("installed")) { this.result = result; }
-  setResult(result: ProcessResult): void { this.result = result; }
+  constructor(
+    private readonly fileSystem: FakeFileSystem,
+    result: ProcessResult = successful("installed"),
+  ) {
+    this.result = result;
+  }
+  setResult(result: ProcessResult): void {
+    this.result = result;
+  }
   async execute(request: RegisteredProcessRequest): Promise<ProcessResult> {
     this.requests.push(request);
     if (request.args[0] === "install") this.fileSystem.seed(".kiro/skills/verified-skill/SKILL.md", bytes);

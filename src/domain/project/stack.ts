@@ -1,5 +1,14 @@
 import { createHash } from "node:crypto";
-import type { CliRecommendation, ConfirmedStack, DetectionClaim, StackAnalysis, StackCategory, StackConflict, StackEvidence, StackItem } from "./models.js";
+import type {
+  CliRecommendation,
+  ConfirmedStack,
+  DetectionClaim,
+  StackAnalysis,
+  StackCategory,
+  StackConflict,
+  StackEvidence,
+  StackItem,
+} from "./models.js";
 import type { ComponentId, Result, Sha256, StackConflictError } from "../shared/types.js";
 import { ok } from "../shared/types.js";
 
@@ -61,10 +70,16 @@ export interface StackResolutionSelection {
 
 const compareCategory = (left: StackCategory, right: StackCategory): number => categoryOrder.indexOf(left) - categoryOrder.indexOf(right);
 const compareEvidence = (left: StackEvidence, right: StackEvidence): number =>
-  left.path.localeCompare(right.path) || left.location.localeCompare(right.location) || left.recognizedValue.localeCompare(right.recognizedValue) || left.detectorId.localeCompare(right.detectorId) || left.format.localeCompare(right.format);
-const compareItems = (left: StackItem, right: StackItem): number => compareCategory(left.category, right.category) || left.id.localeCompare(right.id);
+  left.path.localeCompare(right.path) ||
+  left.location.localeCompare(right.location) ||
+  left.recognizedValue.localeCompare(right.recognizedValue) ||
+  left.detectorId.localeCompare(right.detectorId) ||
+  left.format.localeCompare(right.format);
+const compareItems = (left: StackItem, right: StackItem): number =>
+  compareCategory(left.category, right.category) || left.id.localeCompare(right.id);
 
-const evidenceKey = (evidence: StackEvidence): string => [evidence.path, evidence.format, evidence.location, evidence.recognizedValue, evidence.detectorId].join("\u0000");
+const evidenceKey = (evidence: StackEvidence): string =>
+  [evidence.path, evidence.format, evidence.location, evidence.recognizedValue, evidence.detectorId].join("\u0000");
 const itemKey = (claim: DetectionClaim): string => `${claim.category}\u0000${claim.id}`;
 
 const copyEvidence = (evidence: StackEvidence): StackEvidence => ({ ...evidence });
@@ -72,29 +87,39 @@ const copyEvidence = (evidence: StackEvidence): StackEvidence => ({ ...evidence 
 export const evidenceReference = (evidence: StackEvidence): string =>
   `${evidence.path}#${evidence.location}:${evidence.detectorId}:${evidence.recognizedValue}`;
 
-export const aggregateDetections = (
-  claims: readonly DetectionClaim[],
-  options: StackAggregationOptions = {},
-): StackAnalysis => {
-  const groups = new Map<string, { category: StackCategory; id: string; displayName: string; confidence: "explicit" | "derived"; evidences: Map<string, StackEvidence> }>();
+export const aggregateDetections = (claims: readonly DetectionClaim[], options: StackAggregationOptions = {}): StackAnalysis => {
+  const groups = new Map<
+    string,
+    { category: StackCategory; id: string; displayName: string; confidence: "explicit" | "derived"; evidences: Map<string, StackEvidence> }
+  >();
   for (const claim of claims) {
     const key = itemKey(claim);
     const current = groups.get(key);
     if (current === undefined) {
-      groups.set(key, { category: claim.category, id: claim.id, displayName: claim.displayName, confidence: claim.confidence, evidences: new Map([[evidenceKey(claim.evidence), copyEvidence(claim.evidence)]]) });
+      groups.set(key, {
+        category: claim.category,
+        id: claim.id,
+        displayName: claim.displayName,
+        confidence: claim.confidence,
+        evidences: new Map([[evidenceKey(claim.evidence), copyEvidence(claim.evidence)]]),
+      });
       continue;
     }
     if (claim.displayName.localeCompare(current.displayName) < 0) current.displayName = claim.displayName;
     if (claim.confidence === "explicit") current.confidence = "explicit";
     current.evidences.set(evidenceKey(claim.evidence), copyEvidence(claim.evidence));
   }
-  const items = [...groups.values()].map((group): StackItem => ({
-    category: group.category,
-    id: group.id,
-    displayName: group.displayName,
-    confidence: group.confidence,
-    evidence: [...group.evidences.values()].sort(compareEvidence),
-  })).sort(compareItems);
+  const items = [...groups.values()]
+    .map(
+      (group): StackItem => ({
+        category: group.category,
+        id: group.id,
+        displayName: group.displayName,
+        confidence: group.confidence,
+        evidence: [...group.evidences.values()].sort(compareEvidence),
+      }),
+    )
+    .sort(compareItems);
   const exclusive = new Set(options.exclusiveCategories ?? defaultExclusiveCategories);
   const conflicts: StackConflict[] = [];
   for (const category of categoryOrder) {
@@ -109,7 +134,8 @@ export const aggregateDetections = (
   }
   const analyzedFileCount = nonNegativeInteger(options.analyzedFileCount ?? countEvidenceFiles(items));
   const analyzedBytes = nonNegativeInteger(options.analyzedBytes ?? 0);
-  const withinPerformanceProfile = options.withinPerformanceProfile ?? (analyzedFileCount <= performanceFileLimit && analyzedBytes <= performanceByteLimit);
+  const withinPerformanceProfile =
+    options.withinPerformanceProfile ?? (analyzedFileCount <= performanceFileLimit && analyzedBytes <= performanceByteLimit);
   return {
     items,
     conflicts: conflicts.sort((left, right) => compareCategory(left.category, right.category)),
@@ -120,18 +146,23 @@ export const aggregateDetections = (
   };
 };
 
-const countEvidenceFiles = (items: readonly StackItem[]): number => new Set(items.flatMap((item) => item.evidence.map((evidence) => evidence.path))).size;
-const nonNegativeInteger = (value: number): number => Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
-const nonNegativeNumber = (value: number): number => Number.isFinite(value) ? Math.max(0, value) : 0;
+const countEvidenceFiles = (items: readonly StackItem[]): number =>
+  new Set(items.flatMap((item) => item.evidence.map((evidence) => evidence.path))).size;
+const nonNegativeInteger = (value: number): number => (Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0);
+const nonNegativeNumber = (value: number): number => (Number.isFinite(value) ? Math.max(0, value) : 0);
 
 export const createStackViewModel = (analysis: StackAnalysis): StackViewModel => {
   const viewItems = analysis.items.map(toItemView);
   const itemViews = new Map(viewItems.map((item) => [`${item.category}\u0000${item.id}`, item]));
-  const conflicts = analysis.conflicts.map((conflict): StackConflictView => ({
-    category: conflict.category,
-    candidates: conflict.candidates.map((candidate) => itemViews.get(`${candidate.category}\u0000${candidate.id}`) ?? toItemView(candidate)),
-    blocksCapabilities: [...conflict.blocksCapabilities],
-  }));
+  const conflicts = analysis.conflicts.map(
+    (conflict): StackConflictView => ({
+      category: conflict.category,
+      candidates: conflict.candidates.map(
+        (candidate) => itemViews.get(`${candidate.category}\u0000${candidate.id}`) ?? toItemView(candidate),
+      ),
+      blocksCapabilities: [...conflict.blocksCapabilities],
+    }),
+  );
   const unresolvedCategories = conflicts.map((conflict) => conflict.category).sort(compareCategory);
   return {
     items: viewItems,
@@ -165,10 +196,12 @@ export const resolveStackConflicts = (
     if (value === undefined || !conflict.candidates.some((candidate) => candidate.id === value)) return conflictError(conflict);
   }
   const resolvedCategories = new Map(analysis.conflicts.map((conflict) => [conflict.category, selected.get(conflict.category)!]));
-  const items = analysis.items.filter((item) => {
-    const selectedValue = resolvedCategories.get(item.category);
-    return selectedValue === undefined || selectedValue === item.id;
-  }).sort(compareItems);
+  const items = analysis.items
+    .filter((item) => {
+      const selectedValue = resolvedCategories.get(item.category);
+      return selectedValue === undefined || selectedValue === item.id;
+    })
+    .sort(compareItems);
   return ok({ items, resolvedConflicts: analysis.conflicts.map(copyConflict), digest: digestConfirmedItems(items) });
 };
 
@@ -202,13 +235,14 @@ const conflictError = (conflict: StackConflict): { ok: false; error: StackConfli
   },
 });
 
-const canonicalItem = (item: StackItem): string => JSON.stringify({
-  category: item.category,
-  id: item.id,
-  displayName: item.displayName,
-  confidence: item.confidence,
-  evidence: item.evidence.map((evidence) => ({ ...evidence })),
-});
+const canonicalItem = (item: StackItem): string =>
+  JSON.stringify({
+    category: item.category,
+    id: item.id,
+    displayName: item.displayName,
+    confidence: item.confidence,
+    evidence: item.evidence.map((evidence) => ({ ...evidence })),
+  });
 
 export const digestConfirmedItems = (items: readonly StackItem[]): Sha256 => {
   const canonical = [...items].sort(compareItems).map(canonicalItem).join("\n");
@@ -222,7 +256,7 @@ export const evaluateCapabilities = (
   capabilities: readonly StackCapability[],
   unresolvedCategories: readonly StackCategory[] | readonly StackConflict[],
 ): readonly CapabilityAvailability[] => {
-  const categories = new Set(unresolvedCategories.map((entry) => typeof entry === "string" ? entry : entry.category));
+  const categories = new Set(unresolvedCategories.map((entry) => (typeof entry === "string" ? entry : entry.category)));
   return capabilities.map((capability) => {
     const blockedBy = capability.dependsOnCategories.filter((category) => categories.has(category));
     return { ...capability, available: blockedBy.length === 0, blockedBy };

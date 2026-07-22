@@ -1,11 +1,4 @@
-import type {
-  ByteCount,
-  CanonicalPath,
-  ComponentId,
-  Result,
-  SafeProjectPath,
-  Sha256,
-} from "../shared/types.js";
+import type { ByteCount, CanonicalPath, ComponentId, Result, SafeProjectPath, Sha256 } from "../shared/types.js";
 
 export type ProjectKind = "new" | "existing";
 export type StackCategory = "language" | "package-manager" | "framework" | "tool";

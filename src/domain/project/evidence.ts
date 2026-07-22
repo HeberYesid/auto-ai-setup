@@ -4,8 +4,17 @@ import type { EvidenceFormat, EvidenceParseOptions, ParsedEvidence } from "./mod
 import type { ByteCount, SafeProjectPath } from "../shared/types.js";
 
 const jsonNames = new Set([
-  "package.json", "package-lock.json", "composer.json", "composer.lock", "tsconfig.json", "jsconfig.json",
-  "jsconfig.json", ".eslintrc.json", ".prettierrc.json", "vitest.config.json", "jest.config.json",
+  "package.json",
+  "package-lock.json",
+  "composer.json",
+  "composer.lock",
+  "tsconfig.json",
+  "jsconfig.json",
+  "jsconfig.json",
+  ".eslintrc.json",
+  ".prettierrc.json",
+  "vitest.config.json",
+  "jest.config.json",
 ]);
 const tomlNames = new Set(["pyproject.toml", "poetry.lock", "uv.lock", "config.toml"]);
 const yamlNames = new Set(["pnpm-lock.yaml", "pnpm-workspace.yaml", "docker-compose.yml", "docker-compose.yaml"]);
@@ -46,15 +55,33 @@ export const parseRecognizedEvidence = (
   return ok({ path, format, source: source.slice(), location: "1:1", validSyntax: true, validSchema: true });
 };
 
-interface ParseFailure { readonly location: string; readonly message: string; }
-const invalid = (path: SafeProjectPath, location: string, cause: string, code: EvidenceError["code"] = "INVALID_SYNTAX"): Result<never, EvidenceError> => err({
-  code, message: "Configuración inválida", cause, path, location, recoverability: "none",
-});
+interface ParseFailure {
+  readonly location: string;
+  readonly message: string;
+}
+const invalid = (
+  path: SafeProjectPath,
+  location: string,
+  cause: string,
+  code: EvidenceError["code"] = "INVALID_SYNTAX",
+): Result<never, EvidenceError> =>
+  err({
+    code,
+    message: "Configuración inválida",
+    cause,
+    path,
+    location,
+    recoverability: "none",
+  });
 
 const validateSyntax = (text: string, format: EvidenceFormat): Result<void, ParseFailure> => {
   if (format === "json") {
-    try { JSON.parse(text) as unknown; return ok(undefined); }
-    catch (error) { return parseJsonFailure(error, text); }
+    try {
+      JSON.parse(text) as unknown;
+      return ok(undefined);
+    } catch (error) {
+      return parseJsonFailure(error, text);
+    }
   }
   if (format === "toml") return validateToml(text);
   if (format === "yaml" || format === "lockfile") return validateYamlLike(text);
@@ -71,16 +98,24 @@ const parseJsonFailure = (error: unknown, text: string): Result<void, ParseFailu
 const validateSchema = (text: string, path: string, format: EvidenceFormat): Result<void, ParseFailure> => {
   if (format !== "json") return ok(undefined);
   let value: unknown;
-  try { value = JSON.parse(text) as unknown; } catch { return err({ location: "1:1", message: "JSON inválido" }); }
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return err({ location: "1:1", message: "Se esperaba un objeto" });
+  try {
+    value = JSON.parse(text) as unknown;
+  } catch {
+    return err({ location: "1:1", message: "JSON inválido" });
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    return err({ location: "1:1", message: "Se esperaba un objeto" });
   const name = path.split("/").pop()?.toLowerCase() ?? "";
   if (name === "package.json") {
     const record = value as Record<string, unknown>;
     for (const field of ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies", "scripts", "engines"]) {
-      if (record[field] !== undefined && !isRecord(record[field])) return err({ location: "1:1", message: `El campo ${field} debe ser un objeto` });
+      if (record[field] !== undefined && !isRecord(record[field]))
+        return err({ location: "1:1", message: `El campo ${field} debe ser un objeto` });
     }
-    if (record.name !== undefined && typeof record.name !== "string") return err({ location: "1:1", message: "El campo name debe ser texto" });
-    if (record.type !== undefined && typeof record.type !== "string") return err({ location: "1:1", message: "El campo type debe ser texto" });
+    if (record.name !== undefined && typeof record.name !== "string")
+      return err({ location: "1:1", message: "El campo name debe ser texto" });
+    if (record.type !== undefined && typeof record.type !== "string")
+      return err({ location: "1:1", message: "El campo type debe ser texto" });
   }
   return ok(undefined);
 };
@@ -94,13 +129,15 @@ const validateToml = (text: string): Result<void, ParseFailure> => {
     if (line === "") continue;
     if (line.startsWith("[") || line.startsWith("[[")) {
       const closing = line.startsWith("[[") ? "]]" : "]";
-      if (!line.endsWith(closing) || line.length <= closing.length) return err({ location: `${lineIndex + 1}:1`, message: "Sección TOML inválida" });
+      if (!line.endsWith(closing) || line.length <= closing.length)
+        return err({ location: `${lineIndex + 1}:1`, message: "Sección TOML inválida" });
       section = line;
       void section;
       continue;
     }
     const separator = line.indexOf("=");
-    if (separator <= 0 || line.slice(separator + 1).trim() === "") return err({ location: `${lineIndex + 1}:1`, message: "Asignación TOML inválida" });
+    if (separator <= 0 || line.slice(separator + 1).trim() === "")
+      return err({ location: `${lineIndex + 1}:1`, message: "Asignación TOML inválida" });
     const value = line.slice(separator + 1).trim();
     if (!isTomlValue(value)) return err({ location: `${lineIndex + 1}:${separator + 2}`, message: "Valor TOML inválido" });
   }
@@ -121,9 +158,11 @@ const validateYamlLike = (text: string): Result<void, ParseFailure> => {
     const line = raw.trimEnd();
     if (line.trim() === "" || line.trimStart().startsWith("#") || line.trim() === "---") continue;
     const indent = line.length - line.trimStart().length;
-    if (indent % 2 !== 0 || indent > previousIndent + 2) return err({ location: `${lineIndex + 1}:1`, message: "Indentación YAML inválida" });
+    if (indent % 2 !== 0 || indent > previousIndent + 2)
+      return err({ location: `${lineIndex + 1}:1`, message: "Indentación YAML inválida" });
     const content = line.trim();
-    if (!content.startsWith("-") && !content.includes(":")) return err({ location: `${lineIndex + 1}:1`, message: "Entrada YAML inválida" });
+    if (!content.startsWith("-") && !content.includes(":"))
+      return err({ location: `${lineIndex + 1}:1`, message: "Entrada YAML inválida" });
     if (content.endsWith(":") || content.startsWith("- ") || content.includes(": ")) previousIndent = indent;
   }
   return ok(undefined);

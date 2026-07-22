@@ -2,7 +2,15 @@ import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { DefaultStackDetectorRegistry, aggregateDetections, asCanonicalPath, asSafeProjectPath, createStackViewModel, parseRecognizedEvidence, shouldOfferManualFallback } from "../src/domain/index.js";
+import {
+  DefaultStackDetectorRegistry,
+  aggregateDetections,
+  asCanonicalPath,
+  asSafeProjectPath,
+  createStackViewModel,
+  parseRecognizedEvidence,
+  shouldOfferManualFallback,
+} from "../src/domain/index.js";
 import type { CanonicalPath, DetectionClaim } from "../src/domain/index.js";
 import { BoundedAsyncScanner, defaultScanPolicy } from "../src/infrastructure/fs/scanner.js";
 
@@ -21,12 +29,18 @@ describe("bounded project scanning", () => {
     await writeFile(join(root, "package.json"), '{"dependencies":{"react":"1"}}');
     await writeFile(join(root, "node_modules", "hidden.js"), "hidden");
     await writeFile(join(root, "src", "main.ts"), "export {};");
-    try { await symlink(join(root, "src"), join(root, "linked"), "junction"); } catch { /* symlinks can be unavailable on Windows */ }
+    try {
+      await symlink(join(root, "src"), join(root, "linked"), "junction");
+    } catch {
+      /* symlinks can be unavailable on Windows */
+    }
     let linkedFileCreated = false;
     try {
       await symlink(join(root, "src", "main.ts"), join(root, "linked-main.ts"), "file");
       linkedFileCreated = true;
-    } catch { /* symlinks can be unavailable on Windows */ }
+    } catch {
+      /* symlinks can be unavailable on Windows */
+    }
     const canonical = asCanonicalPath(root);
     expect(canonical.ok).toBe(true);
     if (!canonical.ok) return;
@@ -47,7 +61,10 @@ describe("bounded project scanning", () => {
     const canonical = asCanonicalPath(root);
     expect(canonical.ok).toBe(true);
     if (!canonical.ok) return;
-    const result = await new BoundedAsyncScanner().scan(canonical.value, defaultScanPolicy({ maxFiles: 1, maxBytes: 100, maxFileBytes: 100 }));
+    const result = await new BoundedAsyncScanner().scan(
+      canonical.value,
+      defaultScanPolicy({ maxFiles: 1, maxBytes: 100, maxFileBytes: 100 }),
+    );
     expect(result.descriptors).toHaveLength(1);
     expect(result.summary.withinLimits).toBe(false);
     expect(result.summary.elapsedMs).toBeGreaterThanOrEqual(0);
@@ -70,7 +87,10 @@ describe("evidence parsing and detector registry", () => {
     const path = asSafeProjectPath("package.json");
     expect(path.ok).toBe(true);
     if (!path.ok) return;
-    const parsed = parseRecognizedEvidence(path.value, new TextEncoder().encode(JSON.stringify({ dependencies: { react: "18", vitest: "1" } })));
+    const parsed = parseRecognizedEvidence(
+      path.value,
+      new TextEncoder().encode(JSON.stringify({ dependencies: { react: "18", vitest: "1" } })),
+    );
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
     const registry = new DefaultStackDetectorRegistry();
@@ -81,17 +101,19 @@ describe("evidence parsing and detector registry", () => {
   });
 });
 
-
 describe("project analysis fixtures and reports", () => {
   it("analyzes a valid fixture and exposes every detected evidence reference", async () => {
     const root = await mkdtemp(join(tmpdir(), "auto-ai-setup-valid-fixture-"));
     roots.push(root);
     await mkdir(join(root, "src"));
-    await writeFile(join(root, "package.json"), JSON.stringify({
-      name: "valid-fixture",
-      dependencies: { react: "18.3.0", "@playwright/test": "1.0.0" },
-      devDependencies: { vitest: "2.0.0" },
-    }));
+    await writeFile(
+      join(root, "package.json"),
+      JSON.stringify({
+        name: "valid-fixture",
+        dependencies: { react: "18.3.0", "@playwright/test": "1.0.0" },
+        devDependencies: { vitest: "2.0.0" },
+      }),
+    );
     await writeFile(join(root, "src", "index.ts"), "export const fixture = true;\n");
 
     const canonical = asCanonicalPath(root);
@@ -106,7 +128,12 @@ describe("project analysis fixtures and reports", () => {
     const view = createStackViewModel(analysis);
 
     expect(analysis.items.map((item) => item.id)).toEqual([
-      "javascript", "typescript", "npm", "framework.react", "tool.playwright", "tool.vitest",
+      "javascript",
+      "typescript",
+      "npm",
+      "framework.react",
+      "tool.playwright",
+      "tool.vitest",
     ]);
     expect(view.items.every((item) => item.evidence.length > 0 && item.evidenceRefs.length === item.evidence.length)).toBe(true);
     expect(view.items.find((item) => item.id === "framework.react")?.evidence).toEqual([
@@ -124,7 +151,10 @@ describe("project analysis fixtures and reports", () => {
     if (!invalidCanonical.ok) return;
     const invalid = await analyzeFixture(invalidCanonical.value);
     const invalidEvidence = invalid.parsed[0];
-    expect(invalidEvidence).toMatchObject({ ok: false, error: { code: "INVALID_SYNTAX", path: "package.json", location: expect.stringMatching(/^\d+:\d+$/u) } });
+    expect(invalidEvidence).toMatchObject({
+      ok: false,
+      error: { code: "INVALID_SYNTAX", path: "package.json", location: expect.stringMatching(/^\d+:\d+$/u) },
+    });
     expect(invalid.claims).toEqual([]);
 
     const missingRoot = await mkdtemp(join(tmpdir(), "auto-ai-setup-missing-fixture-"));
@@ -171,12 +201,18 @@ describe("project analysis fixtures and reports", () => {
     expect(canonical.ok).toBe(true);
     if (!canonical.ok) return;
 
-    const byteLimited = await new BoundedAsyncScanner().scan(canonical.value, defaultScanPolicy({ maxFiles: 10, maxBytes: 2, maxFileBytes: 100 }));
+    const byteLimited = await new BoundedAsyncScanner().scan(
+      canonical.value,
+      defaultScanPolicy({ maxFiles: 10, maxBytes: 2, maxFileBytes: 100 }),
+    );
     expect(byteLimited.descriptors.map((descriptor) => descriptor.path)).toEqual(["a.ts"]);
     expect(byteLimited.summary).toMatchObject({ files: 1, bytes: 1, skippedFiles: 1, skippedBytes: 2, withinLimits: false });
     expect(byteLimited.summary.elapsedMs).toBeGreaterThanOrEqual(0);
 
-    const fileLimited = await new BoundedAsyncScanner().scan(canonical.value, defaultScanPolicy({ maxFiles: 10, maxBytes: 100, maxFileBytes: 3 }));
+    const fileLimited = await new BoundedAsyncScanner().scan(
+      canonical.value,
+      defaultScanPolicy({ maxFiles: 10, maxBytes: 100, maxFileBytes: 3 }),
+    );
     expect(fileLimited.descriptors.map((descriptor) => descriptor.path)).toEqual(["a.ts", "b.ts"]);
     expect(fileLimited.summary).toMatchObject({ files: 2, bytes: 3, skippedFiles: 1, skippedBytes: 5, withinLimits: false });
   });

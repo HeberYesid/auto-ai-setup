@@ -197,14 +197,14 @@ Implementation language: **TypeScript**, strict mode, Node.js 20+ runtime, Vites
   - [ ]* 8.6 Add packaging smoke tests that run `npm pack`, install the tarball in a sandbox, and execute the bin through `npx --no-install`, checking ESM, shebang, TTY behavior, and exit-code mapping.
     - **Requirements: 1.1, 13.17–13.19**
 
-- [ ] 9. Add performance, quality gates, traceability checks, and executable release validation
-  - [ ] 9.1 Implement the versioned benchmark harness and fixture generator/loader for up to 10,000 files and 500 MB outside exclusions.
+- [x] 9. Add performance, quality gates, traceability checks, and executable release validation
+  - [x] 9.1 Implement the versioned benchmark harness and fixture generator/loader for up to 10,000 files and 500 MB outside exclusions.
     - Record CPU/memory/storage profile, Node/OS, commit, cold/warm cache, command, 10 runs, p50/p90/max, monotonic scan-to-stack time, and RSS; keep the controlled performance gate out of unstable PR runs.
     - _Requirements: 12.1–12.3, 12.8–12.11_
-  - [ ] 9.2 Add package scripts and continuous-integration configuration for format, lint/static analysis, strict typecheck, unit/integration/property tests, coverage thresholds (lines/functions/branches ≥80%), build, pack, and smoke validation.
+  - [x] 9.2 Add package scripts and continuous-integration configuration for format, lint/static analysis, strict typecheck, unit/integration/property tests, coverage thresholds (lines/functions/branches ≥80%), build, pack, and smoke validation.
     - Fail the job on any nonzero command or unmet threshold; configure deterministic seeds and preserve fast-check counterexample paths.
     - _Requirements: 13.1–13.4, 13.7–13.19_
-  - [ ] 9.3 Implement an SDD traceability validator that checks requirement IDs referenced by tasks, properties, and tests exist and that every requirement has a designated property, unit, integration, smoke, or executable-validation check.
+  - [x] 9.3 Implement an SDD traceability validator that checks requirement IDs referenced by tasks, properties, and tests exist and that every requirement has a designated property, unit, integration, smoke, or executable-validation check.
     - Emit actionable failures while keeping the validator itself local and deterministic.
     - _Requirements: 13.20, 14.3, 14.6_
   - [ ]* 9.4 Add final end-to-end executable validation for the public-flow fixture: path selection, stack view, mode selection, plan preview, approval, summary, no network except an approved Skill operation, and no future-scope dependency.
@@ -212,9 +212,9 @@ Implementation language: **TypeScript**, strict mode, Node.js 20+ runtime, Vites
 
 ## Checkpoints
 
-- [ ] 10. Checkpoint - Ensure the foundation, project scan, recommendation, catalog, component, planning, and transaction tests pass before final CLI wiring.
+- [~] 10. Checkpoint - Ensure the foundation, project scan, recommendation, catalog, component, planning, and transaction tests pass before final CLI wiring.
   - Ensure all tests pass, type checking is clean, and ask the user if questions arise.
-- [ ] 11. Final checkpoint - Ensure all tests, coverage thresholds, build, package smoke test, traceability validation, and executable-flow validation pass.
+- [~] 11. Final checkpoint - Ensure all tests, coverage thresholds, build, package smoke test, traceability validation, and executable-flow validation pass.
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

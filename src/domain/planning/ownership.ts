@@ -39,7 +39,13 @@ export const managedStateOwns = (
   contentDigest: Sha256,
 ): boolean => {
   const owned = state?.components[managedComponentKey(component)];
-  if (owned === undefined || owned.type !== component.type || owned.origin !== component.source.origin || owned.contentDigest !== contentDigest) return false;
+  if (
+    owned === undefined ||
+    owned.type !== component.type ||
+    owned.origin !== component.source.origin ||
+    owned.contentDigest !== contentDigest
+  )
+    return false;
   if (component.source.kind === "catalog" && owned.sourceRevision !== component.source.revision) return false;
   return owned.destinations.length === destinations.length && owned.destinations.every((destination) => destinations.includes(destination));
 };

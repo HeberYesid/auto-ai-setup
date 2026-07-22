@@ -9,20 +9,20 @@ import { deterministicFastCheckParameters } from "./support/fast-check.js";
 
 type FailurePoint = "none" | "stat" | "realpath" | "enumerate" | "readEvidence" | "writeProbe" | "readProbe";
 
-const failureArbitrary = fc.constantFrom<FailurePoint>(
-  "none", "stat", "realpath", "enumerate", "readEvidence", "writeProbe", "readProbe",
-);
-const projectFileArbitrary = fc.uniqueArray(
-  fc.constantFrom("package.json", "src/index.ts", "README.md", ".kiro/settings/mcp.json"),
-  { maxLength: 4 },
-);
+const failureArbitrary = fc.constantFrom<FailurePoint>("none", "stat", "realpath", "enumerate", "readEvidence", "writeProbe", "readProbe");
+const projectFileArbitrary = fc.uniqueArray(fc.constantFrom("package.json", "src/index.ts", "README.md", ".kiro/settings/mcp.json"), {
+  maxLength: 4,
+});
 const probeSuffix = ".auto-ai-setup.validation-property.tmp";
 const canonicalVirtualRoot = "/virtual/canonical";
 
 class VirtualValidationPort implements ProjectValidationPort {
   readonly files = new Map<string, Uint8Array>();
   readonly removed: string[] = [];
-  constructor(readonly failure: FailurePoint, fileNames: readonly string[]) {
+  constructor(
+    readonly failure: FailurePoint,
+    fileNames: readonly string[],
+  ) {
     for (const name of fileNames) this.files.set(`${canonicalVirtualRoot}/${name}`, new TextEncoder().encode(`content:${name}`));
   }
   async stat(): Promise<ProjectEntryKind> {
@@ -89,7 +89,9 @@ class InjectingRealValidationPort implements ProjectValidationPort {
     if (this.failure === "writeProbe") throw new Error("injected probe write failure");
     return this.delegate.writeFile(path, content);
   }
-  async removeFile(path: string): Promise<void> { return this.delegate.removeFile(path); }
+  async removeFile(path: string): Promise<void> {
+    return this.delegate.removeFile(path);
+  }
   private throwIf(point: FailurePoint): void {
     if (this.failure === point) throw new Error(`injected ${point} failure`);
   }
@@ -100,8 +102,12 @@ class CountingValidationPort implements ProjectValidationPort {
 
   constructor(private readonly projectFileCount: number) {}
 
-  async stat(): Promise<ProjectEntryKind> { return "directory"; }
-  async realpath(): Promise<string> { return canonicalVirtualRoot; }
+  async stat(): Promise<ProjectEntryKind> {
+    return "directory";
+  }
+  async realpath(): Promise<string> {
+    return canonicalVirtualRoot;
+  }
   async enumerate(): Promise<readonly ProjectEntry[]> {
     return Array.from({ length: this.projectFileCount }, (_, index) => ({
       absolutePath: `${canonicalVirtualRoot}/project-${index}.md`,

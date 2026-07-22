@@ -54,23 +54,27 @@ class FixedScanClock implements ScanClock {
 const contentFor = (path: string): string => {
   if (path === "package.json") return JSON.stringify({ name: "fixture", dependencies: { react: "18", vitest: "1" } });
   if (path.endsWith(".ts") || path.endsWith(".js")) return "export {};\n";
-  if (path.endsWith(".toml")) return "name = \"fixture\"\n";
+  if (path.endsWith(".toml")) return 'name = "fixture"\n';
   if (path.endsWith(".yml")) return "name: fixture\n";
   return "fixture\n";
 };
 
 const writeFixture = async (root: string, includedPaths: readonly string[]): Promise<readonly string[]> => {
   const paths = ["package.json", ...includedPaths.filter((path) => path !== "package.json")];
-  await Promise.all(paths.map(async (path) => {
-    const absolute = join(root, path);
-    await mkdir(dirname(absolute), { recursive: true });
-    await writeFile(absolute, contentFor(path));
-  }));
-  await Promise.all(DEFAULT_EXCLUDED_DIRECTORIES.map(async (directory) => {
-    const absolute = join(root, directory, "package.json");
-    await mkdir(dirname(absolute), { recursive: true });
-    await writeFile(absolute, contentFor("package.json"));
-  }));
+  await Promise.all(
+    paths.map(async (path) => {
+      const absolute = join(root, path);
+      await mkdir(dirname(absolute), { recursive: true });
+      await writeFile(absolute, contentFor(path));
+    }),
+  );
+  await Promise.all(
+    DEFAULT_EXCLUDED_DIRECTORIES.map(async (directory) => {
+      const absolute = join(root, directory, "package.json");
+      await mkdir(dirname(absolute), { recursive: true });
+      await writeFile(absolute, contentFor("package.json"));
+    }),
+  );
   return paths;
 };
 
@@ -93,13 +97,18 @@ describe("Property 24: recorrido excluido y clasificación del perfil", () => {
           if (!canonical.ok) return;
 
           const scanner = new BoundedAsyncScanner(new FixedScanClock());
-          const expectedBytes = (await Promise.all(expectedPaths.map(async (path) => (await readFile(join(root, path))).byteLength)))
-            .reduce((total, bytes) => total + bytes, 0);
-          const result = await scanner.scan(canonical.value, defaultScanPolicy({
-            maxFiles: expectedPaths.length + 1,
-            maxBytes: expectedBytes + 1,
-            maxFileBytes: Math.max(...(await Promise.all(expectedPaths.map(async (path) => (await readFile(join(root, path))).byteLength)))) + 1,
-          }));
+          const expectedBytes = (
+            await Promise.all(expectedPaths.map(async (path) => (await readFile(join(root, path))).byteLength))
+          ).reduce((total, bytes) => total + bytes, 0);
+          const result = await scanner.scan(
+            canonical.value,
+            defaultScanPolicy({
+              maxFiles: expectedPaths.length + 1,
+              maxBytes: expectedBytes + 1,
+              maxFileBytes:
+                Math.max(...(await Promise.all(expectedPaths.map(async (path) => (await readFile(join(root, path))).byteLength)))) + 1,
+            }),
+          );
           const emittedPaths = result.descriptors.map((descriptor) => String(descriptor.path));
 
           expect(new Set(emittedPaths)).toEqual(new Set(expectedPaths));

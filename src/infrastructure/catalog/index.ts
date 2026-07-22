@@ -1,7 +1,4 @@
-export {
-  MidudevAutoSkillsGateway,
-  createMidudevAutoSkillsGateway,
-} from "./autoskills-gateway.js";
+export { MidudevAutoSkillsGateway, createMidudevAutoSkillsGateway } from "./autoskills-gateway.js";
 export type { AutoSkillsGatewayOptions } from "./autoskills-gateway.js";
 export {
   FileSystemSkillOwnershipStore,

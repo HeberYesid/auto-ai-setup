@@ -35,7 +35,14 @@ describe("stack aggregation and views", () => {
     const analysis = aggregateDetections([
       claim({ confidence: "derived", evidence: evidence({ detectorId: "language.extension", recognizedValue: "package.json" }) }),
       claim(),
-      claim({ evidence: evidence({ path: "src/main.ts" as never, format: "source-extension", recognizedValue: "src/main.ts", detectorId: "language.typescript" }) }),
+      claim({
+        evidence: evidence({
+          path: "src/main.ts" as never,
+          format: "source-extension",
+          recognizedValue: "src/main.ts",
+          detectorId: "language.typescript",
+        }),
+      }),
     ]);
     expect(analysis.items).toHaveLength(1);
     expect(analysis.items[0]?.confidence).toBe("explicit");
@@ -53,7 +60,10 @@ describe("stack aggregation and views", () => {
     const path = asSafeProjectPath("package.json");
     expect(path.ok).toBe(true);
     if (!path.ok) return;
-    const parsed = parseRecognizedEvidence(path.value, new TextEncoder().encode(JSON.stringify({ dependencies: { react: "18", vitest: "1" } })));
+    const parsed = parseRecognizedEvidence(
+      path.value,
+      new TextEncoder().encode(JSON.stringify({ dependencies: { react: "18", vitest: "1" } })),
+    );
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
     const registry = new DefaultStackDetectorRegistry();
@@ -65,12 +75,45 @@ describe("stack aggregation and views", () => {
   });
 
   it("detecta valores incompatibles por categoría y no confunde categorías coexistentes con conflictos", () => {
-    const analysis = aggregateDetections([
-      claim({ category: "package-manager", id: "npm", displayName: "npm", evidence: evidence({ recognizedValue: "package-lock.json" }) }),
-      claim({ category: "package-manager", id: "pnpm", displayName: "pnpm", evidence: evidence({ path: "pnpm-lock.yaml" as never, format: "yaml", recognizedValue: "pnpm-lock.yaml", detectorId: "package-manager.pnpm" }) }),
-      claim({ category: "language", id: "typescript", displayName: "TypeScript", evidence: evidence({ path: "src/main.ts" as never, format: "source-extension", recognizedValue: "src/main.ts", detectorId: "language.typescript" }) }),
-      claim({ category: "language", id: "javascript", displayName: "JavaScript", evidence: evidence({ path: "src/index.js" as never, format: "source-extension", recognizedValue: "src/index.js", detectorId: "language.javascript" }) }),
-    ], { blocksCapabilities: { "package-manager": ["skill.node" as never] } });
+    const analysis = aggregateDetections(
+      [
+        claim({ category: "package-manager", id: "npm", displayName: "npm", evidence: evidence({ recognizedValue: "package-lock.json" }) }),
+        claim({
+          category: "package-manager",
+          id: "pnpm",
+          displayName: "pnpm",
+          evidence: evidence({
+            path: "pnpm-lock.yaml" as never,
+            format: "yaml",
+            recognizedValue: "pnpm-lock.yaml",
+            detectorId: "package-manager.pnpm",
+          }),
+        }),
+        claim({
+          category: "language",
+          id: "typescript",
+          displayName: "TypeScript",
+          evidence: evidence({
+            path: "src/main.ts" as never,
+            format: "source-extension",
+            recognizedValue: "src/main.ts",
+            detectorId: "language.typescript",
+          }),
+        }),
+        claim({
+          category: "language",
+          id: "javascript",
+          displayName: "JavaScript",
+          evidence: evidence({
+            path: "src/index.js" as never,
+            format: "source-extension",
+            recognizedValue: "src/index.js",
+            detectorId: "language.javascript",
+          }),
+        }),
+      ],
+      { blocksCapabilities: { "package-manager": ["skill.node" as never] } },
+    );
     expect(analysis.conflicts).toHaveLength(1);
     expect(analysis.conflicts[0]?.category).toBe("package-manager");
     expect(analysis.conflicts[0]?.candidates.map((candidate) => candidate.id)).toEqual(["npm", "pnpm"]);
@@ -79,13 +122,23 @@ describe("stack aggregation and views", () => {
   });
 });
 
-
 describe("stack conflict resolution and selective suspension", () => {
-  const conflictingAnalysis = () => aggregateDetections([
-    claim({ category: "package-manager", id: "npm", displayName: "npm", evidence: evidence({ recognizedValue: "package-lock.json" }) }),
-    claim({ category: "package-manager", id: "pnpm", displayName: "pnpm", evidence: evidence({ path: "pnpm-lock.yaml" as never, format: "yaml", recognizedValue: "pnpm-lock.yaml", detectorId: "package-manager.pnpm" }) }),
-    claim({ category: "framework", id: "react", displayName: "React" }),
-  ]);
+  const conflictingAnalysis = () =>
+    aggregateDetections([
+      claim({ category: "package-manager", id: "npm", displayName: "npm", evidence: evidence({ recognizedValue: "package-lock.json" }) }),
+      claim({
+        category: "package-manager",
+        id: "pnpm",
+        displayName: "pnpm",
+        evidence: evidence({
+          path: "pnpm-lock.yaml" as never,
+          format: "yaml",
+          recognizedValue: "pnpm-lock.yaml",
+          detectorId: "package-manager.pnpm",
+        }),
+      }),
+      claim({ category: "framework", id: "react", displayName: "React" }),
+    ]);
 
   it("requires an explicit value and returns a deterministic confirmed stack", () => {
     const analysis = conflictingAnalysis();
@@ -117,10 +170,14 @@ describe("stack conflict resolution and selective suspension", () => {
       { cli: "gh", reason: "GitHub", evidenceRefs: [".github/workflows/ci.yml"] },
       { cli: "supabase", reason: "Supabase", evidenceRefs: ["package.json"] },
     ];
-    const suspended = suspendDependentRecommendations(recommendations, {
-      gh: ["tool"],
-      supabase: ["package-manager"],
-    }, analysis.conflicts);
+    const suspended = suspendDependentRecommendations(
+      recommendations,
+      {
+        gh: ["tool"],
+        supabase: ["package-manager"],
+      },
+      analysis.conflicts,
+    );
     expect(suspended.map((recommendation) => recommendation.pending)).toEqual([undefined, true]);
   });
 

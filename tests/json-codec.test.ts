@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  JsonStructuredConfigCodec,
-  createJsonStructuredConfigCodec,
-  diffFields,
-} from "../src/domain/index.js";
+import { JsonStructuredConfigCodec, createJsonStructuredConfigCodec, diffFields } from "../src/domain/index.js";
 import type { DocumentStyle, JsonObject, SourceDocument } from "../src/domain/index.js";
 
 const source = (text: string): SourceDocument => ({

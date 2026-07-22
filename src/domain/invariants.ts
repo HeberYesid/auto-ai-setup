@@ -4,7 +4,12 @@ import { err, ok, unique } from "./shared/types.js";
 
 export const validateApprovedPlan = (plan: ChangePlan, decisions: ApprovalDecisions): Result<ApprovedPlan, ApprovalError> => {
   if (decisions.planHash !== plan.planHash) {
-    return err({ code: "PLAN_HASH_MISMATCH", message: "Approval belongs to a different plan", recoverability: "none", suggestedAction: "Rebuild and review the current plan" });
+    return err({
+      code: "PLAN_HASH_MISMATCH",
+      message: "Approval belongs to a different plan",
+      recoverability: "none",
+      suggestedAction: "Rebuild and review the current plan",
+    });
   }
 
   const externalIds = new Set(plan.externalOperations.map((operation) => operation.id));
@@ -13,21 +18,41 @@ export const validateApprovedPlan = (plan: ChangePlan, decisions: ApprovalDecisi
   const approvedNetworks = decisions.networkOperations;
 
   if (![...approvedConflicts].every((id) => conflictIds.has(id))) {
-    return err({ code: "APPROVAL_SUBSET_INVALID", message: "Conflict approvals must reference plan conflicts only", recoverability: "none" });
+    return err({
+      code: "APPROVAL_SUBSET_INVALID",
+      message: "Conflict approvals must reference plan conflicts only",
+      recoverability: "none",
+    });
   }
   if (!approvedNetworks.every((id) => externalIds.has(id))) {
-    return err({ code: "UNAPPROVED_NETWORK_OPERATION", message: "Network approvals must reference planned operations only", recoverability: "none" });
+    return err({
+      code: "UNAPPROVED_NETWORK_OPERATION",
+      message: "Network approvals must reference planned operations only",
+      recoverability: "none",
+    });
   }
   if (!unique(decisions.incompatibleComponents, (id) => id)) {
     return err({ code: "APPROVAL_SUBSET_INVALID", message: "Incompatible component approvals must be unique", recoverability: "none" });
   }
   if (plan.externalOperations.some((operation) => operation.usesNetwork && !approvedNetworks.includes(operation.id))) {
-    return err({ code: "UNAPPROVED_NETWORK_OPERATION", message: "Every network operation must be explicitly approved", recoverability: "none" });
+    return err({
+      code: "UNAPPROVED_NETWORK_OPERATION",
+      message: "Every network operation must be explicitly approved",
+      recoverability: "none",
+    });
   }
   if (plan.fileChanges.some((change) => change.conflict !== "none" && !approvedConflicts.has(change.id))) {
-    return err({ code: "MISSING_APPROVAL", message: "Every conflicting file requires a preserve or replace decision", recoverability: "none" });
+    return err({
+      code: "MISSING_APPROVAL",
+      message: "Every conflicting file requires a preserve or replace decision",
+      recoverability: "none",
+    });
   }
-  if (plan.fileChanges.some((change) => change.conflict !== "none" && decisions.conflicts[change.id] === "replace" && !decisions.globalApproved)) {
+  if (
+    plan.fileChanges.some(
+      (change) => change.conflict !== "none" && decisions.conflicts[change.id] === "replace" && !decisions.globalApproved,
+    )
+  ) {
     return err({ code: "MISSING_APPROVAL", message: "Replacing a conflict requires global approval as well", recoverability: "none" });
   }
 

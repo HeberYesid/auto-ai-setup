@@ -15,12 +15,15 @@ export interface EventFactoryOptions {
 
 export class LocalEventFactory implements EventFactory {
   private readonly redactor: SecretRedactor;
-  public constructor(private readonly options: EventFactoryOptions) { this.redactor = options.redactor ?? new SecretRedactor(); }
+  public constructor(private readonly options: EventFactoryOptions) {
+    this.redactor = options.redactor ?? new SecretRedactor();
+  }
 
   public create(input: Omit<LocalEvent, "timestamp">): RedactedEvent {
-    const context = this.options.verbose === true && input.context !== undefined
-      ? this.redactor.redact(input.context) as Readonly<Record<string, unknown>>
-      : undefined;
+    const context =
+      this.options.verbose === true && input.context !== undefined
+        ? (this.redactor.redact(input.context) as Readonly<Record<string, unknown>>)
+        : undefined;
     return {
       runId: input.runId,
       timestamp: this.options.clock.now(),
@@ -57,7 +60,8 @@ export class LocalEventSink implements EventSink {
     this.redactor = options.redactor ?? new SecretRedactor();
     this.terminal = options.terminal ?? ((line) => console.log(line));
     this.target = options.filePath === undefined || options.root === undefined ? undefined : localPath(options.root, options.filePath);
-    if (options.filePath !== undefined && options.root !== undefined && this.target === undefined) throw new Error("Event sink file must be project-local");
+    if (options.filePath !== undefined && options.root !== undefined && this.target === undefined)
+      throw new Error("Event sink file must be project-local");
   }
 
   public emit(event: LocalEvent): void {
@@ -72,7 +76,19 @@ export class LocalEventSink implements EventSink {
       }
     } catch {
       // Do not expose filesystem causes or event content through a secondary sink.
-      try { this.terminal(JSON.stringify({ runId: event.runId, timestamp: event.timestamp, level: "error", category: "security", message: "Unable to write local event" })); } catch { /* terminal is best effort */ }
+      try {
+        this.terminal(
+          JSON.stringify({
+            runId: event.runId,
+            timestamp: event.timestamp,
+            level: "error",
+            category: "security",
+            message: "Unable to write local event",
+          }),
+        );
+      } catch {
+        /* terminal is best effort */
+      }
     }
   }
 }
@@ -89,7 +105,11 @@ export const mapSummaryToEvents = (summary: ExecutionSummary, clock: Clock, reda
     ...(context === undefined ? {} : { context: redactor.redact(context) as Readonly<Record<string, unknown>> }),
     redacted: true,
   });
-  const events: RedactedEvent[] = [make(summary.status === "success" || summary.status === "cancelled" ? "info" : "error", `Run ${summary.status}`, { exitCode: summary.exitCode })];
+  const events: RedactedEvent[] = [
+    make(summary.status === "success" || summary.status === "cancelled" ? "info" : "error", `Run ${summary.status}`, {
+      exitCode: summary.exitCode,
+    }),
+  ];
   for (const value of summary.applied) events.push(make("info", "Change applied", { id: value }));
   for (const value of summary.skipped) events.push(make("info", "Change skipped", { id: value }));
   for (const value of summary.warnings) events.push(make("warn", "Warning", { cause: value }));

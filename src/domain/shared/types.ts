@@ -9,9 +9,7 @@ export type ByteCount = Brand<number, "ByteCount">;
 export type RunId = Brand<string, "RunId">;
 export type OperationId = Brand<string, "OperationId">;
 
-export type Result<T, E = AppError> =
-  | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly error: E };
+export type Result<T, E = AppError> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: E };
 
 export const ok = <T>(value: T): Result<T, never> => ({ ok: true, value });
 export const err = <E>(error: E): Result<never, E> => ({ ok: false, error });
@@ -28,15 +26,16 @@ export interface AppErrorBase<Code extends string> {
   readonly suggestedAction?: string;
 }
 
-export interface DirectoryError extends AppErrorBase<
-  | "DIRECTORY_NOT_FOUND"
-  | "NOT_DIRECTORY"
-  | "REALPATH_FAILED"
-  | "ENUMERATE_FAILED"
-  | "READ_PROBE_FAILED"
-  | "WRITE_PROBE_FAILED"
-  | "DELETE_PROBE_FAILED"
-> {
+export interface DirectoryError
+  extends AppErrorBase<
+    | "DIRECTORY_NOT_FOUND"
+    | "NOT_DIRECTORY"
+    | "REALPATH_FAILED"
+    | "ENUMERATE_FAILED"
+    | "READ_PROBE_FAILED"
+    | "WRITE_PROBE_FAILED"
+    | "DELETE_PROBE_FAILED"
+  > {
   readonly check: "exists" | "directory" | "realpath" | "enumerate" | "read" | "write" | "delete";
   readonly exitCode: 2;
   readonly code:
@@ -55,7 +54,8 @@ export interface EvidenceError extends AppErrorBase<"INVALID_SYNTAX" | "UNREADAB
   readonly location: string;
 }
 
-export interface ConfigError extends AppErrorBase<"CONFIG_SYNTAX" | "CONFIG_SCHEMA" | "DANGEROUS_KEY" | "DUPLICATE_KEY" | "UNREPRESENTABLE_VALUE"> {
+export interface ConfigError
+  extends AppErrorBase<"CONFIG_SYNTAX" | "CONFIG_SCHEMA" | "DANGEROUS_KEY" | "DUPLICATE_KEY" | "UNREPRESENTABLE_VALUE"> {
   readonly code: "CONFIG_SYNTAX" | "CONFIG_SCHEMA" | "DANGEROUS_KEY" | "DUPLICATE_KEY" | "UNREPRESENTABLE_VALUE";
   /** JSON Pointer to the invalid value or object member. */
   readonly path: string;
@@ -96,7 +96,8 @@ export interface PlanningError extends AppErrorBase<"UNSAFE_DESTINATION" | "INVA
   readonly exitCode?: 2;
 }
 
-export interface ApprovalError extends AppErrorBase<"PLAN_HASH_MISMATCH" | "MISSING_APPROVAL" | "UNAPPROVED_NETWORK_OPERATION" | "APPROVAL_SUBSET_INVALID"> {
+export interface ApprovalError
+  extends AppErrorBase<"PLAN_HASH_MISMATCH" | "MISSING_APPROVAL" | "UNAPPROVED_NETWORK_OPERATION" | "APPROVAL_SUBSET_INVALID"> {
   readonly code: "PLAN_HASH_MISMATCH" | "MISSING_APPROVAL" | "UNAPPROVED_NETWORK_OPERATION" | "APPROVAL_SUBSET_INVALID";
 }
 
@@ -154,14 +155,24 @@ const absolutePathPattern = /^(?:[A-Za-z]:[\\/]|[\\/]{1,2})/;
 
 export const asCanonicalPath = (value: string): Result<CanonicalPath, PlanningError> => {
   if (value.length === 0 || !absolutePathPattern.test(value) || value.includes("\0")) {
-    return err({ code: "INVALID_PLAN", message: "Canonical path must be an absolute, non-empty path", recoverability: "none", path: value });
+    return err({
+      code: "INVALID_PLAN",
+      message: "Canonical path must be an absolute, non-empty path",
+      recoverability: "none",
+      path: value,
+    });
   }
   return ok(value as CanonicalPath);
 };
 
 export const asProjectRelativePath = (value: string): Result<ProjectRelativePath, PlanningError> => {
   if (!isSafeRelativePath(value)) {
-    return err({ code: "UNSAFE_DESTINATION", message: "Destination must be a safe project-relative path", recoverability: "none", path: value });
+    return err({
+      code: "UNSAFE_DESTINATION",
+      message: "Destination must be a safe project-relative path",
+      recoverability: "none",
+      path: value,
+    });
   }
   return ok(value as ProjectRelativePath);
 };
@@ -173,7 +184,12 @@ export const asSafeProjectPath = (value: string): Result<SafeProjectPath, Planni
 
 export const asComponentId = (value: string): Result<ComponentId, PlanningError> => {
   if (!/^[a-z0-9][a-z0-9._-]*$/i.test(value)) {
-    return err({ code: "INVALID_PLAN", message: "Component id is empty or contains unsafe characters", recoverability: "none", path: value });
+    return err({
+      code: "INVALID_PLAN",
+      message: "Component id is empty or contains unsafe characters",
+      recoverability: "none",
+      path: value,
+    });
   }
   return ok(value as ComponentId);
 };

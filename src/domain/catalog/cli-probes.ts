@@ -61,7 +61,15 @@ const outputBytes = (value: string): number => Buffer.byteLength(value, "utf8");
 
 export const registerCliProbe = (request: CliProbeRequest): Result<RegisteredCliProbeRequest, CliProbeError> => {
   if (!isInitialCli(request.cli)) {
-    return { ok: false, error: { code: "PROCESS_NOT_ALLOWED", message: `Process is not allowlisted: ${request.cli}`, cli: request.cli, recoverability: "none" } };
+    return {
+      ok: false,
+      error: {
+        code: "PROCESS_NOT_ALLOWED",
+        message: `Process is not allowlisted: ${request.cli}`,
+        cli: request.cli,
+        recoverability: "none",
+      },
+    };
   }
   return {
     ok: true,
@@ -86,7 +94,15 @@ export const classifyCliProbe = (
   maxOutputBytes = CLI_PROBE_MAX_OUTPUT_BYTES,
 ): Result<ClassifiedCliProbe, CliProbeError> => {
   if (!isInitialCli(request.cli)) {
-    return { ok: false, error: { code: "PROCESS_NOT_ALLOWED", message: `Process is not allowlisted: ${String(request.cli)}`, cli: String(request.cli), recoverability: "none" } };
+    return {
+      ok: false,
+      error: {
+        code: "PROCESS_NOT_ALLOWED",
+        message: `Process is not allowlisted: ${String(request.cli)}`,
+        cli: String(request.cli),
+        recoverability: "none",
+      },
+    };
   }
   if (result.timedOut || !Number.isFinite(result.durationMs) || result.durationMs < 0 || result.durationMs >= maxDurationMs) {
     return invalid("TIMEOUT", request.cli, `Probe for ${request.cli} timed out or exceeded its duration limit`);
@@ -96,7 +112,8 @@ export const classifyCliProbe = (
   }
   if (result.exitCode !== 0) return invalid("NONZERO_EXIT", request.cli, `Probe for ${request.cli} exited with code ${result.exitCode}`);
   const versionMatch = `${result.stdout}\n${result.stderr}`.match(semverPattern);
-  if (versionMatch?.[1] === undefined) return invalid("INVALID_VERSION", request.cli, `Probe for ${request.cli} did not return a valid SemVer version`);
+  if (versionMatch?.[1] === undefined)
+    return invalid("INVALID_VERSION", request.cli, `Probe for ${request.cli} did not return a valid SemVer version`);
   const capabilities = [...(result.capabilities ?? [])].sort((left, right) => left.localeCompare(right));
   const missingCapabilities = request.requiredCapabilities?.filter((capability) => !capabilities.includes(capability)) ?? [];
   if (missingCapabilities.length > 0) {
@@ -111,7 +128,10 @@ export const classifyCliProbe = (
       },
     };
   }
-  return { ok: true, value: { cli: request.cli, status: "available", version: versionMatch[1], durationMs: result.durationMs, capabilities } };
+  return {
+    ok: true,
+    value: { cli: request.cli, status: "available", version: versionMatch[1], durationMs: result.durationMs, capabilities },
+  };
 };
 
 export class AllowlistedCliProbeAdapter {
@@ -125,4 +145,5 @@ export class AllowlistedCliProbeAdapter {
   }
 }
 
-export const createAllowlistedCliProbeAdapter = (executor: CliProbeExecutor): AllowlistedCliProbeAdapter => new AllowlistedCliProbeAdapter(executor);
+export const createAllowlistedCliProbeAdapter = (executor: CliProbeExecutor): AllowlistedCliProbeAdapter =>
+  new AllowlistedCliProbeAdapter(executor);

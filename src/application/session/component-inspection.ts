@@ -49,13 +49,13 @@ export interface ProjectionError {
 }
 
 const sha256 = (value: string): Sha256 => createHash("sha256").update(value, "utf8").digest("hex") as Sha256;
-const stableJson = (value: unknown): string => JSON.stringify(value, (_key, child: unknown) => {
-  if (child === null || typeof child !== "object" || Array.isArray(child)) return child;
-  return Object.fromEntries(Object.entries(child as Record<string, unknown>).sort(([left], [right]) => left.localeCompare(right)));
-});
-const originFor = (component: ComponentDefinition): string => component.source.kind === "catalog"
-  ? `${component.source.origin}@${component.source.revision}`
-  : component.source.origin;
+const stableJson = (value: unknown): string =>
+  JSON.stringify(value, (_key, child: unknown) => {
+    if (child === null || typeof child !== "object" || Array.isArray(child)) return child;
+    return Object.fromEntries(Object.entries(child as Record<string, unknown>).sort(([left], [right]) => left.localeCompare(right)));
+  });
+const originFor = (component: ComponentDefinition): string =>
+  component.source.kind === "catalog" ? `${component.source.origin}@${component.source.revision}` : component.source.origin;
 const sensitiveKey = /(secret|token|password|credential|private.?key|authorization|api.?key)/i;
 const sanitize = (value: unknown, key = ""): unknown => {
   if (typeof value === "string" && /^\$\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(value)) return value;
@@ -67,23 +67,32 @@ const sanitize = (value: unknown, key = ""): unknown => {
       .replace(/(https?:\/\/)([^\s/@]+):([^\s/@]+)@/gi, "$1[REDACTED]@");
   }
   if (Array.isArray(value)) return value.map((item) => sanitize(item));
-  if (value !== null && typeof value === "object") return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([childKey, child]) => [childKey, sanitize(child, childKey)]));
+  if (value !== null && typeof value === "object")
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([childKey, child]) => [childKey, sanitize(child, childKey)]),
+    );
   return value;
 };
-const safeOperation = (operation: ProposedOperation, component: ComponentDefinition, decision: CompatibilityDecision, override: boolean): FileChange => ({
+const safeOperation = (
+  operation: ProposedOperation,
+  component: ComponentDefinition,
+  decision: CompatibilityDecision,
+  override: boolean,
+): FileChange => ({
   ...operation,
   origin: operation.origin ?? originFor(component),
   preview: sanitize(operation.preview) as FileChange["preview"],
   ...(override ? { incompatibleOverride: decision } : {}),
 });
-const canonicalComponent = (component: ComponentDefinition): string => stableJson({
-  id: component.id,
-  type: component.type,
-  name: component.name,
-  description: component.description,
-  compatibility: component.compatibility,
-  origin: originFor(component),
-});
+const canonicalComponent = (component: ComponentDefinition): string =>
+  stableJson({
+    id: component.id,
+    type: component.type,
+    name: component.name,
+    description: component.description,
+    compatibility: component.compatibility,
+    origin: originFor(component),
+  });
 const skillTarget = (entry: SkillCatalogEntry): Result<SafeProjectPath, ProjectionError> => {
   const destination = asSafeProjectPath(`.kiro/skills/${entry.id}`);
   return destination.ok ? ok(destination.value) : err({ code: "INVALID_PLAN", message: destination.error.message, recoverability: "none" });
@@ -120,36 +129,79 @@ export class ComponentInspectionProjection {
 
     for (const selection of input.selected) {
       const component = selection.definition;
-      if (seen.has(component.id)) return err({ code: "INVALID_PLAN", message: `Duplicate component identity: ${component.id}`, recoverability: "none", componentId: component.id });
+      if (seen.has(component.id))
+        return err({
+          code: "INVALID_PLAN",
+          message: `Duplicate component identity: ${component.id}`,
+          recoverability: "none",
+          componentId: component.id,
+        });
       seen.add(component.id);
       const decision = selection.compatibility ?? evaluateCompatibility(component.compatibility, compatibilityInput);
       const override = selection.incompatibleOverride === true;
       if (!decision.compatible && !override) {
-        warnings.push({ code: "INCOMPATIBLE_COMPONENT", message: `Component ${component.id} was not projected because it is incompatible with the confirmed stack.`, componentId: component.id });
+        warnings.push({
+          code: "INCOMPATIBLE_COMPONENT",
+          message: `Component ${component.id} was not projected because it is incompatible with the confirmed stack.`,
+          componentId: component.id,
+        });
         continue;
       }
 
       const safeDefinition = sanitize(component) as ComponentDefinition;
       if (component.type === "skill") {
         const entry = input.catalog?.entries.find((candidate) => candidate.id === component.id);
-        if (entry === undefined || entry.origin.repository !== "https://github.com/midudev/autoskills" || (component.source.kind === "catalog" && (component.source.origin !== entry.origin.repository || component.source.revision !== entry.origin.commit))) return err({ code: "CATALOG_SOURCE_MISMATCH", message: `Skill ${component.id} is not present in the presented autoskills catalog.`, recoverability: "none", componentId: component.id });
+        if (
+          entry === undefined ||
+          entry.origin.repository !== "https://github.com/midudev/autoskills" ||
+          (component.source.kind === "catalog" &&
+            (component.source.origin !== entry.origin.repository || component.source.revision !== entry.origin.commit))
+        )
+          return err({
+            code: "CATALOG_SOURCE_MISMATCH",
+            message: `Skill ${component.id} is not present in the presented autoskills catalog.`,
+            recoverability: "none",
+            componentId: component.id,
+          });
         const target = skillTarget(entry);
         if (!target.ok) return target;
         const present = await this.skillIsPresent(entry, target.value);
         const external = present ? [] : [skillOperation(component, entry, target.value)];
-        const projection: ComponentProjection = { component: safeDefinition, compatibility: decision, incompatibleOverride: override, present, destinations: [target.value], fileChanges: [], externalOperations: external };
+        const projection: ComponentProjection = {
+          component: safeDefinition,
+          compatibility: decision,
+          incompatibleOverride: override,
+          present,
+          destinations: [target.value],
+          fileChanges: [],
+          externalOperations: external,
+        };
         components.push(projection);
         externalOperations.push(...external);
         continue;
       }
 
       const adapter = this.options.adapters.find((candidate) => candidate.supports(component));
-      if (adapter === undefined) return err({ code: "UNSUPPORTED_COMPONENT", message: `No adapter supports component ${component.id} (${component.type}).`, recoverability: "none", componentId: component.id });
+      if (adapter === undefined)
+        return err({
+          code: "UNSUPPORTED_COMPONENT",
+          message: `No adapter supports component ${component.id} (${component.type}).`,
+          recoverability: "none",
+          componentId: component.id,
+        });
       const inspection = await adapter.inspect({ root: input.root, stack: input.stack }, component);
       const proposed = await adapter.propose({ root: input.root, stack: input.stack, runId: input.runId }, component);
       const changes = proposed.map((operation) => safeOperation(operation, component, decision, override));
       const destinations = [...new Set([...inspection.destinations, ...changes.map((change) => change.destination)])];
-      const projection: ComponentProjection = { component: safeDefinition, compatibility: decision, incompatibleOverride: override, present: inspection.present, destinations, fileChanges: changes, externalOperations: [] };
+      const projection: ComponentProjection = {
+        component: safeDefinition,
+        compatibility: decision,
+        incompatibleOverride: override,
+        present: inspection.present,
+        destinations,
+        fileChanges: changes,
+        externalOperations: [],
+      };
       components.push(projection);
       fileChanges.push(...changes);
     }
@@ -160,14 +212,17 @@ export class ComponentInspectionProjection {
     for (const file of entry.files) {
       const path = asSafeProjectPath(`${destination}/${file.relativePath}`);
       if (!path.ok || !(await this.options.fileSystem.exists(path.value))) return false;
-      const digest = createHash("sha256").update(await this.options.fileSystem.read(path.value)).digest("hex");
+      const digest = createHash("sha256")
+        .update(await this.options.fileSystem.read(path.value))
+        .digest("hex");
       if (digest.toLowerCase() !== file.sha256.toLowerCase()) return false;
     }
     return true;
   }
 }
 
-export const createComponentInspectionProjection = (options: ComponentInspectionProjectionOptions): ComponentInspectionProjection => new ComponentInspectionProjection(options);
+export const createComponentInspectionProjection = (options: ComponentInspectionProjectionOptions): ComponentInspectionProjection =>
+  new ComponentInspectionProjection(options);
 export const ComponentInspector = ComponentInspectionProjection;
 export const ComponentProjectionService = ComponentInspectionProjection;
 

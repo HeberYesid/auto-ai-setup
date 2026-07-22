@@ -49,7 +49,8 @@ export interface McpWorkspaceAdaptation {
   readonly changed: boolean;
 }
 
-const isRecord = (value: JsonValue | undefined): value is JsonObject => typeof value === "object" && value !== null && !Array.isArray(value);
+const isRecord = (value: JsonValue | undefined): value is JsonObject =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 const isNonEmpty = (value: string): boolean => value.trim().length > 0;
 const configError = (message: string, path = ""): ConfigError => ({
   code: "CONFIG_SCHEMA",
@@ -83,8 +84,8 @@ const mergeObjects = (base: JsonObject, patch: JsonObject): JsonObject => {
 
 const environmentNames = (env: EnvironmentVariableInput | undefined): readonly string[] => {
   if (env === undefined) return [];
-  return (Array.isArray(env) ? env : Object.keys(env)).filter((name, index, names) =>
-    /^[A-Za-z_][A-Za-z0-9_]*$/.test(name) && names.indexOf(name) === index,
+  return (Array.isArray(env) ? env : Object.keys(env)).filter(
+    (name, index, names) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(name) && names.indexOf(name) === index,
   );
 };
 
@@ -98,15 +99,18 @@ const environmentObject = (value: JsonValue | undefined, path: string): Result<J
   }
   if (!isRecord(value)) return err(configError("MCP env must be an object or a list of names", path));
   const names = Object.keys(value);
-  if (names.some((name) => !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name))) return err(configError("MCP env contains an invalid variable name", path));
+  if (names.some((name) => !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)))
+    return err(configError("MCP env contains an invalid variable name", path));
   return ok(Object.fromEntries(names.map((name) => [name, `\${${name}}`])) as JsonObject);
 };
 
 const desiredServer = (definition: McpServerDefinition): Result<JsonObject, ConfigError> => {
   if (!isNonEmpty(definition.id)) return err(configError("MCP server id must not be empty", "/mcpServers"));
-  if (definition.command !== undefined && !isNonEmpty(definition.command)) return err(configError("MCP command must not be empty", "/mcpServers"));
-  if (definition.args !== undefined && !definition.args.every((arg) => typeof arg === "string")) return err(configError("MCP args must contain strings", "/mcpServers"));
-  let result: JsonObject = definition.configuration === undefined ? {} : clone(definition.configuration) as JsonObject;
+  if (definition.command !== undefined && !isNonEmpty(definition.command))
+    return err(configError("MCP command must not be empty", "/mcpServers"));
+  if (definition.args !== undefined && !definition.args.every((arg) => typeof arg === "string"))
+    return err(configError("MCP args must contain strings", "/mcpServers"));
+  let result: JsonObject = definition.configuration === undefined ? {} : (clone(definition.configuration) as JsonObject);
   if (definition.options !== undefined) result = mergeObjects(result, definition.options);
   if (definition.command !== undefined) result = mergeObjects(result, { command: definition.command });
   if (definition.args !== undefined) result = mergeObjects(result, { args: [...definition.args] });
@@ -114,8 +118,11 @@ const desiredServer = (definition: McpServerDefinition): Result<JsonObject, Conf
   if (!envResult.ok) return envResult;
   if (definition.env !== undefined) {
     const names = environmentNames(definition.env);
-    if (names.length !== (Array.isArray(definition.env) ? definition.env.length : Object.keys(definition.env).length)) return err(configError("MCP env contains an invalid variable name", `/mcpServers/${definition.id}/env`));
-    result = mergeObjects(result, { env: mergeObjects(envResult.value, Object.fromEntries(names.map((name) => [name, `\${${name}}`])) as JsonObject) });
+    if (names.length !== (Array.isArray(definition.env) ? definition.env.length : Object.keys(definition.env).length))
+      return err(configError("MCP env contains an invalid variable name", `/mcpServers/${definition.id}/env`));
+    result = mergeObjects(result, {
+      env: mergeObjects(envResult.value, Object.fromEntries(names.map((name) => [name, `\${${name}}`])) as JsonObject),
+    });
   } else if (result.env !== undefined) {
     result = mergeObjects(result, { env: envResult.value });
   }
@@ -126,7 +133,8 @@ const serversFromModel = (model: JsonObject): Result<JsonObject, ConfigError> =>
   const servers = model.mcpServers;
   if (servers === undefined) return ok({});
   if (!isRecord(servers)) return err(configError("mcpServers must be an object", "/mcpServers"));
-  for (const [id, value] of Object.entries(servers)) if (!isRecord(value)) return err(configError(`MCP server ${id} must be an object`, `/mcpServers/${id}`));
+  for (const [id, value] of Object.entries(servers))
+    if (!isRecord(value)) return err(configError(`MCP server ${id} must be an object`, `/mcpServers/${id}`));
   return ok(servers);
 };
 
@@ -180,9 +188,10 @@ const safePreview = (value: JsonValue): JsonValue => {
   if (!isRecord(value)) return value;
   const result: Record<string, JsonValue> = {};
   for (const [key, entry] of Object.entries(value)) {
-    result[key] = key === "env" && isRecord(entry)
-      ? Object.fromEntries(Object.keys(entry).map((name) => [name, `\${${name}}`])) as JsonObject
-      : safePreview(entry);
+    result[key] =
+      key === "env" && isRecord(entry)
+        ? (Object.fromEntries(Object.keys(entry).map((name) => [name, `\${${name}}`])) as JsonObject)
+        : safePreview(entry);
   }
   return result;
 };
@@ -191,14 +200,19 @@ export class KiroMcpWorkspaceAdapter implements ComponentAdapter<KiroMcpComponen
   private readonly codec: StructuredConfigCodec<JsonObject>;
   private readonly destination: SafeProjectPath;
 
-  public constructor(private readonly fileSystem: FileSystemPort, codec: StructuredConfigCodec<JsonObject> = new JsonStructuredConfigCodec<JsonObject>()) {
+  public constructor(
+    private readonly fileSystem: FileSystemPort,
+    codec: StructuredConfigCodec<JsonObject> = new JsonStructuredConfigCodec<JsonObject>(),
+  ) {
     this.codec = codec;
     const destination = asSafeProjectPath(KIRO_MCP_SETTINGS_PATH);
     if (!destination.ok) throw new Error(destination.error.message);
     this.destination = destination.value;
   }
 
-  public supports(component: KiroMcpComponentDefinition): boolean { return component.type === "mcp-server" && component.mcp !== undefined; }
+  public supports(component: KiroMcpComponentDefinition): boolean {
+    return component.type === "mcp-server" && component.mcp !== undefined;
+  }
 
   public async inspect(_ctx: InspectionContext, component: KiroMcpComponentDefinition): Promise<CurrentComponentState> {
     const source = await this.readSource();
@@ -207,7 +221,10 @@ export class KiroMcpWorkspaceAdapter implements ComponentAdapter<KiroMcpComponen
     if (!parsed.ok) return { present: false, destinations: [this.destination] };
     const current = isRecord(parsed.value.model.mcpServers) ? parsed.value.model.mcpServers[component.mcp.id] : undefined;
     const desired = desiredServer(component.mcp);
-    return { present: desired.ok && isRecord(current) && this.codec.equivalent(current, mergeObjects(current, desired.value)), destinations: [this.destination] };
+    return {
+      present: desired.ok && isRecord(current) && this.codec.equivalent(current, mergeObjects(current, desired.value)),
+      destinations: [this.destination],
+    };
   }
 
   public async propose(_ctx: PlanningContext, component: KiroMcpComponentDefinition): Promise<readonly ProposedOperation[]> {
@@ -219,11 +236,28 @@ export class KiroMcpWorkspaceAdapter implements ComponentAdapter<KiroMcpComponen
     if (!adapted.ok) return [];
     const action = adapted.value.changed ? (parsed.value.model.mcpServers === undefined ? "create" : "modify") : "preserve";
     const preview = diffFields(safePreview(parsed.value.model), safePreview(adapted.value.model));
-    return [{ id: `mcp:${component.id}`, componentId: component.id, destination: this.destination, action, reason: `Configure MCP server ${component.mcp.id} in the Kiro workspace settings.`, conflict: action === "modify" ? "content-differs" : "none", preview }];
+    return [
+      {
+        id: `mcp:${component.id}`,
+        componentId: component.id,
+        destination: this.destination,
+        action,
+        reason: `Configure MCP server ${component.mcp.id} in the Kiro workspace settings.`,
+        conflict: action === "modify" ? "content-differs" : "none",
+        preview,
+      },
+    ];
   }
 
   public async verify(_ctx: VerificationContext, operation: ProposedOperation): Promise<Result<void>> {
-    return operation.destination === this.destination ? ok(undefined) : err({ code: "INVALID_PLAN", message: "MCP operation has an unexpected destination", recoverability: "none", path: operation.destination });
+    return operation.destination === this.destination
+      ? ok(undefined)
+      : err({
+          code: "INVALID_PLAN",
+          message: "MCP operation has an unexpected destination",
+          recoverability: "none",
+          path: operation.destination,
+        });
   }
 
   private async readSource(): Promise<Result<SourceDocument, ConfigError>> {
@@ -237,6 +271,9 @@ export class KiroMcpWorkspaceAdapter implements ComponentAdapter<KiroMcpComponen
   }
 }
 
-export const createKiroMcpWorkspaceAdapter = (fileSystem: FileSystemPort, codec?: StructuredConfigCodec<JsonObject>): KiroMcpWorkspaceAdapter => new KiroMcpWorkspaceAdapter(fileSystem, codec);
+export const createKiroMcpWorkspaceAdapter = (
+  fileSystem: FileSystemPort,
+  codec?: StructuredConfigCodec<JsonObject>,
+): KiroMcpWorkspaceAdapter => new KiroMcpWorkspaceAdapter(fileSystem, codec);
 export const kiroMcpWorkspaceAdapter = KiroMcpWorkspaceAdapter;
 export type { ManagedPatch };

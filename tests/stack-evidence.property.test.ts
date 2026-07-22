@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as fc from "fast-check";
-import {
-  DefaultStackDetectorRegistry,
-  asSafeProjectPath,
-  parseRecognizedEvidence,
-} from "../src/domain/index.js";
+import { DefaultStackDetectorRegistry, asSafeProjectPath, parseRecognizedEvidence } from "../src/domain/index.js";
 import type { DetectionClaim, ParsedEvidence, SafeProjectPath } from "../src/domain/index.js";
 import { deterministicFastCheckParameters } from "./support/fast-check.js";
 
@@ -26,27 +22,31 @@ const pythonManifestPath = safePath("pyproject.toml");
 const registry = new DefaultStackDetectorRegistry();
 
 const validEvidenceArbitrary: fc.Arbitrary<EvidenceCase> = fc.oneof(
-  fc.record({
-    dependency: fc.constantFrom("react", "vitest", "playwright", "express", "vercel"),
-    version: fc.constantFrom("1.0.0", "^18.0.0", "workspace:*"),
-  }).map(({ dependency, version }) => ({
-    kind: "valid" as const,
-    path: packagePath,
-    source: new TextEncoder().encode(JSON.stringify({ dependencies: { [dependency]: version } })),
-  })),
+  fc
+    .record({
+      dependency: fc.constantFrom("react", "vitest", "playwright", "express", "vercel"),
+      version: fc.constantFrom("1.0.0", "^18.0.0", "workspace:*"),
+    })
+    .map(({ dependency, version }) => ({
+      kind: "valid" as const,
+      path: packagePath,
+      source: new TextEncoder().encode(JSON.stringify({ dependencies: { [dependency]: version } })),
+    })),
   fc.constant({
     kind: "valid" as const,
     path: sourcePath,
     source: new TextEncoder().encode("export const detected = true;\n"),
   }),
-  fc.record({
-    framework: fc.constantFrom("django", "fastapi"),
-    version: fc.constantFrom("4.2", "0.115"),
-  }).map(({ framework, version }) => ({
-    kind: "valid" as const,
-    path: pythonManifestPath,
-    source: new TextEncoder().encode(`${framework} = "${version}"\n`),
-  })),
+  fc
+    .record({
+      framework: fc.constantFrom("django", "fastapi"),
+      version: fc.constantFrom("4.2", "0.115"),
+    })
+    .map(({ framework, version }) => ({
+      kind: "valid" as const,
+      path: pythonManifestPath,
+      source: new TextEncoder().encode(`${framework} = "${version}"\n`),
+    })),
 );
 
 const invalidEvidenceArbitrary: fc.Arbitrary<EvidenceCase> = fc.constantFrom(

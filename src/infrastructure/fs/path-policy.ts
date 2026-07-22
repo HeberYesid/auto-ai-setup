@@ -7,17 +7,20 @@ import type { CanonicalPath, PlanningError, ProjectRelativePath, Result, SafePro
 const WINDOWS_DEVICE = /^(?:con|prn|aux|nul|clock\$|com[1-9]|lpt[1-9])(?:\..*)?$/i;
 const WINDOWS_DRIVE = /^[a-z]:/i;
 
-const unsafe = (path: string, message: string): Result<SafeProjectPath, PlanningError> => err({
-  code: "UNSAFE_DESTINATION",
-  message,
-  recoverability: "none",
-  path,
-  exitCode: 2,
-});
+const unsafe = (path: string, message: string): Result<SafeProjectPath, PlanningError> =>
+  err({
+    code: "UNSAFE_DESTINATION",
+    message,
+    recoverability: "none",
+    path,
+    exitCode: 2,
+  });
 
 const normalizeRequested = (requested: string): Result<string, PlanningError> => {
-  if (requested.length === 0 || requested.includes("\0") || requested.includes("\\")) return unsafe(requested, "Destination must use normalized project-relative separators");
-  if (isAbsolute(requested) || requested.startsWith("/") || WINDOWS_DRIVE.test(requested)) return unsafe(requested, "Absolute and device paths are not allowed");
+  if (requested.length === 0 || requested.includes("\0") || requested.includes("\\"))
+    return unsafe(requested, "Destination must use normalized project-relative separators");
+  if (isAbsolute(requested) || requested.startsWith("/") || WINDOWS_DRIVE.test(requested))
+    return unsafe(requested, "Absolute and device paths are not allowed");
   const parts = requested.split("/");
   const normalized: string[] = [];
   for (const part of parts) {
@@ -37,14 +40,15 @@ const isContained = (root: string, candidate: string): boolean => {
   return remainder === "" || (remainder !== ".." && !remainder.startsWith(`..${sep}`) && !isAbsolute(remainder));
 };
 
-const pathError = (path: string, cause: unknown): Result<SafeProjectPath, PlanningError> => err({
-  code: "UNSAFE_DESTINATION",
-  message: "Unable to verify destination containment",
-  cause: cause instanceof Error ? cause.message : String(cause),
-  recoverability: "none",
-  path,
-  exitCode: 2,
-});
+const pathError = (path: string, cause: unknown): Result<SafeProjectPath, PlanningError> =>
+  err({
+    code: "UNSAFE_DESTINATION",
+    message: "Unable to verify destination containment",
+    cause: cause instanceof Error ? cause.message : String(cause),
+    recoverability: "none",
+    path,
+    exitCode: 2,
+  });
 
 /**
  * Filesystem-backed destination policy. It returns a normalized relative path,
@@ -85,7 +89,8 @@ export class NodePathPolicy implements PathPolicy {
         } catch (cause: unknown) {
           return pathError(current, cause);
         }
-        if (!isContained(canonicalRoot, linked)) return unsafe(requested, "Destination ancestor escapes the project root through a symlink");
+        if (!isContained(canonicalRoot, linked))
+          return unsafe(requested, "Destination ancestor escapes the project root through a symlink");
         if (current === candidate) return unsafe(requested, "A destination symlink cannot be replaced safely");
         current = linked;
       }
@@ -104,7 +109,8 @@ export class NodePathPolicy implements PathPolicy {
   }
 }
 
-const isMissing = (cause: unknown): boolean => typeof cause === "object" && cause !== null && "code" in cause && (cause as { code?: unknown }).code === "ENOENT";
+const isMissing = (cause: unknown): boolean =>
+  typeof cause === "object" && cause !== null && "code" in cause && (cause as { code?: unknown }).code === "ENOENT";
 
 export const createPathPolicy = (): PathPolicy => new NodePathPolicy();
 export const FileSystemPathPolicy = NodePathPolicy;

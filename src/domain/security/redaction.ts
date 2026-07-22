@@ -2,7 +2,8 @@ import type { Redactor } from "../shared/ports.js";
 
 export const REDACTED = "[REDACTED]" as const;
 
-const SENSITIVE_KEY = /(?:secret|token|password|passwd|credential|private[\s_-]*key|api[\s_-]*key|access[\s_-]*key|authorization|cookie|session|refresh[\s_-]*token|client[\s_-]*secret)/i;
+const SENSITIVE_KEY =
+  /(?:secret|token|password|passwd|credential|private[\s_-]*key|api[\s_-]*key|access[\s_-]*key|authorization|cookie|session|refresh[\s_-]*token|client[\s_-]*secret)/i;
 const OMIT_KEY = /^(?:body|download(?:ed)?(?:body|content)?|response(?:Body|Content)?|raw(?:Body|Response)|env|environment|stdout)$/i;
 const PEM = /-----BEGIN [^-\r\n]+-----[\s\S]*?-----END [^-\r\n]+-----/gi;
 const AUTH_URL = /https?:\/\/[^\s/@:]+(?::[^\s/@]*)?@[^\s]+/gi;
@@ -12,7 +13,10 @@ const ASSIGNMENT = /\b(?:token|secret|password|passwd|api[_-]?key|client[_-]?sec
 
 const isSecretLike = (value: string): boolean => {
   const patterns = [PEM, AUTH_URL, BEARER, JWT, ASSIGNMENT];
-  return patterns.some((pattern) => { pattern.lastIndex = 0; return pattern.test(value); });
+  return patterns.some((pattern) => {
+    pattern.lastIndex = 0;
+    return pattern.test(value);
+  });
 };
 
 const redactString = (value: string, knownSecrets: readonly string[]): string => {
@@ -20,13 +24,21 @@ const redactString = (value: string, knownSecrets: readonly string[]): string =>
   for (const secret of knownSecrets) {
     if (secret.length > 0) result = result.split(secret).join(REDACTED);
   }
-  result = result.replace(PEM, REDACTED).replace(AUTH_URL, REDACTED).replace(BEARER, REDACTED).replace(JWT, REDACTED).replace(ASSIGNMENT, REDACTED);
+  result = result
+    .replace(PEM, REDACTED)
+    .replace(AUTH_URL, REDACTED)
+    .replace(BEARER, REDACTED)
+    .replace(JWT, REDACTED)
+    .replace(ASSIGNMENT, REDACTED);
   return result;
 };
 
 const redactValue = (value: unknown, knownSecrets: readonly string[], key: string, seen: WeakSet<object>): unknown => {
   if (SENSITIVE_KEY.test(key)) return REDACTED;
-  if (typeof value === "string") return isSecretLike(value) || knownSecrets.some((secret) => secret.length > 0 && value.includes(secret)) ? redactString(value, knownSecrets) : value;
+  if (typeof value === "string")
+    return isSecretLike(value) || knownSecrets.some((secret) => secret.length > 0 && value.includes(secret))
+      ? redactString(value, knownSecrets)
+      : value;
   if (value === null || typeof value === "boolean" || typeof value === "number") return value;
   if (typeof value !== "object") return REDACTED;
   if (seen.has(value)) return REDACTED;
@@ -51,5 +63,6 @@ export class SecretRedactor implements Redactor {
   }
 }
 
-export const redactSecrets = (value: unknown, knownSecrets: readonly string[] = []): unknown => new SecretRedactor().redact(value, knownSecrets);
+export const redactSecrets = (value: unknown, knownSecrets: readonly string[] = []): unknown =>
+  new SecretRedactor().redact(value, knownSecrets);
 export const RecursiveSecretRedactor = SecretRedactor;

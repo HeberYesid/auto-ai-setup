@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  AllowlistedCliProbeAdapter,
-  classifyCliProbe,
-  registerCliProbe,
-} from "../src/domain/index.js";
+import { AllowlistedCliProbeAdapter, classifyCliProbe, registerCliProbe } from "../src/domain/index.js";
 import type { CliProbeExecution, RegisteredCliProbeRequest } from "../src/domain/index.js";
 
 const request = (cli = "gh", requiredCapabilities: readonly string[] = []): RegisteredCliProbeRequest => ({
@@ -25,7 +21,12 @@ const success = (overrides: Partial<CliProbeExecution> = {}): CliProbeExecution 
 describe("isolated allowlisted CLI probe contract", () => {
   it("rejects unregistered processes before the executor is called", async () => {
     let calls = 0;
-    const adapter = new AllowlistedCliProbeAdapter({ execute: async () => { calls += 1; return success(); } });
+    const adapter = new AllowlistedCliProbeAdapter({
+      execute: async () => {
+        calls += 1;
+        return success();
+      },
+    });
     const result = await adapter.probe({ cli: "npm" });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("PROCESS_NOT_ALLOWED");

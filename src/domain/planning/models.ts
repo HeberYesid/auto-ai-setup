@@ -181,4 +181,7 @@ export const fileChangeIdentity = (change: FileChange): string => change.destina
 export const externalOperationIdentity = (operation: ExternalOperation): string => operation.id;
 
 export const stackDigestInput = (items: readonly StackItem[]): string =>
-  items.map((item) => `${item.category}:${item.id}:${item.confidence}`).sort().join("|");
+  items
+    .map((item) => `${item.category}:${item.id}:${item.confidence}`)
+    .sort()
+    .join("|");

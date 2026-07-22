@@ -52,9 +52,15 @@ export class FakeClock implements Clock {
     this.currentMs = Date.parse(startIso);
     this.startMs = this.currentMs;
   }
-  now(): string { return new Date(this.currentMs).toISOString(); }
-  monotonicMs(): number { return this.currentMs - this.startMs; }
-  advance(ms: number): void { this.currentMs += ms; }
+  now(): string {
+    return new Date(this.currentMs).toISOString();
+  }
+  monotonicMs(): number {
+    return this.currentMs - this.startMs;
+  }
+  advance(ms: number): void {
+    this.currentMs += ms;
+  }
 }
 
 export class FakeUuidGenerator implements UuidGenerator {
@@ -105,7 +111,12 @@ export class FakeFileSystem implements FileSystemPort {
   async *list(root: CanonicalPath): AsyncIterable<FileDescriptor> {
     void root;
     for (const [path, bytes] of this.files) {
-      yield { path, extension: path.includes(".") ? `.${path.split(".").pop() ?? ""}` : "", bytes: bytes.length as never, isSymlink: false };
+      yield {
+        path,
+        extension: path.includes(".") ? `.${path.split(".").pop() ?? ""}` : "",
+        bytes: bytes.length as never,
+        isSymlink: false,
+      };
     }
   }
 
@@ -134,7 +145,11 @@ export class FakeProcessExecutor implements ProcessExecutor {
 export class FakeNetworkGateway implements NetworkGateway {
   readonly requests: ExternalOperation[] = [];
   constructor(readonly failures = new FailureInjector()) {}
-  async request(operation: ExternalOperation, approval: { readonly planHash: Sha256; readonly operationId: string; readonly approved: true }, signal?: AbortSignal): Promise<Result<Uint8Array, AppError>> {
+  async request(
+    operation: ExternalOperation,
+    approval: { readonly planHash: Sha256; readonly operationId: string; readonly approved: true },
+    signal?: AbortSignal,
+  ): Promise<Result<Uint8Array, AppError>> {
     void approval;
     void signal;
     this.requests.push(operation);
@@ -184,5 +199,7 @@ export class ScriptedUserInteraction implements UserInteraction {
     if (approval === undefined) throw new Error("No scripted approval");
     return approval;
   }
-  render(event: RedactedEvent): void { this.events.push(event); }
+  render(event: RedactedEvent): void {
+    this.events.push(event);
+  }
 }

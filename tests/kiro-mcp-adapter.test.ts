@@ -29,13 +29,16 @@ const definition = {
 
 describe("Kiro MCP workspace adapter", () => {
   it("merges by server id while preserving unrelated entries and unknown fields", () => {
-    const result = mergeMcpServers({
-      unrelated: { keep: true },
-      mcpServers: {
-        testing: { command: "old", metadata: { owner: "user", keep: [1, 2] } },
-        other: { command: "other" },
+    const result = mergeMcpServers(
+      {
+        unrelated: { keep: true },
+        mcpServers: {
+          testing: { command: "old", metadata: { owner: "user", keep: [1, 2] } },
+          other: { command: "other" },
+        },
       },
-    }, [definition]);
+      [definition],
+    );
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -54,12 +57,14 @@ describe("Kiro MCP workspace adapter", () => {
   });
 
   it("never copies environment values and exposes only variable names", () => {
-    const result = adaptKiroMcpDocument(source("{}\n"), [{
-      id: "secrets",
-      command: "node",
-      configuration: { env: { API_TOKEN: "super-secret", OTHER: "also-secret" } as JsonObject },
-      env: { API_TOKEN: "super-secret", OTHER: "also-secret" },
-    }]);
+    const result = adaptKiroMcpDocument(source("{}\n"), [
+      {
+        id: "secrets",
+        command: "node",
+        configuration: { env: { API_TOKEN: "super-secret", OTHER: "also-secret" } as JsonObject },
+        env: { API_TOKEN: "super-secret", OTHER: "also-secret" },
+      },
+    ]);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -108,7 +113,10 @@ describe("Kiro MCP workspace adapter", () => {
     };
 
     expect(adapter.supports(component)).toBe(true);
-    const operations = await adapter.propose({ root: root.value, stack: { items: [], resolvedConflicts: [], digest: "a".repeat(64) as never }, runId: "run-1" as never }, component);
+    const operations = await adapter.propose(
+      { root: root.value, stack: { items: [], resolvedConflicts: [], digest: "a".repeat(64) as never }, runId: "run-1" as never },
+      component,
+    );
     expect(operations).toHaveLength(1);
     expect(operations[0]?.destination).toBe(KIRO_MCP_SETTINGS_PATH);
     expect(JSON.stringify(operations[0]?.preview)).not.toContain("secret");

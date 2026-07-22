@@ -39,10 +39,18 @@ export interface AutoSkillsGatewayOptions {
 type ExpectedFileState = { readonly path: SafeProjectPath; readonly bytes?: Uint8Array };
 
 const sha256 = (bytes: Uint8Array | string): Sha256 => createHash("sha256").update(bytes).digest("hex") as Sha256;
-const manifestDigest = (entry: SkillCatalogEntry): Sha256 => sha256(JSON.stringify({ componentId: entry.id, origin: entry.origin, files: entry.files }));
-const outputWithinLimit = (result: ProcessResult, max: number): boolean => !result.truncated && Buffer.byteLength(result.stdout, "utf8") + Buffer.byteLength(result.stderr, "utf8") <= max;
-const failed = (message: string, cause?: string): Result<never, import("../../domain/shared/types.js").CatalogError> => err(catalogError("CATALOG_EXECUTION_FAILED", message, cause));
-const installationError = (code: InstallationError["code"], message: string, recoverability: InstallationError["recoverability"], cause?: string): Result<never, InstallationError> => ({
+const manifestDigest = (entry: SkillCatalogEntry): Sha256 =>
+  sha256(JSON.stringify({ componentId: entry.id, origin: entry.origin, files: entry.files }));
+const outputWithinLimit = (result: ProcessResult, max: number): boolean =>
+  !result.truncated && Buffer.byteLength(result.stdout, "utf8") + Buffer.byteLength(result.stderr, "utf8") <= max;
+const failed = (message: string, cause?: string): Result<never, import("../../domain/shared/types.js").CatalogError> =>
+  err(catalogError("CATALOG_EXECUTION_FAILED", message, cause));
+const installationError = (
+  code: InstallationError["code"],
+  message: string,
+  recoverability: InstallationError["recoverability"],
+  cause?: string,
+): Result<never, InstallationError> => ({
   ok: false,
   error: { code, message, recoverability, ...(cause === undefined ? {} : { cause }) },
 });
@@ -53,7 +61,10 @@ export class MidudevAutoSkillsGateway implements AutoSkillsGateway {
   private readonly authorizeListing: () => boolean | Promise<boolean>;
   private presentedSnapshot: CatalogSnapshot | undefined;
 
-  public constructor(private readonly executor: ProcessExecutor, options: AutoSkillsGatewayOptions) {
+  public constructor(
+    private readonly executor: ProcessExecutor,
+    options: AutoSkillsGatewayOptions,
+  ) {
     this.maxOutputBytes = options.maxOutputBytes ?? AUTOSKILLS_MAX_OUTPUT_BYTES;
     this.authorizeListing = options.authorizeListing ?? (() => false);
     this.root = options.root;
@@ -72,10 +83,28 @@ export class MidudevAutoSkillsGateway implements AutoSkillsGateway {
     const request = registerAutoSkillsList(this.root, true);
     if (!request.ok) return request;
     let result: ProcessResult;
-    try { result = await this.executor.execute(request.value); } catch (error) { return failed("Unable to execute npx autoskills", error instanceof Error ? error.message : String(error)); }
-    if (!outputWithinLimit(result, this.maxOutputBytes) || result.timedOut || result.exitCode !== 0) return failed("npx autoskills did not return a bounded successful catalog", result.timedOut ? "process timed out" : result.stderr.slice(0, 512));
+    try {
+      result = await this.executor.execute(request.value);
+    } catch (error) {
+      return failed("Unable to execute npx autoskills", error instanceof Error ? error.message : String(error));
+    }
+    if (!outputWithinLimit(result, this.maxOutputBytes) || result.timedOut || result.exitCode !== 0)
+      return failed(
+        "npx autoskills did not return a bounded successful catalog",
+        result.timedOut ? "process timed out" : result.stderr.slice(0, 512),
+      );
     let parsed: unknown;
-    try { parsed = JSON.parse(result.stdout) as unknown; } catch (error) { return err(catalogError("CATALOG_INVALID_RESPONSE", "autoskills returned invalid JSON", error instanceof Error ? error.message : String(error))); }
+    try {
+      parsed = JSON.parse(result.stdout) as unknown;
+    } catch (error) {
+      return err(
+        catalogError(
+          "CATALOG_INVALID_RESPONSE",
+          "autoskills returned invalid JSON",
+          error instanceof Error ? error.message : String(error),
+        ),
+      );
+    }
     const validated = validateCatalogPayload(parsed);
     if (!validated.ok) return validated;
     const digest = sha256(catalogSnapshotDigestInput(validated.value));
@@ -90,14 +119,30 @@ export class MidudevAutoSkillsGateway implements AutoSkillsGateway {
     target: SafeProjectPath,
     presentedSnapshot?: CatalogSnapshot,
   ): Promise<Result<InstalledArtifact, InstallationError>> {
-    if (!validateSkillCatalogEntry(entry) || entry.origin.repository !== AUTOSKILLS_SOURCE_REPOSITORY || !validateInstallTarget(entry, target)) {
+    if (
+      !validateSkillCatalogEntry(entry) ||
+      entry.origin.repository !== AUTOSKILLS_SOURCE_REPOSITORY ||
+      !validateInstallTarget(entry, target)
+    ) {
       return installationError("INSTALLATION_IDENTITY_MISMATCH", "Skill origin or destination is not authorized", "none");
     }
     const snapshot = presentedSnapshot ?? this.presentedSnapshot;
-    if (snapshot === undefined) return installationError("INSTALLATION_IDENTITY_MISMATCH", "Skill installation requires the catalog snapshot presented by autoskills", "none");
+    if (snapshot === undefined)
+      return installationError(
+        "INSTALLATION_IDENTITY_MISMATCH",
+        "Skill installation requires the catalog snapshot presented by autoskills",
+        "none",
+      );
     const snapshotPayload = validateCatalogPayload(snapshot);
-    if (!snapshotPayload.ok) return installationError("INSTALLATION_IDENTITY_MISMATCH", "The presented autoskills catalog snapshot is invalid", "none", snapshotPayload.error.message);
-    if (sha256(catalogSnapshotDigestInput(snapshotPayload.value)) !== snapshot.manifestDigest) return installationError("INSTALLATION_IDENTITY_MISMATCH", "The presented autoskills catalog snapshot digest does not match", "none");
+    if (!snapshotPayload.ok)
+      return installationError(
+        "INSTALLATION_IDENTITY_MISMATCH",
+        "The presented autoskills catalog snapshot is invalid",
+        "none",
+        snapshotPayload.error.message,
+      );
+    if (sha256(catalogSnapshotDigestInput(snapshotPayload.value)) !== snapshot.manifestDigest)
+      return installationError("INSTALLATION_IDENTITY_MISMATCH", "The presented autoskills catalog snapshot digest does not match", "none");
     const membership = findCatalogEntry(snapshot, entry);
     if (!membership.ok) return installationError("INSTALLATION_IDENTITY_MISMATCH", membership.error.message, "none");
     if (approval.approved !== true || !/^[a-f0-9]{64}$/i.test(approval.planHash) || approval.operationId.trim().length === 0) {
@@ -106,21 +151,39 @@ export class MidudevAutoSkillsGateway implements AutoSkillsGateway {
     const request = registerAutoSkillsInstall(this.root, membership.value, target, true);
     if (!request.ok) return installationError("INSTALLATION_IDENTITY_MISMATCH", request.error.message, "none");
 
-    if (this.fileSystem === undefined) return installationError("INSTALLATION_FAILED", "Skill installation requires a filesystem verifier", "none");
+    if (this.fileSystem === undefined)
+      return installationError("INSTALLATION_FAILED", "Skill installation requires a filesystem verifier", "none");
     const expected = await this.captureExpectedFiles(membership.value, target);
     if (!expected.ok) return expected;
 
     let result: ProcessResult;
-    try { result = await this.executor.execute(request.value); } catch (error) {
-      return this.finishFailedInstall(expected.value, "INSTALLATION_FAILED", "Unable to execute the official autoskills installer", error instanceof Error ? error.message : String(error));
+    try {
+      result = await this.executor.execute(request.value);
+    } catch (error) {
+      return this.finishFailedInstall(
+        expected.value,
+        "INSTALLATION_FAILED",
+        "Unable to execute the official autoskills installer",
+        error instanceof Error ? error.message : String(error),
+      );
     }
     if (result.timedOut || result.truncated || result.exitCode !== 0 || !outputWithinLimit(result, this.maxOutputBytes)) {
-      return this.finishFailedInstall(expected.value, "INSTALLATION_FAILED", "The official autoskills installation did not complete", result.timedOut ? "process timed out" : result.stderr.slice(0, 512));
+      return this.finishFailedInstall(
+        expected.value,
+        "INSTALLATION_FAILED",
+        "The official autoskills installation did not complete",
+        result.timedOut ? "process timed out" : result.stderr.slice(0, 512),
+      );
     }
 
     const verification = await this.verifyExpectedFiles(membership.value, target);
     if (!verification.ok) {
-      return this.finishFailedInstall(expected.value, "INSTALLATION_IDENTITY_MISMATCH", verification.error.message, verification.error.cause);
+      return this.finishFailedInstall(
+        expected.value,
+        "INSTALLATION_IDENTITY_MISMATCH",
+        verification.error.message,
+        verification.error.cause,
+      );
     }
     const artifact: InstalledArtifact = {
       componentId: membership.value.id,
@@ -130,25 +193,46 @@ export class MidudevAutoSkillsGateway implements AutoSkillsGateway {
     };
     if (this.ownershipStore !== undefined) {
       const loaded = await this.ownershipStore.load();
-      if (!loaded.ok) return this.finishFailedInstall(expected.value, "PARTIAL_ARTIFACTS", "Installed Skill ownership could not be loaded", loaded.error.message);
-      const runId = this.ownershipRunId ?? approval.operationId as RunId;
+      if (!loaded.ok)
+        return this.finishFailedInstall(
+          expected.value,
+          "PARTIAL_ARTIFACTS",
+          "Installed Skill ownership could not be loaded",
+          loaded.error.message,
+        );
+      const runId = this.ownershipRunId ?? (approval.operationId as RunId);
       const state = upsertSkillOwnership(loaded.value, membership.value, artifact.digest, [target], runId);
       const saved = await this.ownershipStore.save(state);
-      if (!saved.ok) return this.finishFailedInstall(expected.value, "PARTIAL_ARTIFACTS", "Installed Skill ownership could not be persisted", saved.error.message);
+      if (!saved.ok)
+        return this.finishFailedInstall(
+          expected.value,
+          "PARTIAL_ARTIFACTS",
+          "Installed Skill ownership could not be persisted",
+          saved.error.message,
+        );
     }
     return ok(artifact);
   }
 
-  private async captureExpectedFiles(entry: SkillCatalogEntry, target: SafeProjectPath): Promise<Result<readonly ExpectedFileState[], InstallationError>> {
+  private async captureExpectedFiles(
+    entry: SkillCatalogEntry,
+    target: SafeProjectPath,
+  ): Promise<Result<readonly ExpectedFileState[], InstallationError>> {
     const states: ExpectedFileState[] = [];
     for (const file of entry.files) {
       const path = asSafeProjectPath(`${target}/${file.relativePath}`);
-      if (!path.ok) return installationError("INSTALLATION_IDENTITY_MISMATCH", `Skill file destination is unsafe: ${file.relativePath}`, "none");
+      if (!path.ok)
+        return installationError("INSTALLATION_IDENTITY_MISMATCH", `Skill file destination is unsafe: ${file.relativePath}`, "none");
       try {
         const exists = await this.fileSystem!.exists(path.value);
         states.push(exists ? { path: path.value, bytes: await this.fileSystem!.read(path.value) } : { path: path.value });
       } catch (error) {
-        return installationError("INSTALLATION_FAILED", "Unable to snapshot Skill destination before installation", "retry", error instanceof Error ? error.message : String(error));
+        return installationError(
+          "INSTALLATION_FAILED",
+          "Unable to snapshot Skill destination before installation",
+          "retry",
+          error instanceof Error ? error.message : String(error),
+        );
       }
     }
     return ok(states);
@@ -157,16 +241,28 @@ export class MidudevAutoSkillsGateway implements AutoSkillsGateway {
   private async verifyExpectedFiles(entry: SkillCatalogEntry, target: SafeProjectPath): Promise<Result<void, InstallationError>> {
     for (const file of entry.files) {
       const path = asSafeProjectPath(`${target}/${file.relativePath}`);
-      if (!path.ok) return installationError("INSTALLATION_IDENTITY_MISMATCH", `Skill file destination is unsafe: ${file.relativePath}`, "none");
+      if (!path.ok)
+        return installationError("INSTALLATION_IDENTITY_MISMATCH", `Skill file destination is unsafe: ${file.relativePath}`, "none");
       try {
-        if (!(await this.fileSystem!.exists(path.value))) return installationError("INSTALLATION_IDENTITY_MISMATCH", `Installed Skill file is missing: ${file.relativePath}`, "rollback");
+        if (!(await this.fileSystem!.exists(path.value)))
+          return installationError("INSTALLATION_IDENTITY_MISMATCH", `Installed Skill file is missing: ${file.relativePath}`, "rollback");
         const bytes = await this.fileSystem!.read(path.value);
         const actual = sha256(bytes);
         if (bytes.byteLength !== file.size || actual.toLowerCase() !== file.sha256.toLowerCase()) {
-          return installationError("INSTALLATION_IDENTITY_MISMATCH", `Installed Skill file failed size or SHA-256 verification: ${file.relativePath}`, "rollback", `expected ${file.size}/${file.sha256}, received ${bytes.byteLength}/${actual}`);
+          return installationError(
+            "INSTALLATION_IDENTITY_MISMATCH",
+            `Installed Skill file failed size or SHA-256 verification: ${file.relativePath}`,
+            "rollback",
+            `expected ${file.size}/${file.sha256}, received ${bytes.byteLength}/${actual}`,
+          );
         }
       } catch (error) {
-        return installationError("INSTALLATION_FAILED", "Unable to verify an installed Skill file", "rollback", error instanceof Error ? error.message : String(error));
+        return installationError(
+          "INSTALLATION_FAILED",
+          "Unable to verify an installed Skill file",
+          "rollback",
+          error instanceof Error ? error.message : String(error),
+        );
       }
     }
     return ok(undefined);
@@ -183,17 +279,23 @@ export class MidudevAutoSkillsGateway implements AutoSkillsGateway {
       try {
         const exists = await this.fileSystem!.exists(state.path);
         if (!exists) continue;
-        const cleanup = state.bytes === undefined
-          ? await this.fileSystem!.remove(state.path)
-          : await this.fileSystem!.write(state.path, state.bytes);
+        const cleanup =
+          state.bytes === undefined ? await this.fileSystem!.remove(state.path) : await this.fileSystem!.write(state.path, state.bytes);
         if (!cleanup.ok) cleanupErrors.push(`${state.path}: ${cleanup.error.message}`);
       } catch (error) {
         cleanupErrors.push(`${state.path}: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
-    if (cleanupErrors.length > 0) return installationError("PARTIAL_ARTIFACTS", "Skill installation failed and partial artifacts could not be fully cleaned", "manual-review", [...(cause === undefined ? [] : [cause]), ...cleanupErrors].join("; "));
+    if (cleanupErrors.length > 0)
+      return installationError(
+        "PARTIAL_ARTIFACTS",
+        "Skill installation failed and partial artifacts could not be fully cleaned",
+        "manual-review",
+        [...(cause === undefined ? [] : [cause]), ...cleanupErrors].join("; "),
+      );
     return installationError(code, message, code === "INSTALLATION_FAILED" ? "rollback" : "none", cause);
   }
 }
 
-export const createMidudevAutoSkillsGateway = (executor: ProcessExecutor, options: AutoSkillsGatewayOptions): MidudevAutoSkillsGateway => new MidudevAutoSkillsGateway(executor, options);
+export const createMidudevAutoSkillsGateway = (executor: ProcessExecutor, options: AutoSkillsGatewayOptions): MidudevAutoSkillsGateway =>
+  new MidudevAutoSkillsGateway(executor, options);

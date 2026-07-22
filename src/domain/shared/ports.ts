@@ -1,18 +1,16 @@
 import type { CatalogSnapshot, SkillCatalogEntry } from "../catalog/models.js";
 import type { DocumentStyle, JsonObject, ManagedPatch, ParsedConfig, SourceDocument, StructuredConfigCodec } from "../config/models.js";
-import type { ApprovalDecisions, ApprovedPlan, ChangePlan, ComponentDefinition, ProposedOperation, RecoveryJournal } from "../planning/models.js";
+import type {
+  ApprovalDecisions,
+  ApprovedPlan,
+  ChangePlan,
+  ComponentDefinition,
+  ProposedOperation,
+  RecoveryJournal,
+} from "../planning/models.js";
 import type { FileDescriptor, ScanPolicy, StackDetector, ConfirmedStack } from "../project/models.js";
 import type { RedactedEvent, LocalEvent } from "../observability/models.js";
-import type {
-  AppError,
-  CanonicalPath,
-  ComponentId,
-  ExitCode,
-  Result,
-  SafeProjectPath,
-  RunId,
-  RunMode,
-} from "./types.js";
+import type { AppError, CanonicalPath, ComponentId, ExitCode, Result, SafeProjectPath, RunId, RunMode } from "./types.js";
 
 export interface SessionOrchestratorPort {
   run(input: SessionInput, ui: UserInteraction): Promise<import("../observability/models.js").ExecutionSummary>;
@@ -29,7 +27,9 @@ export interface UserInteraction {
   chooseTarget(initial?: string): Promise<string>;
   resolveStack(conflicts: readonly import("../project/models.js").StackConflict[]): Promise<ConfirmedStack>;
   /** Optional selection-only resolver; the orchestrator confirms the full stack. */
-  resolveStackSelection?(conflicts: readonly import("../project/models.js").StackConflict[]): Promise<Readonly<Partial<Record<import("../project/models.js").StackCategory, string>>>>;
+  resolveStackSelection?(
+    conflicts: readonly import("../project/models.js").StackConflict[],
+  ): Promise<Readonly<Partial<Record<import("../project/models.js").StackCategory, string>>>>;
   chooseMode(initial?: string): Promise<RunMode>;
   selectComponents(view: import("../catalog/models.js").ComponentSelectionView): Promise<readonly ComponentId[]>;
   confirmIncompatible?(component: ComponentDefinition, decision: import("../planning/models.js").CompatibilityDecision): Promise<boolean>;
@@ -61,7 +61,10 @@ export interface ProjectValidationPort {
 export interface ProjectGateway {
   validateDirectory(path: string): Promise<Result<import("../project/models.js").ValidatedProject, import("./types.js").DirectoryError>>;
   inventory(root: CanonicalPath, policy: ScanPolicy): AsyncIterable<FileDescriptor>;
-  readRecognized(path: SafeProjectPath, limit: import("./types.js").ByteCount): Promise<Result<Uint8Array, import("./types.js").DirectoryError>>;
+  readRecognized(
+    path: SafeProjectPath,
+    limit: import("./types.js").ByteCount,
+  ): Promise<Result<Uint8Array, import("./types.js").DirectoryError>>;
 }
 
 export interface StackDetectorRegistry {
@@ -76,7 +79,12 @@ export interface SkillOwnershipStore {
 
 export interface AutoSkillsGateway {
   list(): Promise<Result<CatalogSnapshot, import("./types.js").CatalogError>>;
-  install(entry: SkillCatalogEntry, approval: ExternalOperationApproval, target: SafeProjectPath, snapshot?: CatalogSnapshot): Promise<Result<InstalledArtifact, import("./types.js").InstallationError>>;
+  install(
+    entry: SkillCatalogEntry,
+    approval: ExternalOperationApproval,
+    target: SafeProjectPath,
+    snapshot?: CatalogSnapshot,
+  ): Promise<Result<InstalledArtifact, import("./types.js").InstallationError>>;
 }
 
 export interface InstalledArtifact {
@@ -137,7 +145,10 @@ export interface ApprovalPolicy {
 }
 
 export interface PathPolicy {
-  resolveDestination(root: CanonicalPath, requested: import("./types.js").ProjectRelativePath): Promise<Result<SafeProjectPath, import("./types.js").PlanningError>>;
+  resolveDestination(
+    root: CanonicalPath,
+    requested: import("./types.js").ProjectRelativePath,
+  ): Promise<Result<SafeProjectPath, import("./types.js").PlanningError>>;
 }
 
 export interface TransactionEngine {
@@ -227,7 +238,11 @@ export interface ProcessResult {
 }
 
 export interface NetworkGateway {
-  request(operation: import("../planning/models.js").ExternalOperation, approval: ExternalOperationApproval, signal?: AbortSignal): Promise<Result<Uint8Array, AppError>>;
+  request(
+    operation: import("../planning/models.js").ExternalOperation,
+    approval: ExternalOperationApproval,
+    signal?: AbortSignal,
+  ): Promise<Result<Uint8Array, AppError>>;
 }
 
 export interface Redactor {

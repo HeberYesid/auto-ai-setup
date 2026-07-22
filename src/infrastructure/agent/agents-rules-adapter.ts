@@ -51,13 +51,11 @@ const markerPrefix = "<!-- auto-ai-setup:rule:";
 const markerPattern = /^<!-- auto-ai-setup:rule:([a-zA-Z0-9][a-zA-Z0-9._-]*):(begin|end) -->$/;
 const markerLikePattern = /<!--[^>]*auto-ai-setup:rule:[^>]*-->/g;
 const isValidId = (id: string): boolean => /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(id);
-const eolOf = (text: string): "\n" | "\r\n" => text.includes("\r\n") ? "\r\n" : "\n";
+const eolOf = (text: string): "\n" | "\r\n" => (text.includes("\r\n") ? "\r\n" : "\n");
 
 export const ruleBeginMarker = (id: string): string => `${markerPrefix}${id}:begin -->`;
 export const ruleEndMarker = (id: string): string => `${markerPrefix}${id}:end -->`;
-export const normalizeRuleContent = (content: string): string => content
-  .replace(/\r\n|\r/g, "\n")
-  .replace(/[ \t]+$/gm, "");
+export const normalizeRuleContent = (content: string): string => content.replace(/\r\n|\r/g, "\n").replace(/[ \t]+$/gm, "");
 
 const configError = (message: string, path = AGENTS_RULES_PATH): ConfigError => ({
   code: "CONFIG_SCHEMA",
@@ -88,7 +86,10 @@ const parseBlocks = (text: string): { readonly blocks: readonly RuleBlock[]; rea
     }
     const id = marker[1] ?? "";
     const kind = marker[2];
-    if (!isValidId(id)) { corrupt.add(line); continue; }
+    if (!isValidId(id)) {
+      corrupt.add(line);
+      continue;
+    }
     if (kind === "begin") {
       if (open.length > 0 || blocks.some((block) => block.id === id)) corrupt.add(line);
       open.push({ id, start: index });
@@ -116,10 +117,7 @@ const appendBlock = (text: string, block: readonly string[], eol: "\n" | "\r\n")
   return text.endsWith("\n") || text.endsWith("\r") ? `${text}${block.join(eol)}${eol}` : `${text}${eol}${block.join(eol)}${eol}`;
 };
 
-export const adaptAgentsDocument = (
-  source: SourceDocument,
-  definition: AgentRuleDefinition,
-): Result<AgentsRuleAdaptation, ConfigError> => {
+export const adaptAgentsDocument = (source: SourceDocument, definition: AgentRuleDefinition): Result<AgentsRuleAdaptation, ConfigError> => {
   if (!isValidId(definition.id)) return err(configError("Agent rule id contains unsafe characters"));
   const eol = eolOf(source.text);
   const parsed = parseBlocks(source.text);
@@ -146,7 +144,15 @@ export const adaptAgentsDocument = (
   } else if (matching.length > 1) {
     conflict = "invalid-managed-markers";
   }
-  return ok({ text, eol, blockIds: parsed.blocks.map((block) => block.id), changed, action, conflict, corruptMarkers: parsed.corruptMarkers });
+  return ok({
+    text,
+    eol,
+    blockIds: parsed.blocks.map((block) => block.id),
+    changed,
+    action,
+    conflict,
+    corruptMarkers: parsed.corruptMarkers,
+  });
 };
 
 export class AgentsRuleAdapter implements ComponentAdapter<AgentRuleComponentDefinition> {
@@ -158,7 +164,9 @@ export class AgentsRuleAdapter implements ComponentAdapter<AgentRuleComponentDef
     this.destination = destination.value;
   }
 
-  public supports(component: AgentRuleComponentDefinition): boolean { return component.type === "agent-rule" && component.rule !== undefined; }
+  public supports(component: AgentRuleComponentDefinition): boolean {
+    return component.type === "agent-rule" && component.rule !== undefined;
+  }
 
   public async inspect(_ctx: InspectionContext, component: AgentRuleComponentDefinition): Promise<CurrentComponentState> {
     const source = await this.readSource();
@@ -172,19 +180,28 @@ export class AgentsRuleAdapter implements ComponentAdapter<AgentRuleComponentDef
     if (!source.ok) return [];
     const adapted = adaptAgentsDocument(source.value, component.rule);
     if (!adapted.ok) return [];
-    return [{
-      id: `rule:${component.id}`,
-      componentId: component.id,
-      destination: this.destination,
-      action: adapted.value.action,
-      reason: `Add or update the managed agent rule ${component.rule.id} in AGENTS.md.`,
-      conflict: adapted.value.conflict,
-      preview: redactedText(adapted.value.text),
-    }];
+    return [
+      {
+        id: `rule:${component.id}`,
+        componentId: component.id,
+        destination: this.destination,
+        action: adapted.value.action,
+        reason: `Add or update the managed agent rule ${component.rule.id} in AGENTS.md.`,
+        conflict: adapted.value.conflict,
+        preview: redactedText(adapted.value.text),
+      },
+    ];
   }
 
   public async verify(_ctx: VerificationContext, operation: ProposedOperation): Promise<Result<void>> {
-    return operation.destination === this.destination ? ok(undefined) : err({ code: "INVALID_PLAN", message: "Agent rule operation has an unexpected destination", recoverability: "none", path: operation.destination });
+    return operation.destination === this.destination
+      ? ok(undefined)
+      : err({
+          code: "INVALID_PLAN",
+          message: "Agent rule operation has an unexpected destination",
+          recoverability: "none",
+          path: operation.destination,
+        });
   }
 
   private async readSource(): Promise<Result<SourceDocument, ConfigError>> {

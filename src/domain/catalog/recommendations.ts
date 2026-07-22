@@ -22,42 +22,61 @@ const CLI_RULES: readonly CliRule[] = [
     ids: ["github", "github-actions", "githubactions"],
     names: ["github", "github actions"],
     explanation: "Use gh to inspect repositories, pull requests, issues, and GitHub Actions from the project workflow.",
-    instructions: ["Consult the official gh installation and authentication documentation.", "Install or authenticate gh separately only when you explicitly choose to; auto-ai-setup does not execute it."],
+    instructions: [
+      "Consult the official gh installation and authentication documentation.",
+      "Install or authenticate gh separately only when you explicitly choose to; auto-ai-setup does not execute it.",
+    ],
   },
   {
     cli: "supabase",
     ids: ["supabase"],
     names: ["supabase"],
     explanation: "Use the Supabase CLI to manage the project's local Supabase configuration and linked database workflow.",
-    instructions: ["Consult the official Supabase CLI installation and project documentation.", "Run Supabase commands separately after reviewing this plan; auto-ai-setup does not execute them."],
+    instructions: [
+      "Consult the official Supabase CLI installation and project documentation.",
+      "Run Supabase commands separately after reviewing this plan; auto-ai-setup does not execute them.",
+    ],
   },
   {
     cli: "vercel",
     ids: ["vercel"],
     names: ["vercel"],
     explanation: "Use the Vercel CLI to inspect, configure, and deploy the project's Vercel application when desired.",
-    instructions: ["Consult the official Vercel CLI installation and deployment documentation.", "Install or run Vercel separately after explicit user action; auto-ai-setup does not execute it."],
+    instructions: [
+      "Consult the official Vercel CLI installation and deployment documentation.",
+      "Install or run Vercel separately after explicit user action; auto-ai-setup does not execute it.",
+    ],
   },
   {
     cli: "playwright",
     ids: ["playwright"],
     names: ["playwright"],
     explanation: "Use Playwright's CLI to manage browser binaries and run the project's browser-test workflow.",
-    instructions: ["Consult the official Playwright CLI and browser-installation documentation.", "Install browsers or run Playwright separately; auto-ai-setup does not execute the recommended CLI."],
+    instructions: [
+      "Consult the official Playwright CLI and browser-installation documentation.",
+      "Install browsers or run Playwright separately; auto-ai-setup does not execute the recommended CLI.",
+    ],
   },
 ];
 
-const normalize = (value: string): string => value.trim().toLocaleLowerCase().replace(/[_\s]+/g, "-");
+const normalize = (value: string): string =>
+  value
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/[_\s]+/g, "-");
 const displayNormalize = (value: string): string => value.trim().toLocaleLowerCase().replace(/\s+/g, " ");
 const isMatchingItem = (item: StackItem, rule: CliRule): boolean => {
   const id = normalize(item.id);
   const idLeaf = id.includes(".") ? id.slice(id.lastIndexOf(".") + 1) : id;
   const name = displayNormalize(item.displayName);
-  const idMatches = rule.ids.some((candidate) => id === candidate || idLeaf === candidate || id.startsWith(`${candidate}.`) || id.includes(`.${candidate}.`));
+  const idMatches = rule.ids.some(
+    (candidate) => id === candidate || idLeaf === candidate || id.startsWith(`${candidate}.`) || id.includes(`.${candidate}.`),
+  );
   return idMatches || rule.names.includes(name);
 };
 
-const uniqueSorted = (values: readonly string[]): readonly string[] => [...new Set(values)].sort((left, right) => left.localeCompare(right));
+const uniqueSorted = (values: readonly string[]): readonly string[] =>
+  [...new Set(values)].sort((left, right) => left.localeCompare(right));
 
 /**
  * Purely maps confirmed stack evidence to one recommendation per initial CLI.
@@ -70,14 +89,16 @@ export const recommendClis = (stack: ConfirmedStack): readonly CliRecommendation
     if (matches.length === 0) return [];
     const technologies = uniqueSorted(matches.map((item) => item.displayName));
     const evidenceRefs = uniqueSorted(matches.flatMap((item) => item.evidence.map(evidenceReference)));
-    return [{
-      cli: rule.cli,
-      reason: `Detected ${technologies.join(" and ")} in the confirmed stack.`,
-      evidenceRefs,
-      technologies,
-      explanation: rule.explanation,
-      documentedInstructions: rule.instructions,
-    }];
+    return [
+      {
+        cli: rule.cli,
+        reason: `Detected ${technologies.join(" and ")} in the confirmed stack.`,
+        evidenceRefs,
+        technologies,
+        explanation: rule.explanation,
+        documentedInstructions: rule.instructions,
+      },
+    ];
   });
 };
 
@@ -138,13 +159,20 @@ interface ExpressionResult {
 
 const expressionLabel = (expression: CompatibilityExpression): string => {
   switch (expression.op) {
-    case "always": return "always";
-    case "stack": return `stack:${expression.category} in [${expression.oneOf.join(", ")}]`;
-    case "cli": return `cli in [${expression.oneOf.join(", ")}]`;
-    case "not": return `not (${expressionLabel(expression.clause)})`;
-    case "noneOf": return `none of [${expression.clauses.map(expressionLabel).join(", ")}]`;
-    case "all": return expression.clauses.map(expressionLabel).join(" and ");
-    case "any": return expression.clauses.map(expressionLabel).join(" or ");
+    case "always":
+      return "always";
+    case "stack":
+      return `stack:${expression.category} in [${expression.oneOf.join(", ")}]`;
+    case "cli":
+      return `cli in [${expression.oneOf.join(", ")}]`;
+    case "not":
+      return `not (${expressionLabel(expression.clause)})`;
+    case "noneOf":
+      return `none of [${expression.clauses.map(expressionLabel).join(", ")}]`;
+    case "all":
+      return expression.clauses.map(expressionLabel).join(" and ");
+    case "any":
+      return expression.clauses.map(expressionLabel).join(" or ");
   }
 };
 
@@ -170,7 +198,9 @@ const evaluateExpression = (expression: CompatibilityExpression, input: Compatib
       };
     }
     case "cli": {
-      const candidates = input.cliRecommendations.filter((recommendation) => !recommendation.pending && expression.oneOf.includes(recommendation.cli));
+      const candidates = input.cliRecommendations.filter(
+        (recommendation) => !recommendation.pending && expression.oneOf.includes(recommendation.cli),
+      );
       if (candidates.length > 0) {
         return {
           compatible: true,
@@ -225,13 +255,18 @@ const evaluateExpression = (expression: CompatibilityExpression, input: Compatib
 };
 
 const componentOrigin = (component: ComponentDefinition): string => component.source.origin;
-const numericPriority = (component: ComponentDefinition): number => Number.isFinite(component.priority ?? 0) ? component.priority ?? 0 : 0;
+const numericPriority = (component: ComponentDefinition): number =>
+  Number.isFinite(component.priority ?? 0) ? (component.priority ?? 0) : 0;
 const compareComponents = (left: ComponentDefinition, right: ComponentDefinition): number =>
-  (COMPONENT_TYPE_ORDER.indexOf(left.type) - COMPONENT_TYPE_ORDER.indexOf(right.type)) ||
-  (numericPriority(right) - numericPriority(left)) ||
+  COMPONENT_TYPE_ORDER.indexOf(left.type) - COMPONENT_TYPE_ORDER.indexOf(right.type) ||
+  numericPriority(right) - numericPriority(left) ||
   left.id.localeCompare(right.id);
 
-const viewFor = (definition: ComponentDefinition, input: CompatibilityInput, incompatibleOverride?: "approved" | "rejected"): ComponentView => ({
+const viewFor = (
+  definition: ComponentDefinition,
+  input: CompatibilityInput,
+  incompatibleOverride?: "approved" | "rejected",
+): ComponentView => ({
   definition,
   compatibility: evaluateCompatibility(definition.compatibility, input),
   origin: componentOrigin(definition),
@@ -242,7 +277,10 @@ export const compareComponentDefinitions = compareComponents;
 
 /** Returns only compatible components in deterministic type/priority/id order. */
 export const recommendComponents = (components: readonly ComponentDefinition[], input: CompatibilityInput): readonly ComponentView[] =>
-  [...components].sort(compareComponents).map((component) => viewFor(component, input)).filter((view) => view.compatibility.compatible);
+  [...components]
+    .sort(compareComponents)
+    .map((component) => viewFor(component, input))
+    .filter((view) => view.compatibility.compatible);
 
 export interface ManualComponentGroups {
   readonly groups: readonly ComponentGroup[];
@@ -259,7 +297,11 @@ export const groupComponentsByType = (components: readonly ComponentDefinition[]
   return { groups, components: views };
 };
 
-export const createComponentSelectionView = (components: readonly ComponentDefinition[], input: CompatibilityInput, manual = false): ComponentSelectionView => {
+export const createComponentSelectionView = (
+  components: readonly ComponentDefinition[],
+  input: CompatibilityInput,
+  manual = false,
+): ComponentSelectionView => {
   if (manual) {
     const grouped = groupComponentsByType(components, input);
     return { components: grouped.components, groups: grouped.groups };
@@ -344,10 +386,15 @@ export interface InvalidModeError {
 
 export const isRunMode = (value: unknown): value is "auto" | "manual" => value === "auto" || value === "manual";
 
-export const parseRunMode = (value: unknown): { readonly ok: true; readonly value: "auto" | "manual" } | { readonly ok: false; readonly error: InvalidModeError } =>
+export const parseRunMode = (
+  value: unknown,
+): { readonly ok: true; readonly value: "auto" | "manual" } | { readonly ok: false; readonly error: InvalidModeError } =>
   isRunMode(value)
     ? { ok: true, value }
-    : { ok: false, error: { code: "INVALID_MODE", message: "Mode must be auto or manual", received: value, validModes: ["auto", "manual"] } };
+    : {
+        ok: false,
+        error: { code: "INVALID_MODE", message: "Mode must be auto or manual", received: value, validModes: ["auto", "manual"] },
+      };
 
 export const parseMode = parseRunMode;
 export const modeOptions = (): readonly ModeOption[] => VALID_MODE_OPTIONS.map((option) => ({ ...option }));
