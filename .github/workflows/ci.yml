@@ -67,3 +67,6 @@ jobs:
 
       - name: Run package smoke validation
         run: pnpm run smoke
+
+      - name: Validate SDD traceability
+        run: pnpm run traceability

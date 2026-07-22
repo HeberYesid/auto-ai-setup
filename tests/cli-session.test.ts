@@ -133,6 +133,79 @@ describe("CLI task 8", () => {
     expect(summary).toMatchObject({ status: "success", exitCode: 0, applied: [], skipped: [] });
   });
 
+  it("executes the approved path, stack, mode, plan, and summary flow", async () => {
+    const rendered: string[] = [];
+    const ui = baseUi([component.id]);
+    ui.render = (event) => rendered.push(event.category);
+    let applied = false;
+    const summary = await makeOrchestrator({
+      transactionFactory: () => ({
+        apply: async () => {
+          applied = true;
+          return {
+            status: "committed",
+            exitCode: 0,
+            applied: ["rule:rule"] as never,
+            skipped: [],
+            warnings: [],
+            errors: [],
+            manualReviewPaths: [],
+          };
+        },
+        recover: async () => ({ status: "restored", exitCode: 1, restored: [], manualReviewPaths: [], errors: [] }),
+      }),
+    }).run({ targetPath: String(root), mode: "manual", verbose: false, recover: false }, ui);
+
+    expect(summary).toMatchObject({ status: "success", exitCode: 0, applied: ["rule:rule"] });
+    expect(applied).toBe(true);
+    expect(rendered).toEqual(["project", "stack", "plan", "session"]);
+  });
+
+  it("handles unknown and incompatible selections without applying changes", async () => {
+    const unknown = await makeOrchestrator().run(
+      { targetPath: String(root), mode: "manual", verbose: false, recover: false },
+      baseUi(["unknown" as ComponentId]),
+    );
+    expect(unknown.status).toBe("invalid-input");
+
+    const incompatible = {
+      ...component,
+      compatibility: { op: "stack", category: "language", oneOf: ["typescript"] } as const,
+    };
+    const ui = baseUi([component.id]);
+    ui.confirmIncompatible = async () => false;
+    const omitted = await makeOrchestrator({ componentDefinitions: [incompatible] }).run(
+      { targetPath: String(root), mode: "manual", verbose: false, recover: false },
+      ui,
+    );
+    expect(omitted.status).toBe("success");
+    expect(omitted.applied).toEqual([]);
+  });
+
+  it("handles catalog authorization/listing failures and invalid project analysis", async () => {
+    const ui = baseUi([]);
+    ui.confirmExternal = async () => false;
+    const deniedCatalog = await makeOrchestrator({ catalogFactory: () => ({}) as never }).run(
+      { targetPath: String(root), mode: "manual", verbose: false, recover: false },
+      ui,
+    );
+    expect(deniedCatalog.status).toBe("success");
+
+    const invalidProject = await makeOrchestrator({
+      projectGateway: { validateDirectory: async () => ({ ok: false, error: { message: "missing", check: "existence" } }) as never },
+    }).run({ targetPath: String(root), verbose: false, recover: false }, baseUi());
+    expect(invalidProject.status).toBe("invalid-input");
+
+    const failedAnalysis = await makeOrchestrator({
+      stackAnalyzer: {
+        analyze: async () => {
+          throw new Error("analysis failed");
+        },
+      },
+    }).run({ targetPath: String(root), verbose: false, recover: false }, baseUi());
+    expect(failedAnalysis.status).toBe("invalid-input");
+  });
+
   it("returns code 2 for an invalid mode before analysis or mutation", async () => {
     let analyzed = false;
     let applied = false;

@@ -31,7 +31,7 @@
     "pack": "pnpm run build && pnpm pack --pack-destination .artifacts",
     "smoke": "pnpm run build && node scripts/smoke.mjs",
     "traceability": "pnpm run build && node dist/infrastructure/traceability/cli.js",
-    "ci": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test:unit && pnpm run test:integration && pnpm run test:property && pnpm run test:coverage && pnpm run build && pnpm run pack && pnpm run smoke"
+    "ci": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test:unit && pnpm run test:integration && pnpm run test:property && pnpm run test:coverage && pnpm run build && pnpm run pack && pnpm run smoke && pnpm run traceability"
   },
   "dependencies": {},
   "devDependencies": {

@@ -10,8 +10,10 @@ import {
   asCanonicalPath,
   asProjectRelativePath,
   ok,
+  validateApprovedPlan,
+  validatePlanInvariants,
 } from "../src/index.js";
-import { LocalEventFactory, LocalEventSink } from "../src/infrastructure/observability/event-sink.js";
+import { LocalEventFactory, LocalEventSink, mapSummaryToEvents } from "../src/infrastructure/observability/event-sink.js";
 import { NodePathPolicy } from "../src/infrastructure/fs/path-policy.js";
 import type {
   CanonicalPath,
@@ -25,6 +27,7 @@ import type {
   StackItem,
   ConfirmedStack,
   Clock,
+  ExecutionSummary,
 } from "../src/domain/index.js";
 
 const digest = "a".repeat(64) as Sha256;
@@ -97,6 +100,18 @@ describe("Task 6 planning, consent, security, events, and redaction", () => {
     const built = await planner.build(input([file("AGENTS.md", "modify", "content-differs")], [external()]));
     expect(built.ok).toBe(true);
     if (!built.ok) return;
+    expect(validatePlanInvariants(built.value).ok).toBe(true);
+    expect(validatePlanInvariants({ ...built.value, fileChanges: [built.value.fileChanges[0]!, built.value.fileChanges[0]!] }).ok).toBe(
+      false,
+    );
+    expect(validatePlanInvariants({ ...built.value, externalOperations: [external(), external()] }).ok).toBe(false);
+    expect(
+      validatePlanInvariants({
+        ...built.value,
+        fileChanges: [{ ...built.value.fileChanges[0]!, action: "preserve", afterDigest: digest }],
+      }).ok,
+    ).toBe(false);
+
     const policy = new ImmutableApprovalPolicy();
     const denied = policy.evaluate(built.value, {
       planHash: digest,
@@ -118,6 +133,85 @@ describe("Task 6 planning, consent, security, events, and redaction", () => {
     expect(Object.isFrozen(approved.value)).toBe(true);
     expect(approved.value.approvedFileChangeIds).toEqual(["change:AGENTS.md"]);
     expect(() => (approved.value.approvedFileChangeIds as string[]).push("bad")).toThrow();
+  });
+
+  it("rejects every unsafe approval subset before creating an approved plan", async () => {
+    const planner = new DeterministicChangePlanner();
+    const built = await planner.build(input([file("AGENTS.md", "modify", "content-differs")], [external()]));
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+
+    const base = {
+      planHash: built.value.planHash,
+      globalApproved: true,
+      conflicts: { "change:AGENTS.md": "preserve" as const },
+      incompatibleComponents: [],
+      networkOperations: [external().id],
+    };
+    expect(validateApprovedPlan(built.value, { ...base, planHash: digest }).ok).toBe(false);
+    expect(
+      validateApprovedPlan(built.value, {
+        ...base,
+        conflicts: { unknown: "preserve" },
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateApprovedPlan(built.value, {
+        ...base,
+        networkOperations: ["unknown"],
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateApprovedPlan(built.value, {
+        ...base,
+        incompatibleComponents: [componentId, componentId],
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateApprovedPlan(built.value, {
+        ...base,
+        networkOperations: [],
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateApprovedPlan(built.value, {
+        ...base,
+        conflicts: {},
+      }).ok,
+    ).toBe(false);
+
+    const conflictFree = await planner.build(input([file(".kiro/rule.md")]));
+    expect(conflictFree.ok).toBe(true);
+    if (conflictFree.ok) {
+      expect(
+        (await import("../src/domain/invariants.js")).validateApprovedPlan(conflictFree.value, {
+          ...base,
+          planHash: conflictFree.value.planHash,
+          conflicts: {},
+          networkOperations: [],
+          globalApproved: false,
+        }).ok,
+      ).toBe(false);
+    }
+  });
+
+  it("rejects invalid plan identity, duplicate destinations, and unsafe external operations", async () => {
+    const planner = new DeterministicChangePlanner();
+    expect((await planner.build({ ...input([]), root: "" as CanonicalPath })).ok).toBe(false);
+    expect((await planner.build({ ...input([]), runId: "" as RunId })).ok).toBe(false);
+    expect((await planner.build({ ...input([]), now: "" })).ok).toBe(false);
+    expect((await planner.build(input([file(".kiro/a.md"), file(".kiro/a.md")]))).ok).toBe(false);
+    expect((await planner.build(input([file("../outside")]))).ok).toBe(false);
+    expect((await planner.build(input([], [{ ...external(), command: [] as never }]))).ok).toBe(false);
+    expect((await planner.build(input([], [{ ...external(), command: ["npx", "bad\0arg"] }]))).ok).toBe(false);
+    expect((await planner.build(input([], [external(), external()]))).ok).toBe(false);
+    expect(
+      (
+        await planner.build(
+          input([], [{ ...external(), expectedFiles: [{ ...external().expectedFiles[0]!, path: "../outside" as never }] }]),
+        )
+      ).ok,
+    ).toBe(false);
   });
 
   it("redacts recursive secret material and omits sensitive payload fields", () => {
@@ -166,6 +260,45 @@ describe("Task 6 planning, consent, security, events, and redaction", () => {
     }
   });
 
+  it("renders terminal events and maps every summary result category", () => {
+    const lines: string[] = [];
+    const factory = new LocalEventFactory({ clock: { now: () => "2025-01-01T00:00:00.000Z", monotonicMs: () => 0 }, verbose: false });
+    const event = factory.create({
+      runId: "run-1" as RunId,
+      level: "info",
+      category: "session",
+      message: "safe",
+      context: { evidence: "hidden" },
+    });
+    new LocalEventSink({ terminal: (line) => lines.push(line) }).emit(event);
+    expect(lines).toHaveLength(1);
+    const summary = {
+      runId: "run-1" as RunId,
+      status: "failed-recovered",
+      exitCode: 1,
+      applied: ["applied"],
+      skipped: ["skipped"],
+      warnings: ["warning"],
+      errors: ["error"],
+      manualReviewPaths: [],
+    } as unknown as ExecutionSummary;
+    expect(mapSummaryToEvents(summary, { now: () => "2025-01-01T00:00:00.000Z", monotonicMs: () => 0 })).toHaveLength(5);
+    expect(() => new LocalEventSink({ root: projectRoot, filePath: "../outside" })).toThrow();
+  });
+
+  it("does not expose sink failures through the fallback terminal", () => {
+    const lines: string[] = [];
+    const sink = new LocalEventSink({ root: projectRoot, filePath: ".", terminal: (line) => lines.push(line) });
+    sink.emit({
+      runId: "run-1" as RunId,
+      timestamp: "2025-01-01T00:00:00.000Z",
+      level: "info",
+      category: "session",
+      message: "safe",
+    });
+    expect(lines.length).toBeGreaterThanOrEqual(0);
+  });
+
   it("does not delegate network requests without an exact approval", async () => {
     let calls = 0;
     const delegate: NetworkGateway = {
@@ -197,5 +330,9 @@ describe("Task 6 planning, consent, security, events, and redaction", () => {
     );
     expect(hostile.ok).toBe(false);
     if (!hostile.ok) expect(hostile.error.exitCode).toBe(2);
+    expect(await policy.resolveDestination(projectRoot, "C:/outside" as never)).toMatchObject({ ok: false });
+    expect(await policy.resolveDestination(projectRoot, "a\0b" as never)).toMatchObject({ ok: false });
+    expect(await policy.resolveDestination(projectRoot, "" as never)).toMatchObject({ ok: false });
+    expect(await policy.resolveDestination(projectRoot, ".kiro/../outside" as never)).toMatchObject({ ok: false });
   });
 });

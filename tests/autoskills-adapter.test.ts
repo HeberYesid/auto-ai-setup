@@ -114,6 +114,52 @@ describe("registered autoskills adapter", () => {
     expect(executor.requests[1]?.args).toEqual(["install", "testing"]);
   });
 
+  it("denies malformed, timed-out, and failed catalog process results", async () => {
+    const executor = new FakeExecutor({ ...successful("not-json"), exitCode: 0 });
+    const gateway = new MidudevAutoSkillsGateway(executor, { root: root.value, authorizeListing: () => true });
+    expect(await gateway.list()).toMatchObject({ ok: false, error: { code: "CATALOG_INVALID_RESPONSE" } });
+
+    executor.setResult({ ...successful(JSON.stringify(payload)), exitCode: 1, stderr: "failed" });
+    expect(await gateway.list()).toMatchObject({ ok: false, error: { code: "CATALOG_EXECUTION_FAILED" } });
+    executor.setResult({ ...successful(JSON.stringify(payload)), timedOut: true });
+    expect(await gateway.list()).toMatchObject({ ok: false, error: { code: "CATALOG_EXECUTION_FAILED" } });
+  });
+
+  it("requires a presented snapshot, exact approval, and verified files before install", async () => {
+    const executor = new FakeExecutor(successful(JSON.stringify(payload)));
+    const entry = payload.entries[0] as unknown as SkillCatalogEntry;
+    const withoutSnapshot = new MidudevAutoSkillsGateway(executor, { root: root.value });
+    expect(
+      await withoutSnapshot.install(entry, { planHash: sha as never, operationId: "op-1", approved: true }, target.value),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "INSTALLATION_IDENTITY_MISMATCH" },
+    });
+
+    const fileSystem = new FakeFileSystem();
+    const gateway = new MidudevAutoSkillsGateway(executor, { root: root.value, authorizeListing: () => true, fileSystem });
+    expect((await gateway.list()).ok).toBe(true);
+    expect(await gateway.install(entry, { planHash: sha as never, operationId: "", approved: false }, target.value)).toMatchObject({
+      ok: false,
+      error: { code: "INSTALLATION_FAILED" },
+    });
+    executor.setResult(successful("installed"));
+    expect(await gateway.install(entry, { planHash: sha as never, operationId: "op-1", approved: true }, target.value)).toMatchObject({
+      ok: false,
+      error: { code: "INSTALLATION_IDENTITY_MISMATCH" },
+    });
+  });
+
+  it("returns a process error when the catalog executor throws", async () => {
+    const executor: ProcessExecutor = {
+      execute: async () => {
+        throw new Error("spawn failed");
+      },
+    };
+    const gateway = new MidudevAutoSkillsGateway(executor, { root: root.value, authorizeListing: () => true });
+    expect(await gateway.list()).toMatchObject({ ok: false, error: { code: "CATALOG_EXECUTION_FAILED" } });
+  });
+
   it("returns bounded process failures and supports cancellation before spawn", async () => {
     const executor = new FakeExecutor({ ...successful(JSON.stringify(payload)), truncated: true });
     const gateway = new MidudevAutoSkillsGateway(executor, { root: root.value, authorizeListing: () => true });

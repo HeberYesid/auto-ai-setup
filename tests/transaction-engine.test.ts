@@ -114,4 +114,99 @@ describe("PersistentTransactionEngine", () => {
     expect(result).toMatchObject({ status: "rolled-back", exitCode: 0, applied: [] });
     expect(await fileSystem.exists(safe(".auto-ai-setup/transactions/active"))).toBe(false);
   });
+
+  it("rejects malformed plans and terminal journals without mutating the project", async () => {
+    const fileSystem = new FakeFileSystem();
+    const engine = new PersistentTransactionEngine({ fileSystem });
+    const valid = planFor("hello", "create");
+    const invalid = await engine.apply({ ...valid, planHash: sha("invalid") }, new AbortController().signal);
+    expect(invalid.status).toBe("incomplete");
+
+    const journal = {
+      schemaVersion: 1 as const,
+      runId: "run-0001" as never,
+      root: root.value,
+      planHash: sha("journal"),
+      phase: "committed" as const,
+      entries: [],
+      manualReviewPaths: [],
+    };
+    expect(await engine.recover(journal)).toMatchObject({ status: "restored", exitCode: 1 });
+    expect(await engine.recover({ ...journal, schemaVersion: 2 as never })).toMatchObject({ status: "incomplete", exitCode: 3 });
+  });
+
+  it("maps prepare, verify, journal, and rollback failures to recoverable results", async () => {
+    const prepareFailure: TransactionOperation = {
+      async prepare() {
+        return err({ code: "WRITE_FAILED", message: "prepare failed", recoverability: "rollback" });
+      },
+      async verify() {
+        return ok(undefined);
+      },
+      async commit() {
+        return ok({ operationId: "file:demo", destination: safe(".kiro/prompts/demo.md"), desiredDigest: sha("new") });
+      },
+      async rollback() {
+        return ok(undefined);
+      },
+    };
+    const prepared = await new PersistentTransactionEngine({
+      fileSystem: new FakeFileSystem(),
+      operations: new Map([["file:demo", prepareFailure]]),
+    }).apply(planFor("new", "create"), new AbortController().signal);
+    expect(prepared.status).toBe("rolled-back");
+
+    const journalFailureFs = new FakeFileSystem();
+    journalFailureFs.failures.failAt("write");
+    const journalFailure = await new PersistentTransactionEngine({ fileSystem: journalFailureFs }).apply(
+      planFor("new", "create"),
+      new AbortController().signal,
+    );
+    expect(journalFailure.status).toBe("incomplete");
+
+    const verifyFailure: TransactionOperation = {
+      async prepare() {
+        return ok({ operationId: "file:demo", destination: safe(".kiro/prompts/demo.md"), desiredDigest: sha("new") });
+      },
+      async verify() {
+        return err({ code: "VERIFY_FAILED", message: "verify failed", recoverability: "rollback" });
+      },
+      async commit() {
+        return ok({ operationId: "file:demo", destination: safe(".kiro/prompts/demo.md"), desiredDigest: sha("new") });
+      },
+      async rollback() {
+        return ok(undefined);
+      },
+    };
+    const verified = await new PersistentTransactionEngine({
+      fileSystem: new FakeFileSystem(),
+      operations: new Map([["file:demo", verifyFailure]]),
+    }).apply(planFor("new", "create"), new AbortController().signal);
+    expect(verified.status).toBe("rolled-back");
+  });
+
+  it("recovers a journal entry and reports manual review when restoration fails", async () => {
+    const fileSystem = new FakeFileSystem();
+    const engine = new PersistentTransactionEngine({ fileSystem });
+    const journal = {
+      schemaVersion: 1 as const,
+      runId: "run-recovery" as never,
+      root: root.value,
+      planHash: sha("journal"),
+      phase: "committing" as const,
+      entries: [
+        {
+          operationId: "file:demo",
+          destination: safe(".kiro/prompts/demo.md"),
+          prior: { existed: false as const },
+          desiredDigest: sha("new"),
+          status: "committed" as const,
+        },
+      ],
+      manualReviewPaths: [],
+    };
+    const result = await engine.recover(journal);
+    expect(result.status).toBe("restored");
+    expect(result.restored).toContain("file:demo");
+  });
 });

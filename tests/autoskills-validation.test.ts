@@ -1,7 +1,18 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type { ProcessExecutor, ProcessResult, RegisteredProcessRequest } from "../src/domain/index.js";
-import { AUTOSKILLS_SOURCE_REPOSITORY, asCanonicalPath, asSafeProjectPath } from "../src/domain/index.js";
+import {
+  AUTOSKILLS_SOURCE_REPOSITORY,
+  asCanonicalPath,
+  asSafeProjectPath,
+  findCatalogEntry,
+  isRegisteredAutoSkillsRequest,
+  registerAutoSkillsInstall,
+  registerAutoSkillsList,
+  validateCatalogPayload,
+  validateCatalogSnapshot,
+  validateSkillCatalogEntry,
+} from "../src/domain/index.js";
 import { MidudevAutoSkillsGateway } from "../src/infrastructure/catalog/autoskills-gateway.js";
 import { FileSystemSkillOwnershipStore } from "../src/infrastructure/catalog/skill-ownership.js";
 import { FakeFileSystem } from "./support/fakes.js";
@@ -114,5 +125,39 @@ describe("autoskills catalog membership and artifact integrity", () => {
       expect(state.value?.components["skill:verified-skill"]?.origin).toBe(`${AUTOSKILLS_SOURCE_REPOSITORY}#skills/verified-skill`);
       expect(state.value?.components["skill:verified-skill"]?.sourceRevision).toBe(commit);
     }
+  });
+
+  it("rejects invalid catalog identities and process registrations", () => {
+    const baseEntry = payload.entries[0];
+    const invalidEntries = [
+      { ...baseEntry, id: "../escape" },
+      { ...baseEntry, origin: { ...baseEntry.origin, commit: "short" } },
+      { ...baseEntry, origin: { ...baseEntry.origin, relativePath: "../escape" } },
+      { ...baseEntry, files: [] },
+      { ...baseEntry, compatibility: { op: "unknown" } },
+      { ...baseEntry, files: [{ ...baseEntry.files[0], relativePath: "SKILL.md" }, { ...baseEntry.files[0] }] },
+      { ...baseEntry, files: [{ ...baseEntry.files[0], size: -1 }] },
+    ];
+    for (const entry of invalidEntries) expect(validateSkillCatalogEntry(entry)).toBe(false);
+    expect(validateCatalogPayload({ ...payload, entries: [baseEntry, baseEntry] })).toMatchObject({
+      ok: false,
+      error: { code: "CATALOG_INVALID_RESPONSE" },
+    });
+    expect(
+      validateCatalogPayload({ ...payload, entries: [{ ...baseEntry, origin: { ...baseEntry.origin, commit: "abcdef1" } }] }),
+    ).toMatchObject({ ok: false, error: { code: "CATALOG_SOURCE_MISMATCH" } });
+    expect(validateCatalogSnapshot({ ...payload, manifestDigest: "bad" })).toMatchObject({ ok: false });
+
+    expect(
+      isRegisteredAutoSkillsRequest({ command: "npx-autoskills", operation: "list", args: ["list", "--json"], authorized: true }),
+    ).toBe(true);
+    expect(
+      isRegisteredAutoSkillsRequest({ command: "npx-autoskills", operation: "install", args: ["install", "bad name"], authorized: true }),
+    ).toBe(false);
+    expect(registerAutoSkillsList(root.value, false)).toMatchObject({ ok: false });
+    expect(registerAutoSkillsInstall(root.value, baseEntry as never, ".kiro/skills/verified-skill", false)).toMatchObject({ ok: false });
+    expect(findCatalogEntry({ ...payload, manifestDigest: fileHash } as never, { ...baseEntry, name: "changed" } as never)).toMatchObject({
+      ok: false,
+    });
   });
 });

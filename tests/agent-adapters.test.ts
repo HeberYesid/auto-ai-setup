@@ -154,4 +154,32 @@ describe("Kiro command adapter", () => {
     };
     await expect(adapter.propose({ root: root.value, stack, runId: "run-1" as never }, component)).resolves.toEqual([]);
   });
+
+  it("rejects invalid command definitions and validates operation destinations", async () => {
+    expect(adaptKiroCommandIndex(source(KIRO_COMMANDS_INDEX_PATH, "{}\n"), { id: "bad id", prompt: "x" })).toMatchObject({ ok: false });
+    expect(
+      adaptKiroCommandIndex(source(KIRO_COMMANDS_INDEX_PATH, "{}\n"), { id: "valid", metadata: [] as never, prompt: "x" }),
+    ).toMatchObject({
+      ok: false,
+    });
+    expect(adaptKiroCommandIndex(source(KIRO_COMMANDS_INDEX_PATH, '{"commands":[]}\n'), { id: "valid", prompt: "x" })).toMatchObject({
+      ok: false,
+    });
+    expect(
+      adaptKiroCommandDocuments(source(`${KIRO_PROMPTS_PATH}/x.md`, ""), source(KIRO_COMMANDS_INDEX_PATH, "{}\n"), { id: "x" }),
+    ).toMatchObject({
+      ok: false,
+    });
+
+    const adapter = new KiroCommandAdapter(new FakeFileSystem());
+    expect(
+      await adapter.verify(
+        {} as never,
+        {
+          destination: ".outside" as never,
+        } as never,
+      ),
+    ).toMatchObject({ ok: false, error: { code: "INVALID_PLAN" } });
+    expect(adapter.supports({ type: "agent-command", command: undefined } as never)).toBe(false);
+  });
 });

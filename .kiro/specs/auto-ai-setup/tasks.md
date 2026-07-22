@@ -47,7 +47,7 @@ Implementation language: **TypeScript**, strict mode, Node.js 20+ runtime, Vites
     - Generate trees containing excluded directories and over-limit file/byte counts; assert excluded files never reach detectors/counts and summaries classify profile applicability correctly.
     - **Validates: Requirements 12.4–12.11**
   - [x] 2.9 Add unit and integration tests for valid/invalid/missing/conflicting fixtures, permissions, symlinks, new/existing projects, evidence display, and bounded scan reporting.
-    - **Requirements: 1.2–1.16, 2.1–2.16, 12.4–12.11**
+    - **Requirements: 1.2–1.14, 2.1–2.16, 12.4–12.11**
 
 - [x] 3. Implement CLI recommendations, compatibility, and mode selection
   - [x] 3.1 Implement the pure recommendation engine for `gh`, `supabase`, `vercel`, and `playwright`, evidence aggregation, explanations, stable ordering, and explicit non-execution/non-installation of recommended CLIs.
@@ -186,12 +186,12 @@ Implementation language: **TypeScript**, strict mode, Node.js 20+ runtime, Vites
     - _Requirements: 1.1, 3.6–3.9, 4.1–4.12, 7.3–7.21, 8.11–8.17, 11.1–11.11_
   - [x] 8.2 Implement `SessionOrchestrator` as the designed state machine: recovery gate, project validation, analysis, authorized catalog query, stack resolution, mode selection, component selection, plan/approval, application, rollback, and summary.
     - Ensure empty selections never create a plan or request approval, cancellation before prepare returns code 0, and invalid input returns code 2 without mutation.
-    - _Requirements: 1.7–1.16, 2.7–2.16, 4.1–4.12, 5.1–5.15, 7.1–7.19, 8.1–8.17_
+    - _Requirements: 1.7–1.14, 2.7–2.16, 4.1–4.12, 5.1–5.15, 7.1–7.19, 8.1–8.17_
   - [x] 8.3 Wire every adapter through dependency injection and connect the package bin to the orchestrator while preserving the domain/application/infrastructure dependency direction.
     - Verify no AWS, backend, hooks, telemetry, arbitrary shell, recommended-CLI execution, or MCP startup path is reachable from the MVP runtime.
     - _Requirements: 13.1, 14.17–14.19, 15.1–15.16_
   - [ ]* 8.4 Add scripted integration tests for automatic and manual flows, recommendation removal, zero selection, invalid mode, stack conflict/no-stack fallback, new/existing projects, approval, cancellation, and incompatible overrides.
-    - **Requirements: 1.10–1.16, 2.12–2.16, 4.1–4.12, 13.11–13.13**
+    - **Requirements: 1.10–1.14, 2.12–2.16, 4.1–4.12, 13.11–13.13**
   - [ ]* 8.5 Add integration tests for global/conflict approvals, preserve/replace, concurrent change rejection, approved/unapproved network operations, local-only scope, and absence of AWS/backend/hooks calls.
     - **Requirements: 7.11–7.21, 13.14–13.16, 15.1–15.16**
   - [ ]* 8.6 Add packaging smoke tests that run `npm pack`, install the tarball in a sandbox, and execute the bin through `npx --no-install`, checking ESM, shebang, TTY behavior, and exit-code mapping.
@@ -212,9 +212,9 @@ Implementation language: **TypeScript**, strict mode, Node.js 20+ runtime, Vites
 
 ## Checkpoints
 
-- [~] 10. Checkpoint - Ensure the foundation, project scan, recommendation, catalog, component, planning, and transaction tests pass before final CLI wiring.
+- [x] 10. Checkpoint - Ensure the foundation, project scan, recommendation, catalog, component, planning, and transaction tests pass before final CLI wiring.
   - Ensure all tests pass, type checking is clean, and ask the user if questions arise.
-- [~] 11. Final checkpoint - Ensure all tests, coverage thresholds, build, package smoke test, traceability validation, and executable-flow validation pass.
+- [x] 11. Final checkpoint - Ensure all tests, coverage thresholds, build, package smoke test, traceability validation, and executable-flow validation pass.
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes
