@@ -1,0 +1,33 @@
+{
+  "name": "auto-ai-setup",
+  "version": "0.1.0",
+  "description": "Local, consent-driven AI agent project setup CLI",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "bin": { "auto-ai-setup": "dist/cli/bin.js" },
+  "exports": {
+    ".": "./dist/index.js",
+    "./contracts": "./dist/domain/index.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "npm run clean && tsc -p tsconfig.json",
+    "clean": "node --input-type=module -e \"import { rm } from 'node:fs/promises'; await rm('dist', { recursive: true, force: true })\"",
+    "typecheck": "tsc -p tsconfig.test.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint . --max-warnings 0"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "@eslint/js": "9.16.0",
+    "@vitest/coverage-v8": "2.1.8",
+    "eslint": "9.16.0",
+    "fast-check": "3.23.2",
+    "typescript": "5.7.2",
+    "typescript-eslint": "8.18.0",
+    "vitest": "2.1.8"
+  }
+}

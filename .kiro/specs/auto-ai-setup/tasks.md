@@ -8,16 +8,16 @@ Implementation language: **TypeScript**, strict mode, Node.js 20+ runtime, Vites
 
 ## Tasks
 
-- [ ] 1. Establish the TypeScript package boundary and shared contracts
-  - [ ] 1.1 Create the ESM package entrypoint, portable CLI bin/shebang, `src/` layer boundaries, strict TypeScript configuration, and Vitest/fast-check configuration.
+- [x] 1. Establish the TypeScript package boundary and shared contracts
+  - [x] 1.1 Create the ESM package entrypoint, portable CLI bin/shebang, `src/` layer boundaries, strict TypeScript configuration, and Vitest/fast-check configuration.
     - Configure `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, and `useUnknownInCatchVariables`; keep the CLI executable through `npx auto-ai-setup`.
     - Keep `cli` dependent on application ports, not directly on filesystem or process APIs.
     - _Requirements: 1.1, 13.1, 15.1, 15.2_
-  - [ ] 1.2 Define shared branded types, `Result`/typed error unions, session inputs, exit codes, domain models, and port interfaces from the design.
+  - [x] 1.2 Define shared branded types, `Result`/typed error unions, session inputs, exit codes, domain models, and port interfaces from the design.
     - Include `ValidatedProject`, stack/evidence/conflict types, component/catalog types, `ChangePlan`, approvals, journals, local events, and execution summaries.
     - Encode the invariants for safe paths, approval subsets, unique IDs, and terminal exit states at the domain boundary.
     - _Requirements: 1.7–1.9, 2.5–2.6, 7.1–7.21, 8.1–8.17, 11.1–11.11, 15.3–15.9_
-  - [ ] 1.3 Add deterministic test infrastructure and fakes for clocks, UUIDs, filesystem, process execution, network, and `UserInteraction`.
+  - [x] 1.3 Add deterministic test infrastructure and fakes for clocks, UUIDs, filesystem, process execution, network, and `UserInteraction`.
     - Provide `ScriptedUserInteraction`, virtual project fixtures, failure injection, and seeded fast-check helpers without implementing a custom property-test generator.
     - _Requirements: 13.5–13.16, 13.20_
 
