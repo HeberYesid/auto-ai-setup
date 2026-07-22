@@ -1,4 +1,6 @@
+export * from "./catalog/cli-probes.js";
 export * from "./catalog/models.js";
+export * from "./catalog/recommendations.js";
 export * from "./config/models.js";
 export * from "./invariants.js";
 export * from "./observability/models.js";

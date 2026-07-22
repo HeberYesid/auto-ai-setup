@@ -6,6 +6,8 @@ export type CompatibilityExpression =
   | { readonly op: "cli"; readonly oneOf: readonly InitialCli[] }
   | { readonly op: "all" | "any"; readonly clauses: readonly CompatibilityExpression[] }
   | { readonly op: "not"; readonly clause: CompatibilityExpression }
+  /** Alias for a negated conjunction, accepted for catalog compatibility. */
+  | { readonly op: "noneOf"; readonly clauses: readonly CompatibilityExpression[] }
   | { readonly op: "always" };
 
 export type ComponentType = "skill" | "mcp-server" | "agent-rule" | "agent-command";
@@ -26,6 +28,8 @@ export interface ComponentDefinition {
   readonly type: ComponentType;
   readonly name: string;
   readonly description: string;
+  /** Higher values are presented first within a component type. */
+  readonly priority?: number;
   readonly compatibility: CompatibilityExpression;
   readonly source: ComponentSource;
 }

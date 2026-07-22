@@ -49,13 +49,13 @@ Implementation language: **TypeScript**, strict mode, Node.js 20+ runtime, Vites
   - [x] 2.9 Add unit and integration tests for valid/invalid/missing/conflicting fixtures, permissions, symlinks, new/existing projects, evidence display, and bounded scan reporting.
     - **Requirements: 1.2–1.16, 2.1–2.16, 12.4–12.11**
 
-- [ ] 3. Implement CLI recommendations, compatibility, and mode selection
-  - [ ] 3.1 Implement the pure recommendation engine for `gh`, `supabase`, `vercel`, and `playwright`, evidence aggregation, explanations, stable ordering, and explicit non-execution/non-installation of recommended CLIs.
+- [x] 3. Implement CLI recommendations, compatibility, and mode selection
+  - [x] 3.1 Implement the pure recommendation engine for `gh`, `supabase`, `vercel`, and `playwright`, evidence aggregation, explanations, stable ordering, and explicit non-execution/non-installation of recommended CLIs.
     - Include CLI recommendation entries in the plan as documented instructions only; never probe, install, or run the recommended CLI while generating a recommendation.
     - _Requirements: 3.1–3.13_
-  - [ ] 3.2 Implement compatibility expressions, component recommendation ordering, automatic removal, manual grouping by component type, incompatible-component explanations, and explicit override decisions.
+  - [x] 3.2 Implement compatibility expressions, component recommendation ordering, automatic removal, manual grouping by component type, incompatible-component explanations, and explicit override decisions.
     - _Requirements: 4.4–4.7, 6.1–6.12_
-  - [ ] 3.3 Add the isolated allowlisted-process contract represented by the design’s CLI-probe property without invoking recommended CLIs from the recommendation path; reject any unregistered process, nonzero/invalid/timeout result, or incompatible capability.
+  - [x] 3.3 Add the isolated allowlisted-process contract represented by the design’s CLI-probe property without invoking recommended CLIs from the recommendation path; reject any unregistered process, nonzero/invalid/timeout result, or incompatible capability.
     - Keep this adapter unused by Requirement 3 recommendation generation until the probe-vs-no-probe design discrepancy is resolved.
     - _Requirements: 3.10–3.11, 15.1–15.2_
   - [ ]* 3.4 Write the fast-check property test for **Property 5: Clasificación de probes aislada y determinista**.

@@ -29,12 +29,20 @@ export interface SkillCatalogEntry {
 
 export interface ComponentSelectionView {
   readonly components: readonly ComponentView[];
+  /** Groups are ordered by the stable component type order. */
+  readonly groups?: readonly ComponentGroup[];
+}
+
+export interface ComponentGroup {
+  readonly type: ComponentDefinition["type"];
+  readonly components: readonly ComponentView[];
 }
 
 export interface ComponentView {
   readonly definition: ComponentDefinition;
   readonly compatibility: CompatibilityDecision;
   readonly origin?: string;
+  readonly incompatibleOverride?: "approved" | "rejected";
 }
 
 export interface RecommendationInput {

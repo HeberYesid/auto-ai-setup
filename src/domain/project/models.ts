@@ -107,6 +107,12 @@ export interface CliRecommendation {
   readonly cli: InitialCli;
   readonly reason: string;
   readonly evidenceRefs: readonly string[];
+  /** Stack technologies that caused this deduplicated recommendation. */
+  readonly technologies?: readonly string[];
+  /** Human-readable explanation shown without probing or executing the CLI. */
+  readonly explanation?: string;
+  /** Documentation-only steps that may be copied into a change plan. */
+  readonly documentedInstructions?: readonly string[];
   readonly pending?: boolean;
 }
 
