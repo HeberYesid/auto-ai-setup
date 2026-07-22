@@ -62,6 +62,7 @@ export interface ChangePlan {
   readonly root: CanonicalPath;
   readonly mode: RunMode;
   readonly catalogDigest?: Sha256;
+  readonly catalogSourceRevision?: string;
   readonly confirmedStackDigest: Sha256;
   readonly createdAt: string;
   readonly fileChanges: readonly FileChange[];

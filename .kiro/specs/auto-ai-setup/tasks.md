@@ -73,11 +73,11 @@ Implementation language: **TypeScript**, strict mode, Node.js 20+ runtime, Vites
   - [ ]* 3.8 Add unit tests for recommendation deduplication, evidence explanations, no-recommendation output, automatic removal, manual zero-selection, incompatible accept/reject, and invalid mode handling.
     - **Requirements: 3.1–3.13, 4.1–4.12, 6.1–6.12**
 
-- [ ] 4. Integrate the trusted autoskills catalog and Skill installation adapter
-  - [ ] 4.1 Implement the registered process adapter for authorized `npx autoskills` listing and official installation, with bounded output, cancellation, origin restrictions, destination containment, and no arbitrary shell execution.
+- [x] 4. Integrate the trusted autoskills catalog and Skill installation adapter
+  - [x] 4.1 Implement the registered process adapter for authorized `npx autoskills` listing and official installation, with bounded output, cancellation, origin restrictions, destination containment, and no arbitrary shell execution.
     - Build `CatalogSnapshot` only from validated midudev output and attach catalog digest/source revision to the planning input.
     - _Requirements: 5.1–5.7, 15.4–15.9_
-  - [ ] 4.2 Implement catalog snapshot validation, identity/origin membership checks, file/hash verification, partial-artifact cleanup, and Skill ownership state.
+  - [x] 4.2 Implement catalog snapshot validation, identity/origin membership checks, file/hash verification, partial-artifact cleanup, and Skill ownership state.
     - Reject altered or external entries before installation and remove partial artifacts before recovery when official installation fails.
     - _Requirements: 5.2–5.15_
   - [ ]* 4.3 Write the fast-check property test for **Property 8: Membresía e integridad de Skills gestionadas por autoskills**.

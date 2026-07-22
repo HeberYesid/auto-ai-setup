@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "Test",
+  "description": "Ejecutar test",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "pnpm test"
+  },
+  "workspaceFolderName": "auto-ai-setup",
+  "shortName": "test"
+}

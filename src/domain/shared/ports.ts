@@ -64,9 +64,14 @@ export interface StackDetectorRegistry {
   find(path: SafeProjectPath): readonly StackDetector[];
 }
 
+export interface SkillOwnershipStore {
+  load(): Promise<Result<import("../planning/models.js").ManagedState | undefined>>;
+  save(state: import("../planning/models.js").ManagedState): Promise<Result<void>>;
+}
+
 export interface AutoSkillsGateway {
   list(): Promise<Result<CatalogSnapshot, import("./types.js").CatalogError>>;
-  install(entry: SkillCatalogEntry, approval: ExternalOperationApproval, target: SafeProjectPath): Promise<Result<InstalledArtifact, import("./types.js").InstallationError>>;
+  install(entry: SkillCatalogEntry, approval: ExternalOperationApproval, target: SafeProjectPath, snapshot?: CatalogSnapshot): Promise<Result<InstalledArtifact, import("./types.js").InstallationError>>;
 }
 
 export interface InstalledArtifact {
@@ -117,6 +122,8 @@ export interface PlanningInput {
   readonly fileChanges: readonly import("../planning/models.js").FileChange[];
   readonly externalOperations: readonly import("../planning/models.js").ExternalOperation[];
   readonly catalogDigest?: import("./types.js").Sha256;
+  /** Source revision paired with catalogDigest for stale/mismatched catalog detection. */
+  readonly catalogSourceRevision?: string;
   readonly now: string;
 }
 

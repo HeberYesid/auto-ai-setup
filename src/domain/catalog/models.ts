@@ -49,6 +49,8 @@ export interface RecommendationInput {
   readonly stack: import("../project/models.js").ConfirmedStack;
   readonly cliRecommendations: readonly import("../project/models.js").CliRecommendation[];
   readonly catalog?: CatalogSnapshot;
+  /** Provenance copied into planning input when a catalog was consulted. */
+  readonly catalogSourceRevision?: string;
 }
 
 export interface CompatibilityInput {
