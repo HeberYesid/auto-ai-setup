@@ -38,6 +38,7 @@ export interface DirectoryError extends AppErrorBase<
   | "DELETE_PROBE_FAILED"
 > {
   readonly check: "exists" | "directory" | "realpath" | "enumerate" | "read" | "write" | "delete";
+  readonly exitCode: 2;
   readonly code:
     | "DIRECTORY_NOT_FOUND"
     | "NOT_DIRECTORY"

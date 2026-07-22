@@ -21,32 +21,32 @@ Implementation language: **TypeScript**, strict mode, Node.js 20+ runtime, Vites
     - Provide `ScriptedUserInteraction`, virtual project fixtures, failure injection, and seeded fast-check helpers without implementing a custom property-test generator.
     - _Requirements: 13.5–13.16, 13.20_
 
-- [ ] 2. Implement project validation, bounded scanning, and stack evidence analysis
-  - [ ] 2.1 Implement the safe `ProjectGateway` for path existence/type/realpath checks, enumeration/read checks, temporary probe cleanup, canonical-root selection, and new/existing classification.
+- [x] 2. Implement project validation, bounded scanning, and stack evidence analysis
+  - [x] 2.1 Implement the safe `ProjectGateway` for path existence/type/realpath checks, enumeration/read checks, temporary probe cleanup, canonical-root selection, and new/existing classification.
     - Return named, redactable directory errors and exit-code-ready results without persistent mutation on validation failure.
     - _Requirements: 1.2–1.14_
-  - [ ] 2.2 Implement the bounded asynchronous scan policy and detector registry for supported languages, package managers, frameworks, tools, recognized formats, syntax/schema validation, provenance, exclusions, byte/file limits, and monotonic timing.
+  - [x] 2.2 Implement the bounded asynchronous scan policy and detector registry for supported languages, package managers, frameworks, tools, recognized formats, syntax/schema validation, provenance, exclusions, byte/file limits, and monotonic timing.
     - Exclude dependency, VCS, build, coverage, cache, and virtual-environment directories; do not follow symlinks or infer stack values from folder names.
     - _Requirements: 2.1–2.11, 12.4–12.11_
-  - [ ] 2.3 Implement stack aggregation, explicit/derived confidence, conflict detection, conflict resolution, and stack view models with all evidence references.
+  - [x] 2.3 Implement stack aggregation, explicit/derived confidence, conflict detection, conflict resolution, and stack view models with all evidence references.
     - Suspend only recommendations dependent on unresolved categories and provide the manual fallback when no compatible stack is confirmed.
     - _Requirements: 2.7–2.16_
-  - [ ]* 2.4 Write the fast-check property test for **Property 1: Validar un directorio no deja efectos y canoniza el root**.
+  - [x] 2.4 Write the fast-check property test for **Property 1: Validar un directorio no deja efectos y canoniza el root**.
     - Use virtual/real temporary directories and injected failures to assert probe cleanup, snapshot preservation, exit code 2 on failure, and canonical `realpath` on success.
     - **Validates: Requirements 1.6, 1.8, 1.9**
-  - [ ]* 2.5 Write the fast-check property test for **Property 2: Clasificación total por cantidad de archivos de proyecto**.
+  - [x] 2.5 Write the fast-check property test for **Property 2: Clasificación total por cantidad de archivos de proyecto**.
     - Generate every non-negative project-file count and assert the exact `new`/`existing` partition.
     - **Validates: Requirements 1.11, 1.12**
-  - [ ]* 2.6 Write the fast-check property test for **Property 3: Toda detección válida tiene provenance completa**.
+  - [x] 2.6 Write the fast-check property test for **Property 3: Toda detección válida tiene provenance completa**.
     - Generate valid, invalid, unreadable, and absent evidence and assert claims contain path/location/value only for syntactically valid evidence.
     - **Validates: Requirements 2.1–2.6, 2.9–2.10**
-  - [ ]* 2.7 Write the fast-check property test for **Property 4: Los conflictos suspenden únicamente recomendaciones dependientes**.
+  - [x] 2.7 Write the fast-check property test for **Property 4: Los conflictos suspenden únicamente recomendaciones dependientes**.
     - Generate stack categories, conflicts, and recommendation dependencies; assert unrelated recommendations survive and explicit resolution re-evaluates the blocked category.
     - **Validates: Requirements 2.14–2.15**
-  - [ ]* 2.8 Write the fast-check property test for **Property 24: Recorrido excluido y clasificación del perfil**.
+  - [x] 2.8 Write the fast-check property test for **Property 24: Recorrido excluido y clasificación del perfil**.
     - Generate trees containing excluded directories and over-limit file/byte counts; assert excluded files never reach detectors/counts and summaries classify profile applicability correctly.
     - **Validates: Requirements 12.4–12.11**
-  - [ ]* 2.9 Add unit and integration tests for valid/invalid/missing/conflicting fixtures, permissions, symlinks, new/existing projects, evidence display, and bounded scan reporting.
+  - [x] 2.9 Add unit and integration tests for valid/invalid/missing/conflicting fixtures, permissions, symlinks, new/existing projects, evidence display, and bounded scan reporting.
     - **Requirements: 1.2–1.16, 2.1–2.16, 12.4–12.11**
 
 - [ ] 3. Implement CLI recommendations, compatibility, and mode selection

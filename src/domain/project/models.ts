@@ -111,3 +111,23 @@ export interface CliRecommendation {
 }
 
 export type InitialCli = "gh" | "supabase" | "vercel" | "playwright";
+
+export interface ScanSummary {
+  readonly files: number;
+  readonly bytes: number;
+  readonly skippedFiles: number;
+  readonly skippedBytes: number;
+  readonly skippedDirectories: readonly string[];
+  readonly elapsedMs: number;
+  readonly withinLimits: boolean;
+}
+
+export interface ScanResult {
+  readonly descriptors: readonly FileDescriptor[];
+  readonly summary: ScanSummary;
+}
+
+export interface EvidenceParseOptions {
+  readonly format?: EvidenceFormat;
+  readonly maxBytes?: ByteCount;
+}

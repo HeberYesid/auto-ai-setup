@@ -34,6 +34,25 @@ export interface UserInteraction {
   render(event: RedactedEvent): void;
 }
 
+export type ProjectEntryKind = "file" | "directory" | "symlink" | "other";
+
+export interface ProjectEntry {
+  readonly absolutePath: string;
+  readonly relativePath: string;
+  readonly kind: ProjectEntryKind;
+  readonly bytes?: number;
+}
+
+/** Filesystem effects required to validate a project; implementations must not follow child symlinks. */
+export interface ProjectValidationPort {
+  stat(path: string): Promise<ProjectEntryKind>;
+  realpath(path: string): Promise<string>;
+  enumerate(root: string): Promise<readonly ProjectEntry[]>;
+  readFile(path: string): Promise<Uint8Array>;
+  writeFile(path: string, content: Uint8Array): Promise<void>;
+  removeFile(path: string): Promise<void>;
+}
+
 export interface ProjectGateway {
   validateDirectory(path: string): Promise<Result<import("../project/models.js").ValidatedProject, import("./types.js").DirectoryError>>;
   inventory(root: CanonicalPath, policy: ScanPolicy): AsyncIterable<FileDescriptor>;
