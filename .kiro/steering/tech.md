@@ -16,6 +16,7 @@
 - Validate lexical and real filesystem containment; reject traversal, absolute/device/NUL paths, and symlink escapes.
 - Apply approved changes transactionally with staging, fsync/atomic rename, backups, persistent journals, verification, rollback, and recovery.
 - Redact secrets before any terminal or file sink. Network is deny-by-default and process execution is allowlisted.
+-USE PNPM instead of npm
 
 
 Use the actual package scripts as the source of truth once they exist. Tests must be deterministic, use injected fakes for I/O/process/network, and avoid public-network dependencies.
