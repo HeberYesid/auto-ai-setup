@@ -1,6 +1,6 @@
 # Project Structure
 
-The repository is currently spec-first: implementation files have not been created yet. The source layout below is the planned boundary and should be preserved as implementation is added.
+The repository now contains the MVP implementation. Preserve the boundaries below as the code evolves; `autoskills` is an independent TUI handoff, while transaction and recovery cover only changes owned by `auto-ai-setup`.
 
 ```text
 .
