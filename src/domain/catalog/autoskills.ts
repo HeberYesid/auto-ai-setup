@@ -33,9 +33,7 @@ export interface AutoSkillsInstallProcessRequest {
 }
 
 export type RegisteredAutoSkillsRequest =
-  | AutoSkillsInteractiveProcessRequest
-  | AutoSkillsListProcessRequest
-  | AutoSkillsInstallProcessRequest;
+  AutoSkillsInteractiveProcessRequest | AutoSkillsListProcessRequest | AutoSkillsInstallProcessRequest;
 
 export const catalogError = (code: CatalogError["code"], message: string, cause?: string): CatalogError => ({
   code,

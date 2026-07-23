@@ -110,15 +110,13 @@ export const aggregateDetections = (claims: readonly DetectionClaim[], options: 
     current.evidences.set(evidenceKey(claim.evidence), copyEvidence(claim.evidence));
   }
   const items = [...groups.values()]
-    .map(
-      (group): StackItem => ({
-        category: group.category,
-        id: group.id,
-        displayName: group.displayName,
-        confidence: group.confidence,
-        evidence: [...group.evidences.values()].sort(compareEvidence),
-      }),
-    )
+    .map((group): StackItem => ({
+      category: group.category,
+      id: group.id,
+      displayName: group.displayName,
+      confidence: group.confidence,
+      evidence: [...group.evidences.values()].sort(compareEvidence),
+    }))
     .sort(compareItems);
   const exclusive = new Set(options.exclusiveCategories ?? defaultExclusiveCategories);
   const conflicts: StackConflict[] = [];
@@ -154,15 +152,13 @@ const nonNegativeNumber = (value: number): number => (Number.isFinite(value) ? M
 export const createStackViewModel = (analysis: StackAnalysis): StackViewModel => {
   const viewItems = analysis.items.map(toItemView);
   const itemViews = new Map(viewItems.map((item) => [`${item.category}\u0000${item.id}`, item]));
-  const conflicts = analysis.conflicts.map(
-    (conflict): StackConflictView => ({
-      category: conflict.category,
-      candidates: conflict.candidates.map(
-        (candidate) => itemViews.get(`${candidate.category}\u0000${candidate.id}`) ?? toItemView(candidate),
-      ),
-      blocksCapabilities: [...conflict.blocksCapabilities],
-    }),
-  );
+  const conflicts = analysis.conflicts.map((conflict): StackConflictView => ({
+    category: conflict.category,
+    candidates: conflict.candidates.map(
+      (candidate) => itemViews.get(`${candidate.category}\u0000${candidate.id}`) ?? toItemView(candidate),
+    ),
+    blocksCapabilities: [...conflict.blocksCapabilities],
+  }));
   const unresolvedCategories = conflicts.map((conflict) => conflict.category).sort(compareCategory);
   return {
     items: viewItems,

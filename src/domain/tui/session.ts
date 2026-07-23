@@ -110,6 +110,14 @@ export interface SessionState {
   readonly errors: readonly SessionError[];
   readonly warnings: readonly string[];
   readonly recovery: RecoveryState | undefined;
+  /** Whether contextual help is currently visible; toggled without changing focus or selections. */
+  readonly helpVisible: boolean;
+  /**
+   * Whether a cancellation confirmation is currently awaiting the user's decision.
+   * A `cancel` action requests confirmation (sets this to `true`); `confirm-cancel`
+   * finalizes cancellation and `resume` continues the session (both clear it).
+   */
+  readonly cancellationPending: boolean;
   readonly cancelled: boolean;
   readonly finalized: boolean;
 }

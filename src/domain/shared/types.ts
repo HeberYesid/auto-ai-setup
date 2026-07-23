@@ -26,16 +26,15 @@ export interface AppErrorBase<Code extends string> {
   readonly suggestedAction?: string;
 }
 
-export interface DirectoryError
-  extends AppErrorBase<
-    | "DIRECTORY_NOT_FOUND"
-    | "NOT_DIRECTORY"
-    | "REALPATH_FAILED"
-    | "ENUMERATE_FAILED"
-    | "READ_PROBE_FAILED"
-    | "WRITE_PROBE_FAILED"
-    | "DELETE_PROBE_FAILED"
-  > {
+export interface DirectoryError extends AppErrorBase<
+  | "DIRECTORY_NOT_FOUND"
+  | "NOT_DIRECTORY"
+  | "REALPATH_FAILED"
+  | "ENUMERATE_FAILED"
+  | "READ_PROBE_FAILED"
+  | "WRITE_PROBE_FAILED"
+  | "DELETE_PROBE_FAILED"
+> {
   readonly check: "exists" | "directory" | "realpath" | "enumerate" | "read" | "write" | "delete";
   readonly exitCode: 2;
   readonly code:
@@ -54,8 +53,9 @@ export interface EvidenceError extends AppErrorBase<"INVALID_SYNTAX" | "UNREADAB
   readonly location: string;
 }
 
-export interface ConfigError
-  extends AppErrorBase<"CONFIG_SYNTAX" | "CONFIG_SCHEMA" | "DANGEROUS_KEY" | "DUPLICATE_KEY" | "UNREPRESENTABLE_VALUE"> {
+export interface ConfigError extends AppErrorBase<
+  "CONFIG_SYNTAX" | "CONFIG_SCHEMA" | "DANGEROUS_KEY" | "DUPLICATE_KEY" | "UNREPRESENTABLE_VALUE"
+> {
   readonly code: "CONFIG_SYNTAX" | "CONFIG_SCHEMA" | "DANGEROUS_KEY" | "DUPLICATE_KEY" | "UNREPRESENTABLE_VALUE";
   /** JSON Pointer to the invalid value or object member. */
   readonly path: string;
@@ -96,8 +96,9 @@ export interface PlanningError extends AppErrorBase<"UNSAFE_DESTINATION" | "INVA
   readonly exitCode?: 2;
 }
 
-export interface ApprovalError
-  extends AppErrorBase<"PLAN_HASH_MISMATCH" | "MISSING_APPROVAL" | "UNAPPROVED_NETWORK_OPERATION" | "APPROVAL_SUBSET_INVALID"> {
+export interface ApprovalError extends AppErrorBase<
+  "PLAN_HASH_MISMATCH" | "MISSING_APPROVAL" | "UNAPPROVED_NETWORK_OPERATION" | "APPROVAL_SUBSET_INVALID"
+> {
   readonly code: "PLAN_HASH_MISMATCH" | "MISSING_APPROVAL" | "UNAPPROVED_NETWORK_OPERATION" | "APPROVAL_SUBSET_INVALID";
 }
 

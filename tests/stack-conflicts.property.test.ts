@@ -50,32 +50,24 @@ const safeEvidence = (path: string, recognizedValue: string, detectorId: string)
 };
 
 const claimsFor = (scenario: ConflictScenario): readonly DetectionClaim[] => {
-  const candidateClaims = scenario.candidateLabels.map(
-    (label, index): DetectionClaim => ({
-      category: scenario.conflictCategory,
-      id: `${scenario.conflictCategory}.${label}`,
-      displayName: `${scenario.conflictCategory} ${label}`,
-      confidence: "explicit",
-      evidence: safeEvidence(
-        `evidence/${scenario.conflictCategory}-${index}.json`,
-        label,
-        `generated.${scenario.conflictCategory}.${label}`,
-      ),
-    }),
-  );
-  const additionalClaims = scenario.additionalItems.map(
-    (item, index): DetectionClaim => ({
-      category: item.category,
-      id: `${item.category}.${item.label}`,
-      displayName: `${item.category} ${item.label}`,
-      confidence: "derived",
-      evidence: safeEvidence(
-        `evidence/additional-${item.category}-${index}.json`,
-        item.label,
-        `generated.additional.${item.category}.${item.label}`,
-      ),
-    }),
-  );
+  const candidateClaims = scenario.candidateLabels.map((label, index): DetectionClaim => ({
+    category: scenario.conflictCategory,
+    id: `${scenario.conflictCategory}.${label}`,
+    displayName: `${scenario.conflictCategory} ${label}`,
+    confidence: "explicit",
+    evidence: safeEvidence(`evidence/${scenario.conflictCategory}-${index}.json`, label, `generated.${scenario.conflictCategory}.${label}`),
+  }));
+  const additionalClaims = scenario.additionalItems.map((item, index): DetectionClaim => ({
+    category: item.category,
+    id: `${item.category}.${item.label}`,
+    displayName: `${item.category} ${item.label}`,
+    confidence: "derived",
+    evidence: safeEvidence(
+      `evidence/additional-${item.category}-${index}.json`,
+      item.label,
+      `generated.additional.${item.category}.${item.label}`,
+    ),
+  }));
   return [...candidateClaims, ...additionalClaims];
 };
 

@@ -345,16 +345,14 @@ export class SessionOrchestrator implements SessionOrchestratorPort {
     }
     const definitions = [
       ...(this.dependencies.componentDefinitions ?? []),
-      ...(catalog?.entries ?? []).map(
-        (entry): ComponentDefinition => ({
-          id: entry.id,
-          type: "skill",
-          name: entry.name,
-          description: entry.description,
-          compatibility: entry.compatibility,
-          source: { kind: "catalog", origin: entry.origin.repository, revision: entry.origin.commit, digest: catalog!.manifestDigest },
-        }),
-      ),
+      ...(catalog?.entries ?? []).map((entry): ComponentDefinition => ({
+        id: entry.id,
+        type: "skill",
+        name: entry.name,
+        description: entry.description,
+        compatibility: entry.compatibility,
+        source: { kind: "catalog", origin: entry.origin.repository, revision: entry.origin.commit, digest: catalog!.manifestDigest },
+      })),
     ];
     const modeResult = await this.chooseMode(input.mode, ui);
     if (!modeResult.ok)

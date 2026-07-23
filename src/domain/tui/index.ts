@@ -5,6 +5,7 @@ export * from "./compatibility.js";
 export * from "./progress.js";
 export * from "./events.js";
 export * from "./session.js";
+export * from "./reducer.js";
 export * from "./recovery.js";
 export * from "./plan-view.js";
 export * from "./view.js";

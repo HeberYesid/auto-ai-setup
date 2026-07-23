@@ -46,8 +46,8 @@ Implement the modern terminal presentation as a strict TypeScript, Node.js 20+, 
     - Exercise Windows Terminal/PowerShell, macOS Terminal, and Linux/xterm capability families with injected streams only.
     - _Requirements: 1.8, 1.10, 2.15, 4.3, 7.5, 9.3_
 
-- [ ] 3. Build the deterministic interactive session reducer
-  - [ ] 3.1 Implement session state, event, and command reduction
+- [-] 3. Build the deterministic interactive session reducer
+  - [x] 3.1 Implement session state, event, and command reduction
     - Add the pure `InteractiveSession` reducer with all named state fields, one-event/one-action semantics, closed registered actions, cancellation/finalization states, and exact prior-state return for invalid events.
     - Separate returned application commands from state transitions; reject arbitrary command strings and emit no mutation/process/network command from invalid UI actions.
     - Lock task inputs and results while application work is pending while permitting only explicitly registered status, help, or cancellation actions.

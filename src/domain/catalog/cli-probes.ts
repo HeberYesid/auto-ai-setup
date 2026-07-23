@@ -32,12 +32,7 @@ export interface CliProbeExecutor {
 }
 
 export type CliProbeErrorCode =
-  | "PROCESS_NOT_ALLOWED"
-  | "NONZERO_EXIT"
-  | "INVALID_VERSION"
-  | "TIMEOUT"
-  | "OUTPUT_OVERFLOW"
-  | "INCOMPATIBLE_CAPABILITY";
+  "PROCESS_NOT_ALLOWED" | "NONZERO_EXIT" | "INVALID_VERSION" | "TIMEOUT" | "OUTPUT_OVERFLOW" | "INCOMPATIBLE_CAPABILITY";
 
 export interface CliProbeError {
   readonly code: CliProbeErrorCode;
