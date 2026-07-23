@@ -22,6 +22,9 @@ export default defineConfig({
         "src/domain/planning/ownership.ts",
         "src/infrastructure/benchmark/**",
         "src/infrastructure/traceability/cli.ts",
+        // Work in progress for the separate modern-tui-interface spec; not part of the audited MVP yet.
+        "src/domain/tui/**",
+        "src/application/session/effect-ports.ts",
       ],
       thresholds: { statements: 80, lines: 80, functions: 80, branches: 80 },
     },

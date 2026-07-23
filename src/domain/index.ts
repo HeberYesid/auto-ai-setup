@@ -11,6 +11,7 @@ export * from "./planning/ownership.js";
 export * from "./planning/planner.js";
 export * from "./planning/approval-policy.js";
 export * from "./security/index.js";
+export * from "./tui/index.js";
 export * from "./project/evidence.js";
 export * from "./project/detectors.js";
 export * from "./project/models.js";

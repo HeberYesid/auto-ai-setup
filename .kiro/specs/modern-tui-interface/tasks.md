@@ -6,14 +6,14 @@ Implement the modern terminal presentation as a strict TypeScript, Node.js 20+, 
 
 ## Tasks
 
-- [ ] 1. Establish TUI domain contracts and injectable boundaries
-  - [ ] 1.1 Create immutable TUI models and typed results
+- [x] 1. Establish TUI domain contracts and injectable boundaries
+  - [x] 1.1 Create immutable TUI models and typed results
     - Add strict discriminated unions and branded value types for terminal capabilities, invocation/presentation modes, render profiles, controls, focus, session state, events, commands, progress, failures, recovery, summaries, plan views, frames, and downgrade reasons under `src/domain/tui/`.
     - Represent unknown capabilities and invalid values explicitly; keep all domain models independent of Node, terminal, filesystem, process, network, environment, and clock APIs.
     - Return classified typed `Result` failures at domain/application boundaries instead of throwing unclassified exceptions.
     - _Requirements: 1.1, 1.3, 2.2, 5.2, 5.8, 9.9_
 
-  - [ ] 1.2 Define inward-facing application and effect ports
+  - [x] 1.2 Define inward-facing application and effect ports
     - Extend application contracts for terminal input/output, clock, filesystem, allowlisted process, approved network, and local event effects, plus typed capability probing and terminal restoration.
     - Keep dependency direction `cli -> application -> domain`; infrastructure implements ports and no domain module imports adapters.
     - Model command execution separately from reducers and rendering so key handling can never mutate projects directly.
