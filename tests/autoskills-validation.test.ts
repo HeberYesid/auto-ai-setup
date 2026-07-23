@@ -62,3 +62,52 @@ describe("autoskills contract validation", () => {
     });
   });
 });
+
+describe("autoskills catalog membership and ownership", () => {
+  const snapshot = { ...payload, manifestDigest: digest, sourceCommit: commit } as never;
+
+  it("accepts an identical presented entry and rejects mismatched identity or absence", async () => {
+    const { findCatalogEntry, catalogEntriesEquivalent } = await import("../src/domain/index.js");
+    expect(findCatalogEntry(snapshot, entry as never)).toMatchObject({ ok: true });
+    expect(catalogEntriesEquivalent(entry as never, entry as never)).toBe(true);
+    expect(findCatalogEntry(snapshot, { ...entry, id: "other" } as never)).toMatchObject({
+      ok: false,
+      error: { code: "CATALOG_SOURCE_MISMATCH" },
+    });
+    expect(findCatalogEntry(snapshot, { ...entry, origin: { ...entry.origin, commit: "f".repeat(40) } } as never)).toMatchObject({
+      ok: false,
+      error: { code: "CATALOG_SOURCE_MISMATCH" },
+    });
+  });
+
+  it("validates the exact install target and derives planning metadata", async () => {
+    const { validateInstallTarget, catalogPlanningMetadata, skillOwnershipKey } = await import("../src/domain/index.js");
+    expect(validateInstallTarget(entry as never, ".kiro/skills/verified-skill")).toBe(true);
+    expect(validateInstallTarget(entry as never, ".kiro/skills/other")).toBe(false);
+    expect(validateInstallTarget(entry as never, "../escape")).toBe(false);
+    expect(skillOwnershipKey(entry as never)).toBe("skill:verified-skill");
+    expect(catalogPlanningMetadata(snapshot)).toEqual({ catalogDigest: digest, catalogSourceRevision: commit });
+  });
+
+  it("upserts skill ownership while preserving previously managed components", async () => {
+    const { upsertSkillOwnership } = await import("../src/domain/index.js");
+    const previous = {
+      schemaVersion: 1 as const,
+      components: { "rule:existing": { type: "agent-rule", origin: "builtin", destinations: [], contentDigest: digest } },
+      lastSuccessfulRunId: "run-0001",
+    } as never;
+    const updated = upsertSkillOwnership(
+      previous,
+      entry as never,
+      digest as never,
+      [".kiro/skills/verified-skill"] as never,
+      "run-0002" as never,
+    );
+    expect(updated.components["rule:existing"]).toBeDefined();
+    expect(updated.components["skill:verified-skill"]).toMatchObject({ type: "skill", sourceRevision: commit });
+    expect(updated.lastSuccessfulRunId).toBe("run-0002");
+
+    const fromEmpty = upsertSkillOwnership(undefined, entry as never, digest as never, [] as never, "run-0003" as never);
+    expect(Object.keys(fromEmpty.components)).toEqual(["skill:verified-skill"]);
+  });
+});

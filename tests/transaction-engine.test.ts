@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type { ApprovedPlan, FileChange, TransactionOperation } from "../src/domain/index.js";
 import { asCanonicalPath, asComponentId, asSafeProjectPath, calculatePlanHash, err, ok } from "../src/domain/index.js";
-import { createExecutionSummary, PersistentTransactionEngine } from "../src/infrastructure/transaction/index.js";
+import { ContentFileOperation, createExecutionSummary, PersistentTransactionEngine } from "../src/infrastructure/transaction/index.js";
 import { FakeFileSystem } from "./support/fakes.js";
 
 const root = asCanonicalPath("/virtual/project");
@@ -208,5 +208,164 @@ describe("PersistentTransactionEngine", () => {
     const result = await engine.recover(journal);
     expect(result.status).toBe("restored");
     expect(result.restored).toContain("file:demo");
+  });
+});
+
+describe("transaction summary states", () => {
+  const result = (status: "committed" | "rolled-back" | "incomplete", exitCode: 0 | 1 | 3) =>
+    ({
+      status,
+      exitCode,
+      applied: ["applied"],
+      skipped: ["skipped"],
+      warnings: ["warning"],
+      errors: ["error"],
+      manualReviewPaths: [],
+    }) as never;
+
+  it("maps committed, cancelled, recovered, incomplete, and recovery details", () => {
+    expect(createExecutionSummary("run-success" as never, result("committed", 0))).toMatchObject({ status: "success" });
+    expect(createExecutionSummary("run-cancelled" as never, result("rolled-back", 0))).toMatchObject({ status: "cancelled" });
+    expect(createExecutionSummary("run-recovered" as never, result("rolled-back", 1))).toMatchObject({ status: "failed-recovered" });
+    expect(
+      createExecutionSummary("run-incomplete" as never, result("incomplete", 3), {
+        status: "incomplete",
+        exitCode: 3,
+        restored: [],
+        manualReviewPaths: [],
+        errors: ["manual review"],
+      }),
+    ).toMatchObject({ status: "incomplete", recovery: { status: "incomplete" } });
+  });
+});
+
+describe("ContentFileOperation hard branches", () => {
+  it("handles cancellation and verifies the exact prepared digest", async () => {
+    const fileSystem = new FakeFileSystem();
+    const change = planFor("content", "create").fileChanges[0];
+    if (change === undefined) throw new Error("missing fixture change");
+    const operation = new ContentFileOperation(fileSystem, change, new TextEncoder().encode("content"));
+    const cancelled = new AbortController();
+    cancelled.abort();
+
+    expect((await operation.prepare({ plan: planFor("content", "create"), signal: cancelled.signal })).ok).toBe(false);
+    const prepared = await operation.prepare({ plan: planFor("content", "create"), signal: new AbortController().signal });
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) throw new Error(prepared.error.message);
+    expect((await operation.verify(prepared.value)).ok).toBe(true);
+    expect((await operation.verify({ ...prepared.value, desiredDigest: sha("different") })).ok).toBe(false);
+    expect((await operation.rollback({ operationId: change.id, destination: change.destination })).ok).toBe(true);
+  });
+
+  it("uses fallback writes and reports atomic write or fsync failures", async () => {
+    const change = planFor("content", "create").fileChanges[0];
+    if (change === undefined) throw new Error("missing fixture change");
+    const content = new TextEncoder().encode("content");
+    const prepared = { operationId: change.id, destination: change.destination, desiredDigest: sha("content") };
+
+    const fallback = new FakeFileSystem();
+    expect((await new ContentFileOperation(fallback, change, content).commit(prepared)).ok).toBe(true);
+    expect(new TextDecoder().decode(await fallback.read(change.destination))).toBe("content");
+
+    let writeSucceeds = false;
+    let syncSucceeds = true;
+    const atomic = {
+      writeAtomic: async () =>
+        writeSucceeds ? ok(undefined) : err({ code: "WRITE_FAILED", message: "atomic failed", recoverability: "rollback" }),
+      write: async () => ok(undefined),
+      fsync: async () =>
+        syncSucceeds ? ok(undefined) : err({ code: "WRITE_FAILED", message: "fsync failed", recoverability: "rollback" }),
+    } as never;
+    const operation = new ContentFileOperation(atomic, change, content);
+
+    expect((await operation.commit(prepared)).ok).toBe(false);
+    writeSucceeds = true;
+    syncSucceeds = false;
+    expect((await operation.commit(prepared)).ok).toBe(false);
+    syncSucceeds = true;
+    expect(await operation.commit(prepared)).toMatchObject({ ok: true, value: { created: true } });
+  });
+});
+
+describe("transaction authorization edge cases", () => {
+  const rehash = (plan: ApprovedPlan): ApprovedPlan => {
+    const unsigned = Object.fromEntries(
+      Object.entries(plan).filter(
+        ([key]) => !["planHash", "approval", "approvedFileChangeIds", "approvedExternalOperationIds"].includes(key),
+      ),
+    );
+    const planHash = calculatePlanHash(unsigned as never);
+    return { ...plan, planHash, approval: { ...plan.approval, planHash } };
+  };
+
+  it("rejects duplicate, foreign, unapproved, and malformed operation identities", async () => {
+    const base = planFor("content", "create");
+    const external = {
+      id: "external:demo",
+      componentId: component.value,
+      command: ["registered", "demo"],
+      origin: "official",
+      destination: safe(".staging/demo"),
+      purpose: "prepare",
+      usesNetwork: true,
+      expectedFiles: [],
+    } as const;
+    const externalPlan = rehash({
+      ...base,
+      externalOperations: [external],
+      approvedExternalOperationIds: [external.id] as never,
+      approval: { ...base.approval, networkOperations: [] },
+    });
+    const malformedOrigin = rehash({
+      ...externalPlan,
+      externalOperations: [{ ...external, origin: "" }],
+      approval: { ...externalPlan.approval, networkOperations: [external.id] as never },
+    });
+    const unsafeExpected = rehash({
+      ...externalPlan,
+      externalOperations: [{ ...external, expectedFiles: [{ path: "../escape", sha256: sha("x") }] }],
+      approval: { ...externalPlan.approval, networkOperations: [external.id] as never },
+    });
+    const cases: ApprovedPlan[] = [
+      { ...base, approvedFileChangeIds: ["file:demo", "file:demo"] },
+      { ...base, approvedFileChangeIds: ["foreign"] },
+      { ...base, approvedExternalOperationIds: ["foreign"] as never },
+      externalPlan,
+      malformedOrigin,
+      unsafeExpected,
+    ] as ApprovedPlan[];
+
+    for (const plan of cases) {
+      const result = await new PersistentTransactionEngine({ fileSystem: new FakeFileSystem() }).apply(plan, new AbortController().signal);
+      expect(result).toMatchObject({ status: "incomplete", exitCode: 3 });
+    }
+  });
+
+  it("rejects journals with unsafe destinations and backup paths", async () => {
+    const engine = new PersistentTransactionEngine({ fileSystem: new FakeFileSystem() });
+    const journal = {
+      schemaVersion: 1,
+      runId: "run-unsafe",
+      root: root.value,
+      planHash: sha("journal"),
+      phase: "committing",
+      entries: [
+        {
+          operationId: "file:demo",
+          destination: "../escape",
+          prior: { existed: false },
+          desiredDigest: sha("new"),
+          status: "pending",
+        },
+      ],
+      manualReviewPaths: [],
+    } as never;
+    expect(await engine.recover(journal)).toMatchObject({ status: "incomplete", exitCode: 3 });
+    expect(
+      await engine.recover({
+        ...journal,
+        entries: [{ ...journal.entries[0], destination: safe("file"), prior: { existed: true, digest: sha("old"), backupPath: "../bad" } }],
+      }),
+    ).toMatchObject({ status: "incomplete", exitCode: 3 });
   });
 });
