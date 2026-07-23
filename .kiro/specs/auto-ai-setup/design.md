@@ -1,5 +1,7 @@
 # Design Document: auto-ai-setup
 
+> **Normative MVP scope amendment:** `scope-autoskills-tui.md` supersedes the catalog, planned Skill installation, staging, verification, rollback, ownership, idempotency, and plan-bound network design below. For the MVP, `npx autoskills` is an optional external TUI with dedicated pre-launch authorization; only changes owned by `auto-ai-setup` enter its plan and transaction.
+
 ## Overview
 
 `auto-ai-setup` será una CLI local, interactiva y publicable en npm, escrita en TypeScript estricto y ejecutable como `npx auto-ai-setup`. El MVP convierte evidencia local y elecciones explícitas en un `Plan_de_Cambios` inmutable; ninguna mutación, instalación o descarga de una Skill comienza antes de que ese plan sea aprobado. La aplicación usa preparación en staging, journal persistente, escrituras atómicas y compensación para evitar o recuperar estados parciales. Las CLIs externas se recomiendan a partir del Stack detectado, pero el MVP no comprueba si están instaladas ni las instala automáticamente.

@@ -6,7 +6,7 @@ This file is the deterministic coverage registry consumed by `pnpm traceability`
 - property: Requirements 2.1–2.16 (tests/project-scan.property.test.ts, tests/stack-evidence.property.test.ts, tests/stack-conflicts.property.test.ts)
 - unit: Requirements 3.1–3.13 (tests/recommendations.test.ts, tests/cli-probes.test.ts)
 - integration: Requirements 4.1–4.12 (tests/cli-session.test.ts)
-- integration: Requirements 5.1–5.15 (tests/autoskills-adapter.test.ts, tests/autoskills-validation.test.ts)
+- integration: Requirements 5.1–5.15 under the independent-TUI amendment (tests/autoskills-adapter.test.ts, tests/cli-session.test.ts)
 - unit: Requirements 6.1–6.12 (tests/component-inspection.test.ts, tests/json-codec.test.ts, tests/kiro-mcp-adapter.test.ts, tests/agent-adapters.test.ts)
 - unit: Requirements 7.1–7.21 (tests/planning-security.test.ts, tests/transaction-engine.test.ts)
 - integration: Requirements 8.1–8.17 (tests/transaction-engine.test.ts, tests/cli-session.test.ts)

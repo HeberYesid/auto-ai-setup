@@ -1,5 +1,7 @@
 # Implementation Plan: auto-ai-setup
 
+> **Normative MVP scope amendment:** follow `scope-autoskills-tui.md`. Tasks that describe catalog parsing, Skill recommendation, planned installation, verification, ownership, rollback, recovery, or idempotency are superseded. The MVP keeps only an explicitly authorized, allowlisted `npx autoskills` interactive handoff outside the local plan and transaction. Existing completion marks do not assert the superseded behavior.
+
 ## Overview
 
 Implement the local, interactive TypeScript/ESM CLI described by `requirements.md` and `design.md`. Each task is an incremental prompt for a code-generation agent: it creates or modifies concrete code, tests the behavior it introduces, and leaves the result wired for the next task. The final tasks connect the pure domain, adapters, transaction engine, CLI, packaging, and quality gates without adding AWS Bedrock, a serverless backend, security hooks, telemetry, arbitrary shell execution, or automatic execution of recommended CLIs.

@@ -1,5 +1,7 @@
 # Requirements Document
 
+> **Normative MVP scope amendment:** `scope-autoskills-tui.md` defines `autoskills` as an optional, independently authorized TUI outside the `auto-ai-setup` change plan, transaction, rollback, ownership, and idempotency guarantees. It supersedes conflicting statements in the introduction, glossary, Requirement 5, and Skill-related clauses in Requirements 7, 8, 9, 11, and 15 while preserving their existing IDs for traceability.
+
 ## Introduction
 
 `auto-ai-setup` es una CLI interactiva local para Node.js y TypeScript, ejecutable mediante `npx auto-ai-setup`, que prepara proyectos nuevos o existentes para trabajar con agentes de IA. El MVP analiza el proyecto, detecta el Stack y recomienda las CLI_Iniciales relacionadas con las tecnologías encontradas. También permite instalar o configurar Skills, Servidores_MCP, Reglas_de_Agente y Comandos_de_Agente. El MVP conserva la selección y aprobación del Usuario en Modo_Automático y Modo_Manual. Las Skills se consultan e instalan mediante `npx autoskills`, la CLI de midudev. El MVP se ejecuta localmente; solamente las consultas, descargas e instalaciones que el Usuario autorice pueden utilizar red. AWS Bedrock, el Backend_Serverless y los Hooks_de_Seguridad son Trabajo_Futuro y no forman parte del MVP.
