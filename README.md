@@ -214,7 +214,7 @@ Comandos reproducibles definidos en `package.json`:
 | Validar trazabilidad SDD       | `pnpm run traceability`     |
 | Pipeline completo              | `pnpm run ci`               |
 
-El pipeline de CI ejecuta formato, lint, tipos, pruebas deterministas, umbrales de cobertura del 80 %, compilación, empaquetado, smoke test y trazabilidad. Las pruebas no dependen de la red pública.
+El pipeline de CI ejecuta formato, lint, tipos, pruebas deterministas, umbrales de cobertura altos, compilación, empaquetado, smoke test y trazabilidad. Las pruebas no dependen de la red pública.
 
 ### Benchmark reproducible
 
