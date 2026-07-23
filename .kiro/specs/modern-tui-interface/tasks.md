@@ -24,13 +24,13 @@ Implement the modern terminal presentation as a strict TypeScript, Node.js 20+, 
     - Verify an unavailable fake returns a controlled typed error and never falls through to a real terminal, filesystem, process, network, environment, or clock.
     - _Requirements: 9.9, 9.10_
 
-- [ ] 2. Implement capability detection and conservative presentation selection
-  - [ ] 2.1 Implement the pure compatibility policy
+- [x] 2. Implement capability detection and conservative presentation selection
+  - [x] 2.1 Implement the pure compatibility policy
     - Map invocation context and capability snapshots to `non-interactive`, `full-visual`, `degraded`, or `linear-text` profiles using deterministic pure functions.
     - Treat unknown/invalid values conservatively, honor non-empty `NO_COLOR`, qualify exactly 80x24 as full mode, and expose only supported ANSI, color, Unicode, animation, mouse, and symbol resources.
     - Preserve essential content requirements as profile invariants and include typed downgrade reasons.
     - _Requirements: 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.11, 3.8, 4.3_
-  - [ ] 2.2 Implement the Node terminal capability and input adapter
+  - [x] 2.2 Implement the Node terminal capability and input adapter
     - Extend `src/cli/terminal.ts` and add focused `src/cli/tui/` adapters to probe both TTY streams, ANSI cursor support, color, Unicode, dimensions, mouse support, animation preference, and `NO_COLOR` before first output.
     - Normalize platform input into closed `UiEvent` variants, subscribe to resize, enter raw mode only for eligible interactive profiles, and make cleanup idempotent on completion, cancellation, interruption, and controlled failure.
     - Never expose raw escape sequences to reducers or emit unsupported controls.

@@ -158,6 +158,18 @@ Responsibilities:
 - Enter/leave raw input mode only for a complete/degraded interactive session and always restore it in `finally`/abort paths.
 - Convert platform-specific input sequences to normalized events (`Tab`, `ShiftTab`, `Enter`, `Space`, `Question`, `Escape`, arrows, printable text, mouse activation when available).
 - Never expose raw escape sequences to domain reducers.
+- Resolve the no-animation preference before first output using the precedence flag `--no-animation` > env `AUTO_AI_SETUP_NO_ANIMATION` (non-empty) > in-session toggle key, and force it whenever the active profile is `linear-text` or `NO_COLOR` is active.
+- Surface `SIGINT` as a normalized interruption event rather than terminating the process directly, so the reducer can route it to cancellation or delegate to the transaction lifecycle.
+
+#### Optional mouse input
+
+Mouse support is an optional convenience that never adds actions beyond those already reachable by keyboard:
+
+- The adapter emits a normalized `MouseActivate { controlId }` event only when `capabilities.mouse` is true.
+- Clicking an enabled control moves focus to that control and activates it exactly once, equivalent to focusing it and pressing `Enter`, in a single event.
+- Clicking empty space or a disabled/invisible control is ignored and leaves state unchanged, identical to an invalid action.
+- When mouse support is absent, its absence never blocks the flow; every control remains reachable by keyboard.
+- The adapter never enables text selection, dragging, or scroll-wheel semantics that could emit unsupported control sequences.
 
 ### Compatibility policy and render modes
 
@@ -588,6 +600,7 @@ Errors are modeled as typed, discriminated results at domain and application bou
 - An impossible resize/profile transition does not silently discard state. The session remains in the current mode, identifies the non-preservable element, and exposes only registered recovery actions.
 - A stream write failure ends the interactive loop through the existing controlled error path after attempting terminal restoration. It must not retry indefinitely or initiate a mutation.
 - Terminal cleanup is idempotent: raw mode, cursor visibility, mouse reporting, and pending timers are restored on normal completion, cancellation, controlled error, and process interruption.
+- A `SIGINT` interruption is normalized into an interruption event, not a hard abort. Before a mutation it triggers the same cancellation confirmation that defaults to continuing the session; while a mutation is in progress it delegates to the transaction lifecycle and registered recovery instead of terminating the operation abruptly. In every case terminal cleanup runs on the interruption path.
 
 ### Input, validation, and navigation errors
 
@@ -695,3 +708,33 @@ Rendering should use bounded layout work and windowed plan rows rather than rebu
 ### Traceability and acceptance review
 
 Each property, example, integration test, and smoke test must reference its requirements clauses. The existing traceability tooling and pnpm CI workflow remain authoritative. Before implementation is considered complete, review every requirement against the design and confirm that no TUI path can bypass approval, redaction, containment, transaction recovery, non-interactive preservation, or the product’s prohibited-operation boundaries.
+
+### Property-to-task traceability
+
+The 23 numbered correctness properties each map to exactly one property test task in `tasks.md`. The property numbering order and the task-wave order differ intentionally (for example, Property 20 is tested by task 3.10 and Property 19 by task 4.10); this table is the authoritative mapping and confirms no property is orphaned.
+
+| Property | Test task | Status  |
+|----------|-----------|---------|
+| 1        | 2.3       | mapped  |
+| 2        | 3.4       | mapped  |
+| 3        | 3.5       | mapped  |
+| 4        | 3.6       | mapped  |
+| 5        | 3.7       | mapped  |
+| 6        | 3.8       | mapped  |
+| 7        | 3.9       | mapped  |
+| 8        | 4.5       | mapped  |
+| 9        | 4.6       | mapped  |
+| 10       | 4.7       | mapped  |
+| 11       | 4.8       | mapped  |
+| 12       | 5.3       | mapped  |
+| 13       | 5.4       | mapped  |
+| 14       | 4.9       | mapped  |
+| 15       | 5.5       | mapped  |
+| 16       | 5.6       | mapped  |
+| 17       | 6.4       | mapped  |
+| 18       | 6.5       | mapped  |
+| 19       | 4.10      | mapped  |
+| 20       | 3.10      | mapped  |
+| 21       | 3.11      | mapped  |
+| 22       | 7.4       | mapped  |
+| 23       | 7.5       | mapped  |

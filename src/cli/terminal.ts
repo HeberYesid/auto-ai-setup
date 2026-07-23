@@ -13,6 +13,11 @@ import type {
 } from "../domain/index.js";
 import { asSha256, SecretRedactor } from "../domain/index.js";
 
+// Modern TUI capability/input adapters extend this terminal boundary. They live in focused
+// `./tui/` modules and are surfaced here so the CLI terminal entry point exposes both the existing
+// line-oriented interaction and the new capability-probing, event-normalizing terminal port.
+export * from "./tui/index.js";
+
 export interface CliTerminal {
   readonly inputIsTTY: boolean;
   readonly outputIsTTY: boolean;

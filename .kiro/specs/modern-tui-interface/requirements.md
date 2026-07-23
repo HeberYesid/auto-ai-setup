@@ -19,6 +19,8 @@ La TUI mantiene las fronteras actuales del producto. Los cambios continúan sien
 - **Modo_Visual_Completo**: Presentación de TUI_Moderna utilizada exclusivamente con una Terminal_Completa.
 - **Modo_Degradado**: Presentación que reduce adornos, reorganiza regiones o sustituye recursos no compatibles sin ocultar información ni acciones esenciales.
 - **Modo_Texto_Lineal**: Presentación secuencial sin reposicionamiento de cursor, color, Unicode, animaciones ni controles dependientes de pantalla completa.
+- **Preferencia_Sin_Animación**: Solicitud de presentación estática sin animaciones, activada por el flag `--no-animation`, por la variable `AUTO_AI_SETUP_NO_ANIMATION` con valor no vacío, por la tecla de alternancia documentada durante la sesión, o de forma implícita por el Modo_Texto_Lineal o por NO_COLOR activo.
+- **Interrupción**: Señal `SIGINT` informada por la Terminal que solicita finalizar la ejecución en curso.
 - **Salida_Redirigida**: Salida estándar que no está conectada a una TTY.
 - **Contenido_Esencial**: Títulos de etapa, opciones, valores seleccionados, advertencias, errores, detalles del Plan_de_Cambios, acciones disponibles y Resumen_Final.
 - **Sistema_Visual**: Reglas coherentes de jerarquía, espaciado, bordes, símbolos, color y ubicación aplicadas por TUI_Moderna.
@@ -103,6 +105,9 @@ La TUI mantiene las fronteras actuales del producto. Los cambios continúan sien
 15. WHERE las Capacidades_de_Terminal incluyen entrada de ratón, THE TUI_Moderna SHALL permitir activar cada Control_Interactivo mediante ratón como alternativa opcional.
 16. WHEN el Usuario solicita cancelar antes de una Mutación, THE TUI_Moderna SHALL mostrar una confirmación con la continuación de la sesión como opción predeterminada.
 17. WHEN el Usuario confirma la cancelación antes de una Mutación, THE CLI_Auto_AI_Setup SHALL finalizar con el código de cancelación del Contrato_CLI_Existente y conservar el Estado_Equivalente del proyecto.
+18. WHEN la Terminal informa una Interrupción antes de una Mutación durante una Sesión_Interactiva, THE TUI_Moderna SHALL mostrar la misma confirmación de cancelación con la continuación de la sesión como opción predeterminada.
+19. IF la Terminal informa una Interrupción mientras una Mutación está en curso, THEN THE CLI_Auto_AI_Setup SHALL delegar en la aplicación transaccional y en la recuperación registrada sin abortar la operación de forma no controlada.
+20. WHEN la Terminal informa una Interrupción en cualquier etapa, THE TUI_Moderna SHALL restaurar el modo de entrada, la visibilidad del cursor, el reporte de ratón y los temporizadores pendientes de forma idempotente antes de finalizar.
 
 ### Requirement 3: Sistema visual e identidad coherente
 
@@ -137,6 +142,8 @@ La TUI mantiene las fronteras actuales del producto. Los cambios continúan sien
 8. IF una entrada incumple reglas de validación, THEN THE TUI_Moderna SHALL conservar el valor editable y enumerar cada regla incumplida.
 9. WHEN el Usuario pulsa `?`, THE TUI_Moderna SHALL alternar la visibilidad de la Ayuda_Contextual sin cambiar el Foco ni las selecciones.
 10. WHILE una entrada es inválida, THE TUI_Moderna SHALL deshabilitar cada Acción_de_Avance.
+11. WHEN el flag `--no-animation`, la variable `AUTO_AI_SETUP_NO_ANIMATION` con valor no vacío, el Modo_Texto_Lineal o la tecla de alternancia documentada solicitan la Preferencia_Sin_Animación, THE TUI_Moderna SHALL mostrar estados textuales estáticos y actualizarlos solamente cuando cambie la actividad descrita.
+12. WHEN se resuelve la Preferencia_Sin_Animación a partir de varias fuentes, THE TUI_Moderna SHALL aplicar la precedencia flag, luego variable de entorno y luego tecla de sesión, y SHALL forzar la ausencia de animación siempre que el perfil activo sea Modo_Texto_Lineal o NO_COLOR esté activo.
 
 ### Requirement 5: Progreso, errores y resultados accionables
 
@@ -214,6 +221,7 @@ La TUI mantiene las fronteras actuales del producto. Los cambios continúan sien
 8. IF TUI_Moderna puede conservar cada campo nombrado del Estado_de_Sesión durante una transición a Modo_Degradado, THEN THE TUI_Moderna SHALL conservar además la posición de desplazamiento y las entradas no confirmadas.
 9. IF TUI_Moderna no puede conservar un elemento durante una transición de presentación, THEN THE TUI_Moderna SHALL permanecer en el modo vigente, identificar el elemento no preservable y mostrar los Controles_de_Recuperación_Registrados disponibles.
 10. WHILE TUI_Moderna permanece en el modo vigente por una transición imposible, THE TUI_Moderna SHALL evitar nuevas secuencias de control no admitidas por las Capacidades_de_Terminal actuales.
+11. WHEN TUI_Moderna opera en Modo_Degradado o Modo_Texto_Lineal dentro del Perfil_de_Rendimiento_TUI, THE TUI_Moderna SHALL cumplir los mismos límites de respuesta de primera vista, navegación y actualización de actividad definidos para el Modo_Visual_Completo.
 
 ### Requirement 9: Testabilidad determinista de la presentación
 

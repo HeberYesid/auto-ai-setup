@@ -1,6 +1,7 @@
 export * from "./errors.js";
 export * from "./values.js";
 export * from "./capabilities.js";
+export * from "./compatibility.js";
 export * from "./progress.js";
 export * from "./events.js";
 export * from "./session.js";
