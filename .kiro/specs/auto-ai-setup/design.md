@@ -10,7 +10,7 @@ El diseño prioriza cuatro cualidades: (1) consentimiento verificable, (2) deter
 
 ### Alcance y límites del MVP
 
-- **Runtime:** Node.js 20 LTS o superior, paquete ESM, salida compilada en `dist/`, ejecutable declarado mediante `package.json#bin` y shebang portable. `npx` ejecuta el binario publicado y pasa sus argumentos a la CLI, conforme a la [documentación oficial de npx](https://docs.npmjs.com/cli/v11/commands/npx).
+- **Runtime:** Node.js 22 o superior, paquete ESM, salida compilada en `dist/`, ejecutable declarado mediante `package.json#bin` y shebang portable. `npx` ejecuta el binario publicado y pasa sus argumentos a la CLI, conforme a la [documentación oficial de npx](https://docs.npmjs.com/cli/v11/commands/npx).
 - **Interfaz:** TTY interactiva; argumentos iniciales `--path`, `--mode auto|manual`, `--verbose` y `--recover`. No se diseña todavía un modo headless.
 - **Agente soportado:** perfil de workspace Kiro para MCP y prompts/comandos, más `AGENTS.md` como contrato portable. Otros agentes se añaden mediante adaptadores sin cambiar el dominio.
 - **Skills:** se consultan e instalan exclusivamente mediante `npx autoskills`, la CLI de midudev; el MVP no descarga ni instala directamente los archivos de una Skill.
@@ -299,7 +299,7 @@ El journal vive en `.auto-ai-setup/transactions/<runId>/journal.json` y se actua
 3. **Finalize:** verificar estado deseado, escribir estado gestionado, marcar `committed`, eliminar backups/staging y emitir resumen.
 4. **Rollback:** en orden inverso, restaurar backups y eliminar archivos que no existían; limpiar artefactos staged/creados; comparar digests y existencia con el snapshot inicial. Éxito demostrable produce código 1; discrepancia conserva journal y produce código 3.
 
-Las instalaciones mediante `autoskills` no deben dejar efectos persistentes antes del commit y sus temporales pertenecen a la transacción. El MVP no admite operaciones externas sin estrategia `prepare/verify/rollback`; en particular no ejecuta `npm install`, lifecycle scripts ni comandos arbitrarios. Al iniciar, un journal no terminal bloquea una ejecución nueva y ofrece recuperación; `--recover` la solicita directamente. Se intenta rollback en señales controlables, pero un kill/crash puede requerir la siguiente ejecución.
+Las instalaciones mediante `autoskills` no deben dejar efectos persistentes antes del commit y sus temporales pertenecen a la transacción. El MVP no admite operaciones externas sin estrategia `prepare/verify/rollback`; en particular no instala dependencias, no ejecuta scripts de ciclo de vida ni comandos arbitrarios. Al iniciar, un journal no terminal bloquea una ejecución nueva y ofrece recuperación; `--recover` la solicita directamente. Se intenta rollback en señales controlables, pero un kill/crash puede requerir la siguiente ejecución.
 
 ### Observabilidad, seguridad y rendimiento
 
@@ -761,7 +761,7 @@ Se ejecutan contra directorios temporales reales y puertos fake; ninguna prueba 
 
 | Suite | Escenarios mínimos |
 |---|---|
-| Empaquetado | `npm pack`, instalar tarball en sandbox y ejecutar su binario como `npx --no-install`; shebang, ESM y TTY |
+| Empaquetado | `pnpm pack`, instalar tarball en sandbox y ejecutar su binario como `npx --no-install`; shebang, ESM y TTY |
 | Proyecto | nuevo/existente; permisos; symlink; archivo temporal; configuración previa |
 | Automático | recomendaciones, retirar una, aprobar, cancelar, stack conflictivo y sin stack |
 | Manual | selección individual, cero selección, aprobar, modo inválido, incompatible aceptar/rechazar |
@@ -781,7 +781,7 @@ El benchmark versionado creará/identificará un fixture de 10 000 archivos y 50
 
 ### Calidad, CI y trazabilidad
 
-El pipeline de pull request/main ejecuta, en orden, formato, lint, `tsc --noEmit`, unit/integration/PBT, cobertura, build, `npm pack` y smoke del tarball. Vitest aplica umbrales globales ≥80 % en lines, functions y branches; cualquier comando nonzero falla el job. Un validador SDD comprueba que IDs `X.Y` usados por propiedades y tests existen en `requirements.md` y que cada requisito tiene cobertura designada por property, unit, integration o smoke.
+El pipeline de pull request/main ejecuta, en orden, formato, lint, `tsc --noEmit`, unit/integration/PBT, cobertura, build, `pnpm pack` y smoke del tarball. Vitest aplica umbrales globales de 80 % en statements/lines/functions y 70 % en branches; cualquier comando nonzero falla el job. Un validador SDD comprueba que IDs `X.Y` usados por propiedades y tests existen en `requirements.md` y que cada requisito tiene cobertura designada por property, unit, integration o smoke.
 
 Matriz de trazabilidad de alto nivel:
 

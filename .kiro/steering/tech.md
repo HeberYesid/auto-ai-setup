@@ -2,7 +2,7 @@
 
 ## Stack
 - TypeScript in strict mode, compiled to `dist/`.
-- Node.js 20+ runtime; publish as an ESM npm package with a portable shebang and `package.json#bin`.
+- Node.js 22+ runtime; publish as an ESM npm package with a portable shebang and `package.json#bin`.
 - Vitest for unit/integration tests and fast-check for property-based tests.
 - JSON is the only structured configuration format written by the MVP.
 

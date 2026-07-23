@@ -2,7 +2,7 @@
 
 ## Overview
 
-Implement the modern terminal presentation as a strict TypeScript, Node.js 20+, ESM extension of the existing hexagonal CLI. Build deterministic pure domain policies and reducers first, then adapters and orchestration, and finally wire the feature into the unchanged CLI contracts. Use typed `Result` errors, injected ports, redaction-before-sink, containment checks, canonical plan hashes, and transactional/recoverable effects throughout. Repository validation uses only the existing pnpm scripts, Vitest, and fast-check.
+Implement the modern terminal presentation as a strict TypeScript, Node.js 22+, ESM extension of the existing hexagonal CLI. Build deterministic pure domain policies and reducers first, then adapters and orchestration, and finally wire the feature into the unchanged CLI contracts. Use typed `Result` errors, injected ports, redaction-before-sink, containment checks, canonical plan hashes, and transactional/recoverable effects throughout. Repository validation uses only the existing pnpm scripts, Vitest, and fast-check.
 
 ## Tasks
 
@@ -297,7 +297,7 @@ Implement the modern terminal presentation as a strict TypeScript, Node.js 20+, 
 - [ ] 11. Wire the feature and validate repository-level contracts
   - [ ] 11.1 Compose exports and the existing CLI entry point
     - Wire domain, application, CLI, and infrastructure adapters through composition roots and barrel exports only after component contracts are stable.
-    - Preserve strict TypeScript, Node.js 20+, ESM, the portable shebang, `package.json#bin`, zero runtime dependencies unless separately justified/pinned, and existing `npx auto-ai-setup`/`npx autoskills` public contracts.
+    - Preserve strict TypeScript, Node.js 22+, ESM, the portable shebang, `package.json#bin`, zero runtime dependencies unless separately justified/pinned, and existing `npx auto-ai-setup`/`npx autoskills` public contracts.
     - _Requirements: 10.1, 10.2, 10.3, 10.5_
 
   - [ ]* 11.2 Write full fake-port and product-boundary integration tests

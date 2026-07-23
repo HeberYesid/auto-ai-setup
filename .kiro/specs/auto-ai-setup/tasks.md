@@ -1,12 +1,14 @@
 # Implementation Plan: auto-ai-setup
 
 > **Normative MVP scope amendment:** follow `scope-autoskills-tui.md`. Tasks that describe catalog parsing, Skill recommendation, planned installation, verification, ownership, rollback, recovery, or idempotency are superseded. The MVP keeps only an explicitly authorized, allowlisted `npx autoskills` interactive handoff outside the local plan and transaction. Existing completion marks do not assert the superseded behavior.
+>
+> **Deferred optional work:** tasks marked `[ ]*` are optional follow-up coverage and are intentionally deferred. They are not part of the current MVP completion gate and must not be implemented as part of this scope.
 
 ## Overview
 
 Implement the local, interactive TypeScript/ESM CLI described by `requirements.md` and `design.md`. Each task is an incremental prompt for a code-generation agent: it creates or modifies concrete code, tests the behavior it introduces, and leaves the result wired for the next task. The final tasks connect the pure domain, adapters, transaction engine, CLI, packaging, and quality gates without adding AWS Bedrock, a serverless backend, security hooks, telemetry, arbitrary shell execution, or automatic execution of recommended CLIs.
 
-Implementation language: **TypeScript**, strict mode, Node.js 20+ runtime, Vitest, and fast-check.
+Implementation language: **TypeScript**, strict mode, Node.js 22+ runtime, Vitest, and fast-check.
 
 ## Tasks
 
@@ -196,7 +198,7 @@ Implementation language: **TypeScript**, strict mode, Node.js 20+ runtime, Vites
     - **Requirements: 1.10–1.14, 2.12–2.16, 4.1–4.12, 13.11–13.13**
   - [ ]* 8.5 Add integration tests for global/conflict approvals, preserve/replace, concurrent change rejection, approved/unapproved network operations, local-only scope, and absence of AWS/backend/hooks calls.
     - **Requirements: 7.11–7.21, 13.14–13.16, 15.1–15.16**
-  - [ ]* 8.6 Add packaging smoke tests that run `npm pack`, install the tarball in a sandbox, and execute the bin through `npx --no-install`, checking ESM, shebang, TTY behavior, and exit-code mapping.
+  - [ ]* 8.6 Add packaging smoke tests that run `pnpm pack`, install the tarball in a sandbox, and execute the bin through `npx --no-install`, checking ESM, shebang, TTY behavior, and exit-code mapping.
     - **Requirements: 1.1, 13.17–13.19**
 
 - [x] 9. Add performance, quality gates, traceability checks, and executable release validation

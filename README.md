@@ -6,7 +6,7 @@ CLI local e interactiva para preparar proyectos nuevos o existentes para flujos 
 
 ## Requisitos previos
 
-- Node.js 20 o superior.
+- Node.js 22 o superior.
 - `npx`, incluido con npm.
 - Una terminal interactiva (TTY de entrada y salida).
 - Permisos de lectura y escritura sobre el proyecto objetivo.
@@ -138,7 +138,7 @@ flowchart TD
 
 ## Decisiones técnicas principales
 
-- TypeScript estricto, Node.js 20+, ESM, salida en `dist/` y shebang portable mediante `package.json#bin`.
+- TypeScript estricto, Node.js 22+, ESM, salida en `dist/` y shebang portable mediante `package.json#bin`.
 - Dominio determinista sin APIs de terminal, filesystem, procesos, red ni entorno.
 - Puertos y adaptadores con inyección de dependencias para aislar efectos.
 - JSON como único formato estructurado escrito por el MVP.
@@ -214,7 +214,7 @@ Comandos reproducibles definidos en `package.json`:
 | Validar trazabilidad SDD       | `pnpm run traceability`     |
 | Pipeline completo              | `pnpm run ci`               |
 
-El pipeline de CI ejecuta formato, lint, tipos, pruebas deterministas, umbrales de cobertura altos, compilación, empaquetado, smoke test y trazabilidad. Las pruebas no dependen de la red pública.
+El pipeline de CI ejecuta formato, lint, tipos, pruebas deterministas, cobertura mínima de 80 % en statements/lines/functions y 70 % en branches, compilación, empaquetado, smoke test y trazabilidad. Las pruebas no dependen de la red pública.
 
 ### Benchmark reproducible
 
