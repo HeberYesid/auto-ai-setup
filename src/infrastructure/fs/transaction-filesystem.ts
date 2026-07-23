@@ -66,7 +66,7 @@ export class NodeTransactionalFileSystem implements AtomicFileSystemPort {
   }
   public async fsync(path: SafeProjectPath): Promise<Result<void>> {
     try {
-      const handle = await open(this.absolute(path), "r");
+      const handle = await open(this.absolute(path), "r+");
       try {
         await handle.sync();
       } finally {
