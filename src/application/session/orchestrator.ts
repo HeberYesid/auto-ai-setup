@@ -35,8 +35,9 @@ import {
   ok,
   parseRecognizedEvidence,
   resolveStackConflicts,
+  SecretRedactor,
 } from "../../domain/index.js";
-import type { EvidenceError, ExitCode } from "../../domain/index.js";
+import type { EvidenceError, ExitCode, Redactor } from "../../domain/index.js";
 import type { ExecutionSummary, RedactedEvent } from "../../domain/observability/models.js";
 import type { SelectedComponent } from "./component-inspection.js";
 import { ComponentInspectionProjection } from "./component-inspection.js";
@@ -47,8 +48,13 @@ export interface SessionStackAnalyzer {
   analyze(root: import("../../domain/index.js").CanonicalPath, policy: ScanPolicy): Promise<Result<StackAnalysis, EvidenceError>>;
 }
 
+export type RecoveryLookup =
+  | { readonly kind: "none" }
+  | { readonly kind: "recoverable"; readonly journal: RecoveryJournal }
+  | { readonly kind: "corrupt"; readonly path: string; readonly detail: string };
+
 export interface RecoveryJournalReader {
-  find(root: import("../../domain/index.js").CanonicalPath): Promise<RecoveryJournal | undefined>;
+  find(root: import("../../domain/index.js").CanonicalPath): Promise<RecoveryLookup>;
 }
 
 export interface SessionTransactionContext {
@@ -74,6 +80,7 @@ export interface SessionDependencies {
   readonly uuid?: UuidGenerator;
   readonly clock?: Clock;
   readonly scanPolicy?: ScanPolicy;
+  readonly redactor?: Redactor;
 }
 
 const defaultUuid: UuidGenerator = { next: () => randomUUID() as RunId };
@@ -85,6 +92,13 @@ const defaultPolicy: ScanPolicy = {
   concurrency: 8,
   excludedDirectories: [],
 };
+export const AUTOSKILLS_HANDOFF_NOTICE = [
+  "La TUI oficial de autoskills se ejecuta como un proceso externo independiente.",
+  "Puede usar Internet para descargar contenido y puede crear o modificar archivos seleccionados dentro de su propia interfaz.",
+  "Sus acciones no aparecen en el plan de auto-ai-setup y no están cubiertas por su journal, rollback, recuperación ni garantía de idempotencia.",
+  "Su salida se muestra directamente en la terminal y no puede ser redactada por auto-ai-setup.",
+  "Si se cancela o falla, podrás continuar configurando MCP, reglas y comandos.",
+].join("\n");
 const isCancellation = (cause: unknown): boolean =>
   cause instanceof Error && (cause.name === "AbortError" || /cancel|abort|cancelaci[oó]n/i.test(cause.message));
 const messageOf = (cause: unknown): string => (cause instanceof Error ? cause.message : String(cause));
@@ -92,19 +106,23 @@ const messageOf = (cause: unknown): string => (cause instanceof Error ? cause.me
 const event = (
   runId: RunId,
   clock: Clock,
+  redactor: Redactor,
   level: RedactedEvent["level"],
   category: RedactedEvent["category"],
   message: string,
   context?: Record<string, unknown>,
-): RedactedEvent => ({
-  runId,
-  timestamp: clock.now(),
-  level,
-  category,
-  message,
-  ...(context === undefined ? {} : { context }),
-  redacted: true,
-});
+): RedactedEvent => {
+  const safeContext = context === undefined ? undefined : (redactor.redact(context) as Record<string, unknown>);
+  return {
+    runId,
+    timestamp: clock.now(),
+    level,
+    category,
+    message: String(redactor.redact(message)),
+    ...(safeContext === undefined ? {} : { context: safeContext }),
+    redacted: true,
+  };
+};
 
 const baseSummary = (
   runId: RunId,
@@ -172,18 +190,22 @@ export class ProjectEvidenceStackAnalyzer implements SessionStackAnalyzer {
 
 export class FileSystemRecoveryJournalReader implements RecoveryJournalReader {
   public constructor(private readonly fileSystem: FileSystemPort) {}
-  public async find(root: import("../../domain/index.js").CanonicalPath): Promise<RecoveryJournal | undefined> {
+  public async find(root: import("../../domain/index.js").CanonicalPath): Promise<RecoveryLookup> {
     for await (const descriptor of this.fileSystem.list(root)) {
-      if (!String(descriptor.path).startsWith(".auto-ai-setup/transactions/") || !String(descriptor.path).endsWith("/journal.json"))
-        continue;
+      const path = String(descriptor.path);
+      if (!path.startsWith(".auto-ai-setup/transactions/") || !path.endsWith("/journal.json")) continue;
+      let value: RecoveryJournal;
       try {
-        const value = JSON.parse(new TextDecoder().decode(await this.fileSystem.read(descriptor.path))) as RecoveryJournal;
-        if (value.root === root && value.phase !== "committed" && value.phase !== "rolled-back") return value;
-      } catch {
-        return undefined;
+        value = JSON.parse(new TextDecoder().decode(await this.fileSystem.read(descriptor.path))) as RecoveryJournal;
+      } catch (cause) {
+        // A journal that cannot be read or parsed is evidence of an interrupted
+        // transaction whose outcome is unknown; it must not be treated as absent.
+        return { kind: "corrupt", path, detail: cause instanceof Error ? cause.message : String(cause) };
       }
+      if (value.root === root && value.phase !== "committed" && value.phase !== "rolled-back")
+        return { kind: "recoverable", journal: value };
     }
-    return undefined;
+    return { kind: "none" };
   }
 }
 
@@ -191,10 +213,12 @@ export class SessionOrchestrator implements SessionOrchestratorPort {
   private readonly uuid: UuidGenerator;
   private readonly clock: Clock;
   private readonly policy: ScanPolicy;
+  private readonly redactor: Redactor;
   public constructor(private readonly dependencies: SessionDependencies) {
     this.uuid = dependencies.uuid ?? defaultUuid;
     this.clock = dependencies.clock ?? defaultClock;
     this.policy = dependencies.scanPolicy ?? defaultPolicy;
+    this.redactor = dependencies.redactor ?? new SecretRedactor();
   }
 
   public async run(input: SessionInput, ui: UserInteraction): Promise<ExecutionSummary> {
@@ -204,7 +228,7 @@ export class SessionOrchestrator implements SessionOrchestratorPort {
       category: RedactedEvent["category"],
       message: string,
       context?: Record<string, unknown>,
-    ): void => ui.render(event(runId, this.clock, level, category, message, context));
+    ): void => ui.render(event(runId, this.clock, this.redactor, level, category, message, context));
     if (input.mode !== undefined && !isRunMode(input.mode))
       return this.finish(baseSummary(runId, "invalid-input", 2, ["Modo inválido. Los únicos modos válidos son auto y manual"]), ui, render);
     let requestedPath: string;
@@ -230,16 +254,29 @@ export class SessionOrchestrator implements SessionOrchestratorPort {
 
     const recoveryReader = this.dependencies.recoveryFactory?.(root);
     if (input.recover || recoveryReader !== undefined) {
-      const journal = await recoveryReader?.find(root);
-      if (input.recover && journal === undefined)
+      const lookup = (await recoveryReader?.find(root)) ?? { kind: "none" };
+      if (lookup.kind === "corrupt") {
+        render("error", "transaction", "Journal de transacción ilegible; se requiere revisión manual", { path: lookup.path });
+        return this.finish(
+          {
+            ...baseSummary(runId, "incomplete", 3, [
+              `El journal de transacción no pudo leerse (${lookup.detail}); revisa el estado del proyecto manualmente`,
+            ]),
+            manualReviewPaths: [lookup.path as never],
+          },
+          ui,
+          render,
+        );
+      }
+      if (input.recover && lookup.kind === "none")
         return this.finish(
           baseSummary(runId, "invalid-input", 2, ["No hay una transacción recuperable para la ruta seleccionada"]),
           ui,
           render,
         );
-      if (journal !== undefined) {
-        if (input.recover || (await this.confirmRecovery(ui, journal))) {
-          const recovery = await this.dependencies.transactionFactory(root).recover(journal);
+      if (lookup.kind === "recoverable") {
+        if (input.recover || (await this.confirmRecovery(ui, lookup.journal))) {
+          const recovery = await this.dependencies.transactionFactory(root).recover(lookup.journal);
           const summary = this.recoverySummary(runId, recovery);
           return this.finish(summary, ui, render);
         }
@@ -283,9 +320,8 @@ export class SessionOrchestrator implements SessionOrchestratorPort {
     const catalogWarnings: string[] = [];
     if (this.dependencies.catalogFactory !== undefined) {
       catalogGateway = this.dependencies.catalogFactory(root);
-      const command = ["npx", "autoskills"] as const;
-      const authorized =
-        ui.confirmExternal === undefined || (await ui.confirmExternal(command, "Seleccionar e instalar Skills mediante la TUI oficial"));
+      const command = ["npx", "--yes", "autoskills"] as const;
+      const authorized = ui.confirmExternal !== undefined && (await ui.confirmExternal(command, AUTOSKILLS_HANDOFF_NOTICE));
       if (authorized) {
         const interactive = catalogGateway.runInteractive;
         if (interactive !== undefined) {
@@ -549,16 +585,17 @@ export class SessionOrchestrator implements SessionOrchestratorPort {
       context?: Record<string, unknown>,
     ) => void,
   ): ExecutionSummary {
-    render(summary.exitCode === 0 ? "info" : "error", "session", `Estado: ${summary.status}`, {
-      status: summary.status,
-      exitCode: summary.exitCode,
-      applied: summary.applied,
-      skipped: summary.skipped,
-      warnings: summary.warnings,
-      errors: summary.errors,
-      manualReviewPaths: summary.manualReviewPaths,
+    const safeSummary = this.redactor.redact(summary) as ExecutionSummary;
+    render(safeSummary.exitCode === 0 ? "info" : "error", "session", `Estado: ${safeSummary.status}`, {
+      status: safeSummary.status,
+      exitCode: safeSummary.exitCode,
+      applied: safeSummary.applied,
+      skipped: safeSummary.skipped,
+      warnings: safeSummary.warnings,
+      errors: safeSummary.errors,
+      manualReviewPaths: safeSummary.manualReviewPaths,
     });
-    return summary;
+    return safeSummary;
   }
 }
 

@@ -6,11 +6,12 @@ import type {
   CompatibilityDecision,
   ConfirmedStack,
   RedactedEvent,
+  Redactor,
   RunMode,
   StackConflict,
   UserInteraction,
 } from "../domain/index.js";
-import { asSha256 } from "../domain/index.js";
+import { asSha256, SecretRedactor } from "../domain/index.js";
 
 export interface CliTerminal {
   readonly inputIsTTY: boolean;
@@ -45,6 +46,7 @@ export class InteractiveUserInteraction implements UserInteraction {
   public constructor(
     private readonly terminal: CliTerminal,
     private readonly verbose = false,
+    private readonly redactor: Redactor = new SecretRedactor(),
   ) {}
 
   async chooseTarget(initial?: string): Promise<string> {
@@ -122,7 +124,12 @@ export class InteractiveUserInteraction implements UserInteraction {
   }
 
   async confirmExternal(command: readonly string[], purpose: string): Promise<boolean> {
-    return this.ask(`Se ejecutará ${command.join(" ")} (${purpose}). ¿Autorizar?`);
+    const safeCommand = String(this.redactor.redact(command.join(" ")));
+    const safePurpose = String(this.redactor.redact(purpose));
+    this.terminal.write("\nProceso externo independiente");
+    this.terminal.write(`Comando: ${safeCommand}`);
+    for (const line of safePurpose.split("\n")) this.terminal.write(`- ${line}`);
+    return this.ask("¿Abrir ahora la TUI oficial de autoskills?");
   }
 
   pauseForExternalProcess(): void {
@@ -168,15 +175,18 @@ export class InteractiveUserInteraction implements UserInteraction {
   }
 
   render(event: RedactedEvent): void {
+    const safeMessage = String(this.redactor.redact(event.message));
+    const safeContext = event.context === undefined ? undefined : (this.redactor.redact(event.context) as Record<string, unknown>);
     const prefix = event.level === "error" ? "ERROR" : event.level === "warn" ? "WARN" : "INFO";
-    this.terminal.write(`${prefix}: ${event.message}`);
-    if (this.verbose && event.context !== undefined) this.terminal.write(JSON.stringify(event.context));
-    if (event.category === "session" && event.context !== undefined) this.renderSummary(event.context);
+    this.terminal.write(`${prefix}: ${safeMessage}`);
+    if (this.verbose && safeContext !== undefined) this.terminal.write(JSON.stringify(safeContext));
+    if (event.category === "session" && safeContext !== undefined) this.renderSummary(safeContext);
   }
 
   private renderPlan(plan: ChangePlan): void {
-    this.terminal.write(`\nPlan ${plan.planHash}`);
-    for (const recommendation of plan.cliRecommendations ?? []) {
+    const displayPlan = this.redactor.redact(plan) as ChangePlan;
+    this.terminal.write(`\nPlan ${displayPlan.planHash}`);
+    for (const recommendation of displayPlan.cliRecommendations ?? []) {
       this.terminal.write(`- CLI RECOMENDADA ${recommendation.cli} | razón=${recommendation.reason}`);
       this.terminal.write(
         `  tecnologías=${(recommendation.technologies ?? []).join(", ")} | evidencia=${recommendation.evidenceRefs.join(", ") || "no disponible"}`,
@@ -184,20 +194,20 @@ export class InteractiveUserInteraction implements UserInteraction {
       for (const instruction of recommendation.documentedInstructions ?? []) this.terminal.write(`  instrucción: ${instruction}`);
       this.terminal.write("  acción=documentar | ejecuta=no | instala=no | comprueba=no");
     }
-    for (const change of plan.fileChanges) {
+    for (const change of displayPlan.fileChanges) {
       this.terminal.write(
-        `- ${change.action.toUpperCase()} ${canonical(plan.root, change.destination)} | componente=${change.componentId} | motivo=${change.reason} | conflicto=${change.conflict}`,
+        `- ${change.action.toUpperCase()} ${canonical(displayPlan.root, change.destination)} | componente=${change.componentId} | motivo=${change.reason} | conflicto=${change.conflict}`,
       );
       if (change.preview.kind === "text") this.terminal.write(`  preview: ${change.preview.content}`);
       else
         for (const field of change.preview.changes)
           this.terminal.write(`  ${field.action} ${field.path}: ${JSON.stringify(field.before)} -> ${JSON.stringify(field.after)}`);
     }
-    for (const operation of plan.externalOperations)
+    for (const operation of displayPlan.externalOperations)
       this.terminal.write(
-        `- EXTERNAL ${operation.id} | comando=${operation.command.join(" ")} | origen=${operation.origin} | destino=${canonical(plan.root, operation.destination)} | propósito=${operation.purpose} | red=${operation.usesNetwork ? "sí" : "no"}`,
+        `- EXTERNAL ${operation.id} | comando=${operation.command.join(" ")} | origen=${operation.origin} | destino=${canonical(displayPlan.root, operation.destination)} | propósito=${operation.purpose} | red=${operation.usesNetwork ? "sí" : "no"}`,
       );
-    if (plan.fileChanges.length === 0 && plan.externalOperations.length === 0) this.terminal.write("(sin cambios)");
+    if (displayPlan.fileChanges.length === 0 && displayPlan.externalOperations.length === 0) this.terminal.write("(sin cambios)");
   }
 
   private async ask(prompt: string): Promise<boolean> {
