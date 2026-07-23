@@ -88,6 +88,40 @@ describe("Kiro MCP workspace adapter", () => {
     }
   });
 
+  it("preserves unrelated array order, duplicate entries, and user-owned server content", () => {
+    const model = {
+      userContent: ["first", "first", "third"],
+      mcpServers: {
+        testing: {
+          command: "old",
+          userOptions: { tags: ["keep", "keep", "last"] },
+        },
+        other: { command: "other" },
+      },
+    } as JsonObject;
+    const result = mergeMcpServers(model, [{ id: "testing", command: "node" }]);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.userContent).toEqual(["first", "first", "third"]);
+      expect((result.value.mcpServers as JsonObject).other).toEqual({ command: "other" });
+      expect(((result.value.mcpServers as JsonObject).testing as JsonObject).userOptions).toEqual({
+        tags: ["keep", "keep", "last"],
+      });
+    }
+  });
+
+  it("returns the original JSON bytes for a semantic no-op", () => {
+    const text = '{ "mcpServers" : { "testing" : { "command" : "node" } }, "keep" : [1, 1, 2] }';
+    const result = adaptKiroMcpDocument(source(text), [{ id: "testing", command: "node" }]);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.changed).toBe(false);
+      expect(result.value.text).toBe(text);
+    }
+  });
+
   it("rejects duplicate or invalid server environment names before producing a model", () => {
     const duplicate = mergeMcpServers({}, [definition, definition]);
     const invalid = mergeMcpServers({}, [{ id: "invalid", env: ["not-valid-name"] }]);

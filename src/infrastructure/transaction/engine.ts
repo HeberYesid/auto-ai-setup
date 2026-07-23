@@ -18,7 +18,7 @@ import type {
   TransactionResult,
   TxContext,
 } from "../../domain/index.js";
-import { asSafeProjectPath, calculatePlanHash, err, isSafeRelativePath, mergeManagedState, ok } from "../../domain/index.js";
+import { asSafeProjectPath, autoSkillsPolicyFailure, calculatePlanHash, err, isAllowedAutoSkillsOperation, isSafeRelativePath, mergeManagedState, ok } from "../../domain/index.js";
 import type { FileSystemPort } from "../../domain/shared/ports.js";
 import type { AppError, CanonicalPath, RunId } from "../../domain/shared/types.js";
 import type { ExternalOperation } from "../../domain/planning/models.js";
@@ -29,6 +29,8 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 export interface AtomicFileSystemPort extends FileSystemPort {
+  /** Validates lexical and real project containment without performing a mutation. */
+  validateContained?(path: SafeProjectPath): Promise<Result<void>>;
   writeAtomic?(path: SafeProjectPath, content: Uint8Array): Promise<Result<void>>;
   createExclusive?(path: SafeProjectPath, content: Uint8Array): Promise<Result<void>>;
   fsync?(path: SafeProjectPath): Promise<Result<void>>;
@@ -101,6 +103,7 @@ const validatePlan = (plan: ApprovedPlan): string | undefined => {
   for (const change of plan.fileChanges)
     if (!isSafeRelativePath(String(change.destination))) return `Unsafe destination: ${change.destination}`;
   for (const operation of plan.externalOperations) {
+    if (!isAllowedAutoSkillsOperation(operation)) return autoSkillsPolicyFailure(operation);
     if (!isSafeRelativePath(String(operation.destination)) || operation.origin.length === 0 || operation.purpose.length === 0)
       return `Invalid external operation: ${operation.id}`;
     for (const expected of operation.expectedFiles) if (!isSafeRelativePath(expected.path)) return `Unsafe expected file: ${expected.path}`;
@@ -125,6 +128,8 @@ export class PersistentTransactionEngine implements TransactionEngine {
   public async apply(plan: ApprovedPlan, signal: AbortSignal): Promise<TransactionResult> {
     const invalid = validatePlan(plan);
     if (invalid !== undefined) return this.incomplete(invalid);
+    const containment = await this.validatePlanContainment(plan);
+    if (containment !== undefined) return this.incomplete(containment);
     if (signal.aborted) return this.cancelled();
     const gate = await this.recoveryGate(plan.root);
     if (gate !== undefined) return this.incomplete(gate);
@@ -522,6 +527,22 @@ export class PersistentTransactionEngine implements TransactionEngine {
         /* preserve the terminal journal */
       }
     }
+  }
+
+  private async validatePlanContainment(plan: ApprovedPlan): Promise<string | undefined> {
+    const validate = this.fileSystem.validateContained;
+    if (validate === undefined) return undefined;
+    const paths = new Set<string>();
+    for (const change of plan.fileChanges) paths.add(String(change.destination));
+    for (const operation of plan.externalOperations) {
+      paths.add(String(operation.destination));
+      for (const expected of operation.expectedFiles) paths.add(String(expected.path));
+    }
+    for (const value of paths) {
+      const checked = await validate(value as SafeProjectPath);
+      if (!checked.ok) return `Unsafe planned destination ${value}: ${checked.error.message}`;
+    }
+    return undefined;
   }
 
   private async recoveryGate(root: CanonicalPath): Promise<string | undefined> {

@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -61,5 +61,31 @@ describe("NodeTransactionalFileSystem", () => {
     expect((await fileSystem.write(escape, new Uint8Array())).ok).toBe(false);
     expect((await fileSystem.createExclusive(escape, new Uint8Array())).ok).toBe(false);
     await expect(fileSystem.writeAtomic(escape, new Uint8Array())).rejects.toThrow("Path escapes transaction root");
+  });
+  it("rejects recoverable writes through a symlink before touching the outside target", async () => {
+    const outside = await mkdtemp(join(tmpdir(), "auto-ai-setup-outside-"));
+    temporaryDirectories.push(outside);
+    const root = await mkdtemp(join(tmpdir(), "auto-ai-setup-link-root-"));
+    temporaryDirectories.push(root);
+    const canonical = asCanonicalPath(root);
+    if (!canonical.ok) throw new Error(canonical.error.message);
+    const linkedRootFileSystem = new NodeTransactionalFileSystem(canonical.value);
+    try {
+      await symlink(outside, join(root, "escape"), "dir");
+    } catch {
+      return;
+    }
+    const destination = safe("escape/recoverable.json");
+    await expect(linkedRootFileSystem.validateContained(destination)).resolves.toMatchObject({
+      ok: false,
+      error: { code: "UNSAFE_DESTINATION", security: "path", reason: expect.stringMatching(/symlink-escape|real-containment/) },
+    });
+    expect((await linkedRootFileSystem.write(destination, new Uint8Array([1]))).ok).toBe(false);
+    await expect(linkedRootFileSystem.writeAtomic(destination, new Uint8Array([1]))).rejects.toMatchObject({
+      code: "UNSAFE_DESTINATION",
+      security: "path",
+      reason: "symlink-escape",
+    });
+    await expect(writeFile(join(outside, "recoverable.json"), new Uint8Array([2]))).resolves.toBeUndefined();
   });
 });

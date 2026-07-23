@@ -170,7 +170,8 @@ export const adaptKiroMcpDocument = (
   if (!parsed.ok) return parsed;
   const merged = mergeMcpServers(parsed.value.model, definitions, codec);
   if (!merged.ok) return merged;
-  const serialized = codec.serialize(merged.value, parsed.value.style);
+  const changed = !codec.equivalent(parsed.value.model, merged.value);
+  const serialized = changed ? codec.serialize(merged.value, parsed.value.style) : ok(source.text);
   if (!serialized.ok) return serialized;
   const names = definitions.flatMap((definition) => environmentNames(definition.env));
   return ok({
@@ -179,7 +180,7 @@ export const adaptKiroMcpDocument = (
     style: parsed.value.style,
     serverIds: Object.keys(merged.value.mcpServers as JsonObject),
     environmentVariableNames: [...new Set(names)].sort(),
-    changed: !codec.equivalent(parsed.value.model, merged.value),
+    changed,
   });
 };
 

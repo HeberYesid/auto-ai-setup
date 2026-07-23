@@ -32,7 +32,16 @@ export type ActionId = RegisteredAction;
 
 /** Normalized non-printable keys. Raw escape sequences never reach the domain. */
 export type NormalizedKey =
-  "Tab" | "ShiftTab" | "Enter" | "Space" | "Question" | "Escape" | "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight";
+  | "Tab"
+  | "ShiftTab"
+  | "Enter"
+  | "Space"
+  | "Question"
+  | "Escape"
+  | "ArrowUp"
+  | "ArrowDown"
+  | "ArrowLeft"
+  | "ArrowRight";
 
 /** A normalized keystroke: either a named control key or printable text. */
 export type KeyStroke = { readonly kind: "named"; readonly name: NormalizedKey } | { readonly kind: "printable"; readonly text: string };
@@ -62,10 +71,11 @@ export interface ResizeEvent {
   readonly capabilities: TerminalCapabilities;
 }
 
-/** An activity update event carrying a raw progress input to be validated. */
+/** An activity update; the optional timestamp is supplied by an injected monotonic clock. */
 export interface ActivityEvent {
   readonly kind: "activity";
   readonly progress: ProgressInput;
+  readonly atMs?: NonNegativeInteger;
 }
 
 /** The typed result of a completed external operation, normalized back into the loop. */
@@ -84,7 +94,7 @@ export interface TimerEvent {
 /** All normalized inputs the interactive session reducer can consume. */
 export type UiEvent = KeyEvent | MouseEvent | ResizeEvent | ActivityEvent | ExternalResultEvent | TimerEvent;
 
-/** Why the interactive session is exiting; maps to existing CLI exit semantics. */
+/** Why an interactive session is exiting; maps to existing CLI exit semantics. */
 export type ExitReason = "completed" | "cancelled" | "failed" | "invalid-input";
 
 /**

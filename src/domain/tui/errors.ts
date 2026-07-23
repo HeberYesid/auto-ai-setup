@@ -14,7 +14,11 @@ export type TuiErrorCode =
   | "UNKNOWN_ACTION"
   | "PRESENTATION_TRANSITION_IMPOSSIBLE"
   | "REDACTION_INCOMPLETE"
-  | "UNAVAILABLE_EFFECT";
+  | "INVALID_RECOVERY_PATH"
+  | "UNAVAILABLE_EFFECT"
+  | "APPROVAL_REQUIRED"
+  | "APPROVAL_STALE"
+  | "APPROVAL_CONFLICTED";
 
 /** A typed, classified TUI error following the shared {@link AppErrorBase} shape. */
 export interface TuiError extends AppErrorBase<TuiErrorCode> {
@@ -28,7 +32,11 @@ export type TuiResult<T> = Result<T, TuiError>;
 export type TuiErrorDetails = Partial<Omit<TuiError, "code" | "message">>;
 
 /** Construct a {@link TuiError}; defaults recoverability to `"none"` when omitted. */
-export const tuiError = (code: TuiErrorCode, message: string, details: TuiErrorDetails = {}): TuiError => {
+export const tuiError = <Code extends TuiErrorCode>(
+  code: Code,
+  message: string,
+  details: TuiErrorDetails = {},
+): TuiError & { readonly code: Code } => {
   const { recoverability, cause, path, location, suggestedAction } = details;
   return {
     code,

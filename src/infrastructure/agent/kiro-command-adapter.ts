@@ -148,7 +148,8 @@ export const adaptKiroCommandIndex = (
   if (!parsed.ok) return parsed;
   const merged = mergeKiroCommandIndex(parsed.value.model, definition, codec);
   if (!merged.ok) return merged;
-  const serialized = codec.serialize(merged.value, parsed.value.style);
+  const changed = !codec.equivalent(parsed.value.model, merged.value);
+  const serialized = changed ? codec.serialize(merged.value, parsed.value.style) : ok(source.text);
   if (!serialized.ok) return serialized;
   const existingCommands = isRecord(parsed.value.model.commands) ? parsed.value.model.commands : {};
   const previous = existingCommands[definition.id];
@@ -169,7 +170,7 @@ export const adaptKiroCommandIndex = (
     text: serialized.value,
     style: parsed.value.style,
     commandIds: Object.keys(merged.value.commands as JsonObject),
-    changed: !codec.equivalent(parsed.value.model, merged.value),
+    changed,
     conflict,
   });
 };

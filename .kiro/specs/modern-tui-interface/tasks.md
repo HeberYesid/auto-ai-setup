@@ -53,13 +53,13 @@ Implement the modern terminal presentation as a strict TypeScript, Node.js 22+, 
     - Lock task inputs and results while application work is pending while permitting only explicitly registered status, help, or cancellation actions.
     - _Requirements: 2.5, 2.6, 2.9, 2.14, 8.7, 9.2, 9.6_
 
-  - [ ] 3.2 Implement focus, navigation, scrolling, and validation reducers
+  - [x] 3.2 Implement focus, navigation, scrolling, and validation reducers
     - Derive visible enabled controls in documented top-to-bottom/left-to-right order; implement circular Tab/Shift+Tab, focus restoration/fallback, exactly one valid focus, and absent focus when no control is enabled.
     - Compute minimal bounded scrolling and reset it to zero when content fits.
     - Preserve invalid/restored input, enumerate all violated rules without duplication, and disable only advance actions while validation is invalid or pending.
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.7, 2.8, 2.10, 2.11, 2.12, 2.13, 4.8, 4.10_
 
-  - [ ] 3.3 Implement safe resize and presentation transitions
+  - [~] 3.3 Implement safe resize and presentation transitions
     - Recompute compatible profiles without rebuilding session state and preserve every named field, including approvals, results, scroll, unconfirmed inputs, and validation.
     - If representation is impossible, retain the current mode, identify the non-preservable element, expose registered recovery controls, and suppress newly unsupported control sequences.
     - _Requirements: 1.9, 8.8, 8.9, 8.10, 9.4_
@@ -102,22 +102,22 @@ Implement the modern terminal presentation as a strict TypeScript, Node.js 22+, 
     - _Requirements: 2.5, 2.6, 2.14, 2.15, 2.16, 2.17, 4.9_
 
 - [ ] 4. Implement redacted view models, layout, and rendering
-  - [ ] 4.1 Build the redaction-first presentation projection
+  - [x] 4.1 Build the redaction-first presentation projection
     - Project `SessionState` into an immutable redacted `PresentationState` and semantic `ViewModel` before terminal or local-event sinks can observe values.
     - Include brand, current stage, applicable enabled primary action, controls, labels, values, help, activity, plan, recovery, and summary in deterministic flow order.
     - Fail closed with typed errors when redaction cannot complete; do not provide an unredacted fallback.
     - _Requirements: 3.2, 4.1, 4.7, 5.7, 6.7, 9.7, 10.11_
 
-  - [ ] 4.2 Implement deterministic layout and render-mode projections
+  - [x] 4.2 Implement deterministic layout and render-mode projections
     - Add pure wrapping, path truncation indicators, semantic ordering, ASCII substitutions, degraded compaction, linear sequential output, and bounded viewport/window calculations.
     - Ensure full, degraded, and linear projections retain essential hierarchy, labels, values, and actions while removing only unsupported adornments.
     - _Requirements: 3.4, 3.5, 3.8, 3.10, 4.6, 9.1, 9.3_
-  - [ ] 4.3 Implement frame generation and safe delta rendering
+  - [~] 4.3 Implement frame generation and safe delta rendering
     - Generate semantic frames and minimal safe deltas whose completed terminal content contains only the current model; regenerate complete changed regions and preserve unchanged region characters/positions.
     - Keep ANSI emission in the output adapter, enforce profile permissions, and make linear output append-only with no clear/reposition/animation sequences.
     - _Requirements: 1.4, 3.6, 8.6, 8.10_
 
-  - [ ] 4.4 Implement the original visual system and accessibility semantics
+  - [~] 4.4 Implement the original visual system and accessibility semantics
     - Define original `auto-ai-setup` text/symbol identity, stable labels for equivalent actions, and non-color markers for title, primary/secondary text, selection, focus, warning, error, and success.
     - Emit exact `ÉXITO`, `ADVERTENCIA`, and `ERROR` labels; keep activity and input labels visible; implement non-disruptive contextual help and static no-animation status.
     - Do not reproduce external names, logos, wording, palettes, layouts, or recognizable identity.
@@ -154,12 +154,12 @@ Implement the modern terminal presentation as a strict TypeScript, Node.js 22+, 
     - _Requirements: 3.3, 3.7, 3.9, 4.3, 4.6_
 
 - [ ] 5. Implement progress, failure, recovery, and final-summary presentation
-  - [ ] 5.1 Implement pure progress and activity state handling
+  - [-] 5.1 Implement pure progress and activity state handling
     - Validate non-negative integer determined progress, monotonic completion, `completed <= total`, floor percentage, and the `0/0 -> 0%` rule.
     - Retain the last valid model and report violated rules for invalid updates; omit counts/percentages for indeterminate progress.
     - Use injected time to expose persistent textual activity after one second without wall-clock sleeps.
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 8.4_
-  - [ ] 5.2 Implement typed failure, recovery, and summary projections
+  - [x] 5.2 Implement typed failure, recovery, and summary projections
     - Preserve named session fields on operation failure and show stage, operation, redacted readable cause, and exactly registered recovery controls with enabled state.
     - Gate final summary after mutation failure until a visible recovery result exists; include status, changes, omissions, recovery, exit code, errors, and warnings.
     - Canonicalize and deduplicate unresolved project-relative paths so each appears exactly once.
@@ -187,17 +187,17 @@ Implement the modern terminal presentation as a strict TypeScript, Node.js 22+, 
     - _Requirements: 5.1, 5.4, 5.10, 8.1, 8.2, 8.3, 8.4, 9.8_
 
 - [ ] 6. Implement deterministic plan review and hash-bound approval
-  - [ ] 6.1 Build the canonical redacted plan projection
+  - [-] 6.1 Build the canonical redacted plan projection
     - Reuse the existing planning domain as source of canonical bytes and SHA-256; project operations in canonical order with plan hash, action, destination, source, reason, conflict, semantic before/after descriptions, and `no aplicable` placeholders.
     - Include only policy-allowed external operations with exact command, all arguments, purpose, and network-use metadata; redact project values before projection.
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7_
 
-  - [ ] 6.2 Implement explicit approval state and coordinator
+  - [x] 6.2 Implement explicit approval state and coordinator
     - Default to rejection and bind every decision to the displayed hash; discard conflicting decisions and invalidate approval on stale/current hash mismatch.
     - Emit an apply command only for a fresh, unambiguous approval of the current canonical hash, including a new request after rejection.
     - _Requirements: 6.8, 6.9, 6.10, 6.11, 6.12, 6.13, 6.17, 7.7, 7.10_
 
-  - [ ] 6.3 Enforce approval again at the effect boundary
+  - [~] 6.3 Enforce approval again at the effect boundary
     - Recalculate/verify the canonical hash immediately before filesystem, process, or network effects and apply exactly the approved canonical operations.
     - Return typed stale/conflicted/rejected errors without starting any effect and preserve equivalent project state.
     - _Requirements: 6.9, 6.10, 6.11, 6.13, 7.7, 7.10_
@@ -214,17 +214,17 @@ Implement the modern terminal presentation as a strict TypeScript, Node.js 22+, 
     - _Requirements: 6.2, 6.8, 6.9, 6.10, 6.11, 6.12, 6.17_
 
 - [ ] 7. Preserve configuration and enforce product security boundaries
-  - [ ] 7.1 Implement managed JSON update preservation
+  - [-] 7.1 Implement managed JSON update preservation
     - Extend pure configuration merging only as needed so managed updates preserve unknown fields, unrelated array order, duplicate multiplicity, formatting where practical, and user-owned content while changing only owned values.
     - Keep JSON as the only structured configuration format written by the feature.
     - _Requirements: 10.6_
 
-  - [ ] 7.2 Enforce lexical and real containment before effects
+  - [-] 7.2 Enforce lexical and real containment before effects
     - Reuse/extend path policy to reject traversal, absolute/device paths, NUL, and symlink escapes with typed security errors before process or mutation calls.
     - Require both lexical and real containment within the target project for every planned target and recoverable write.
     - _Requirements: 10.7, 10.8, 10.10_
 
-  - [ ] 7.3 Enforce allowlisted autoskills, network, and prohibited-operation policy
+  - [x] 7.3 Enforce allowlisted autoskills, network, and prohibited-operation policy
     - Admit only explicitly approved official `npx autoskills` operations for the current hash; open network only for that operation and close it afterward.
     - Reject recommended CLI execution, MCP server execution, arbitrary shell commands, lifecycle scripts, telemetry, remote event transmission, direct Skill downloads, and alternate installation fallbacks before plan insertion and before effects.
     - Keep recommended CLIs and MCP servers descriptive/configurational only and return registered safe recovery controls on autoskills failure.
@@ -244,16 +244,16 @@ Implement the modern terminal presentation as a strict TypeScript, Node.js 22+, 
     - _Requirements: 6.14, 6.15, 10.5, 10.7, 10.8, 10.9, 10.10, 10.11, 10.12, 10.13_
 
 - [ ] 8. Coordinate interactive effects and recoverable application flow
-  - [ ] 8.1 Implement the interactive application coordinator
+  - [~] 8.1 Implement the interactive application coordinator
     - Add `src/application/session/interactive-session.ts` to run reducer commands through injected ports, normalize typed results back into events, serialize pending work, and keep rendering separate from effects.
     - Preserve existing inspect/select/review/approve/apply/recover/summary stages and decisions without adding domain capabilities.
     - _Requirements: 2.9, 5.8, 8.7, 9.9, 10.1, 10.2_
-  - [ ] 8.2 Implement the interactive terminal loop and output sink
+  - [~] 8.2 Implement the interactive terminal loop and output sink
     - Wire normalized key/mouse/resize/activity/external-result/timer events to reduction, command coordination, redacted projection, frame rendering, writes, and guaranteed cleanup.
     - Handle write failures and interruption through the existing controlled error contract without retries that can mutate state or leak secrets.
     - _Requirements: 1.10, 2.14, 5.7, 8.4, 8.6, 9.7, 10.11_
 
-  - [ ] 8.3 Integrate transactional application and recovery lifecycle
+  - [~] 8.3 Integrate transactional application and recovery lifecycle
     - Connect approved apply commands to existing staging, backups, persistent journal, verification, atomic rename/fsync, rollback, and local recovery ports.
     - Convert transaction lifecycle events into progress/recovery views; prevent summary until recovery is visible and preserve existing exit semantics.
     - _Requirements: 5.10, 5.11, 6.16, 10.7_
@@ -269,12 +269,12 @@ Implement the modern terminal presentation as a strict TypeScript, Node.js 22+, 
     - _Requirements: 5.8, 5.10, 5.11, 5.12, 6.10, 6.16, 10.7_
 
 - [ ] 9. Preserve non-interactive, JSON, and existing CLI contracts
-  - [ ] 9.1 Route invocation modes before TUI construction
+  - [~] 9.1 Route invocation modes before TUI construction
     - Update CLI composition so explicit non-interactive/JSON modes, redirected stdin/stdout, or missing automation input bypass all interactive controls and preserve existing syntax, options, stages, semantics, outputs, and exit codes.
     - Missing non-interactive input must fail without waiting and without changing project state.
     - _Requirements: 1.8, 7.1, 7.4, 7.5, 7.6, 10.1, 10.2_
 
-  - [ ] 9.2 Implement atomic redacted JSON output preparation
+  - [~] 9.2 Implement atomic redacted JSON output preparation
     - Build, redact, schema-validate, and serialize exactly one existing-contract JSON value in memory before writing its first stdout byte.
     - Emit no ANSI, frames, animation, or prompts; on redaction/preparation failure write zero stdout bytes and return the existing controlled error code.
     - _Requirements: 7.2, 7.3, 7.8, 7.9_
@@ -285,7 +285,7 @@ Implement the modern terminal presentation as a strict TypeScript, Node.js 22+, 
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 7.10, 10.1_
 
 - [ ] 10. Meet bounded rendering and responsiveness requirements
-  - [ ] 10.1 Add bounded layout, windowed plan rendering, and timing instrumentation
+  - [~] 10.1 Add bounded layout, windowed plan rendering, and timing instrumentation
     - Window plans up to 1,000 visible operations and avoid rebuilding unchanged semantic regions while preserving canonical order and focus/scroll behavior.
     - Instrument first-view, navigation, resize, and activity-update milestones through injected monotonic time without adding telemetry or remote sinks.
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 10.11_
@@ -295,7 +295,7 @@ Implement the modern terminal presentation as a strict TypeScript, Node.js 22+, 
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 9.8_
 
 - [ ] 11. Wire the feature and validate repository-level contracts
-  - [ ] 11.1 Compose exports and the existing CLI entry point
+  - [~] 11.1 Compose exports and the existing CLI entry point
     - Wire domain, application, CLI, and infrastructure adapters through composition roots and barrel exports only after component contracts are stable.
     - Preserve strict TypeScript, Node.js 22+, ESM, the portable shebang, `package.json#bin`, zero runtime dependencies unless separately justified/pinned, and existing `npx auto-ai-setup`/`npx autoskills` public contracts.
     - _Requirements: 10.1, 10.2, 10.3, 10.5_
@@ -310,7 +310,7 @@ Implement the modern terminal presentation as a strict TypeScript, Node.js 22+, 
     - Add an automated repository check that contributor workflow commands use pnpm only; do not invoke public services or watch mode.
     - _Requirements: 9.8, 10.1, 10.3, 10.4_
 
-- [ ] 12. Final checkpoint - Ensure all tests pass
+- [~] 12. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

@@ -258,8 +258,7 @@ describe("complete CLI journeys", () => {
       return "auto";
     };
     ui.selectComponents = async () => {
-      phases.push("selection");
-      return [component.id];
+      throw new Error("auto mode must not ask for manual component IDs");
     };
     ui.reviewPlan = async (plan) => {
       phases.push("approval");
@@ -285,7 +284,7 @@ describe("complete CLI journeys", () => {
     }).run({ targetPath: String(root), verbose: false, recover: false }, ui);
 
     expect(summary).toMatchObject({ status: "success", exitCode: 0, applied: ["rule:rule"] });
-    expect(phases).toEqual(["mode:auto", "selection", "approval", "apply"]);
+    expect(phases).toEqual(["mode:auto", "approval", "apply"]);
   });
 
   it("discloses and runs autoskills before continuing the approved local flow", async () => {

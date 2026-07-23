@@ -1,4 +1,5 @@
 import type { RenderProfile } from "./capabilities.js";
+import { coordinateApproval } from "./approval.js";
 import {
   noCommand,
   type ExternalResultEvent,
@@ -8,6 +9,18 @@ import {
   type UiCommand,
   type UiEvent,
 } from "./events.js";
+import { startActivity } from "./progress.js";
+import {
+  computeScrollTop,
+  focusedControl as resolveFocusedControl,
+  gateAdvanceControls,
+  isAdvanceBlocked,
+  moveFocus,
+  revalidateInputs,
+  restoreFocus,
+  updateInputValidation,
+  type ValidationRules,
+} from "./navigation.js";
 import type { Control, SelectionValue, SessionError, SessionState, Stage } from "./session.js";
 import type { NonNegativeInteger } from "./values.js";
 
@@ -30,6 +43,12 @@ export interface ReductionResult {
  */
 export interface SessionReducerContext {
   readonly controls: readonly Control[];
+  /** Number of visible rows used to keep the focused control fully in view. */
+  readonly viewportRows?: number;
+  /** Rules for the currently editable controls, keyed by control id. */
+  readonly validationRules?: ValidationRules;
+  /** Current monotonic time supplied by the application clock when an action starts work. */
+  readonly nowMs?: number;
 }
 
 /**
@@ -79,11 +98,8 @@ export const previousStage = (stage: Stage): Stage | undefined => {
 };
 
 /** Resolve the currently focused control for a view, only when it is visible and enabled. */
-const focusedControl = (state: SessionState, viewId: string, controls: readonly Control[]): Control | undefined => {
-  const controlId = state.focusByView.get(viewId)?.controlId;
-  if (controlId === undefined) return undefined;
-  return controls.find((control) => control.id === controlId && control.visible && control.enabled);
-};
+const focusedControl = (state: SessionState, viewId: string, controls: readonly Control[]): Control | undefined =>
+  resolveFocusedControl(state, viewId, controls);
 
 /** Set a single-choice selection for a control, replacing any prior value for the same control. */
 const setChoice = (state: SessionState, viewId: string, control: Control): SessionState => {
@@ -102,13 +118,9 @@ const toggleOption = (state: SessionState, viewId: string, control: Control): Se
   return { ...state, selections: [...state.selections, { viewId, controlId: control.id, value }] };
 };
 
-/** Build a pending activity marker for a stage, reusing the triggering control's label. */
-const pendingActivity = (stage: Stage, description: string): SessionState["activity"] => ({
-  stage,
-  description,
-  progress: undefined,
-  lastValidProgress: undefined,
-});
+/** Build a pending activity marker with an injected monotonic start time. */
+const pendingActivity = (stage: Stage, description: string, startedAtMs = 0): SessionState["activity"] =>
+  startActivity(stage, description, startedAtMs);
 
 /**
  * Apply a single registered action to the session state. Command execution is
@@ -123,8 +135,12 @@ const dispatchAction = (
   control: Control | undefined,
   viewId: string,
   pending: boolean,
+  startedAtMs = 0,
 ): ReductionResult => {
   if (pending && !PENDING_PERMITTED_ACTIONS.has(action)) {
+    return unchanged(state);
+  }
+  if (isAdvanceBlocked(action, state.validation)) {
     return unchanged(state);
   }
 
@@ -154,7 +170,7 @@ const dispatchAction = (
     case "confirm": {
       const next = nextStage(state.stage);
       if (next === undefined || control === undefined) return unchanged(state);
-      return withCommand({ ...state, activity: pendingActivity(next, control.label) }, { kind: "run-stage", stage: next });
+      return withCommand({ ...state, activity: pendingActivity(next, control.label, startedAtMs) }, { kind: "run-stage", stage: next });
     }
 
     case "back": {
@@ -165,16 +181,35 @@ const dispatchAction = (
     case "approve-plan": {
       const hash = state.displayedPlanHash;
       if (hash === undefined || control === undefined) return unchanged(state);
-      const approved: SessionState = {
+      const outcome = coordinateApproval(state.plan, { displayedHash: hash, decisions: ["approve"] });
+      const nextState: SessionState = {
         ...state,
-        approval: { decision: "approved", hash },
-        activity: pendingActivity("apply", control.label),
+        approval: outcome.state,
+        errors:
+          outcome.error === undefined
+            ? state.errors
+            : [...state.errors, { stage: state.stage, operation: "approval", cause: outcome.error.message }],
       };
-      return withCommand(approved, { kind: "apply-approved-plan", hash });
+      if (outcome.status !== "approved") return stateOnly(nextState);
+      return withCommand(
+        { ...nextState, activity: pendingActivity("apply", control.label, startedAtMs) },
+        outcome.command,
+      );
     }
 
-    case "reject-plan":
-      return stateOnly({ ...state, approval: { decision: "rejected", hash: state.displayedPlanHash } });
+    case "reject-plan": {
+      const hash = state.displayedPlanHash;
+      if (hash === undefined) return unchanged(state);
+      const outcome = coordinateApproval(state.plan, { displayedHash: hash, decisions: ["reject"] });
+      return stateOnly({
+        ...state,
+        approval: outcome.state,
+        errors:
+          outcome.error === undefined
+            ? state.errors
+            : [...state.errors, { stage: state.stage, operation: "approval", cause: outcome.error.message }],
+      });
+    }
 
     case "retry":
     case "correct":
@@ -190,13 +225,37 @@ const dispatchAction = (
   }
 };
 
+const navigationControls = (state: SessionState, context: SessionReducerContext): readonly Control[] =>
+  gateAdvanceControls(context.controls, state.validation);
+
+const applyNavigation = (
+  state: SessionState,
+  context: SessionReducerContext,
+  direction: "forward" | "backward",
+): ReductionResult => {
+  const viewId = currentViewId(state);
+  const controls = navigationControls(state, context);
+  const moved = moveFocus(state, viewId, controls, direction);
+  const focusId = moved.focusByView.get(viewId)?.controlId;
+  const scrollTop =
+    context.viewportRows === undefined
+      ? moved.scrollTop
+      : computeScrollTop(controls, focusId, context.viewportRows, moved.scrollTop);
+  const next = scrollTop === moved.scrollTop ? moved : { ...moved, scrollTop };
+  return next === state ? unchanged(state) : stateOnly(next);
+};
+
 /** Reduce a normalized keystroke into a state transition and optional command. */
 const handleKey = (state: SessionState, key: KeyStroke, context: SessionReducerContext, pending: boolean): ReductionResult => {
-  if (key.kind === "printable") {
-    // Printable text drives editable-input handling, owned by subtask 3.2.
-    return unchanged(state);
-  }
   const viewId = currentViewId(state);
+  const controls = navigationControls(state, context);
+  if (key.kind === "printable") {
+    const control = focusedControl(state, viewId, controls);
+    if (control === undefined || control.kind !== "text-input") return unchanged(state);
+    const current = state.unconfirmedInputs.get(control.id) ?? "";
+    const rules = context.validationRules?.get(control.id) ?? [];
+    return stateOnly(updateInputValidation(state, control.id, current + key.text, rules, false));
+  }
   switch (key.name) {
     case "Question":
       return dispatchAction(state, "toggle-help", undefined, viewId, pending);
@@ -205,35 +264,41 @@ const handleKey = (state: SessionState, key: KeyStroke, context: SessionReducerC
       return dispatchAction(state, "cancel", undefined, viewId, pending);
 
     case "Enter": {
-      const control = focusedControl(state, viewId, context.controls);
+      const control = focusedControl(state, viewId, controls);
       return control === undefined ? unchanged(state) : dispatchAction(state, control.action, control, viewId, pending);
     }
 
     case "Space": {
-      const control = focusedControl(state, viewId, context.controls);
+      const control = focusedControl(state, viewId, controls);
       if (control === undefined || control.kind !== "multiselect") return unchanged(state);
       return dispatchAction(state, "toggle-option", control, viewId, pending);
     }
 
     case "Tab":
+    case "ArrowDown":
+    case "ArrowRight":
+      return applyNavigation(state, context, "forward");
+
     case "ShiftTab":
     case "ArrowUp":
-    case "ArrowDown":
     case "ArrowLeft":
-    case "ArrowRight":
-      // Focus and navigation movement are owned by subtask 3.2.
-      return unchanged(state);
+      return applyNavigation(state, context, "backward");
   }
 };
 
 /** Reduce an optional mouse activation: focus and activate a control in one event. */
 const handleMouse = (state: SessionState, event: MouseEvent, context: SessionReducerContext, pending: boolean): ReductionResult => {
-  const control = context.controls.find((candidate) => candidate.id === event.controlId && candidate.visible && candidate.enabled);
+  const controls = navigationControls(state, context);
+  const control = controls.find((candidate) => candidate.id === event.controlId && candidate.visible && candidate.enabled);
   if (control === undefined) {
     // Clicking empty space or a disabled/invisible control is ignored, identical to an invalid action.
     return unchanged(state);
   }
-  return dispatchAction(state, control.action, control, currentViewId(state), pending);
+  const viewId = currentViewId(state);
+  const focusByView = new Map(state.focusByView);
+  focusByView.set(viewId, { viewId, controlId: control.id });
+  const focusedState = restoreFocus({ ...state, focusByView }, viewId, controls);
+  return dispatchAction(focusedState, control.action, control, viewId, pending);
 };
 
 /** Normalize a completed external operation back into a state transition. */
@@ -244,6 +309,21 @@ const handleExternalResult = (state: SessionState, event: ExternalResultEvent): 
   }
   const error: SessionError = { stage: state.stage, operation: String(event.operationId), cause: event.result.error.message };
   return stateOnly({ ...cleared, errors: [...state.errors, error] });
+};
+
+const synchronizedValidation = (state: SessionState, rules: ValidationRules | undefined): SessionState => {
+  if (rules === undefined) return state;
+  const candidate = revalidateInputs(state, rules, state.validation.pending);
+  const same =
+    candidate.validation.pending === state.validation.pending &&
+    candidate.validation.errors.length === state.validation.errors.length &&
+    candidate.validation.errors.every(
+      (error, index) =>
+        error.controlId === state.validation.errors[index]?.controlId &&
+        error.rule === state.validation.errors[index]?.rule &&
+        error.message === state.validation.errors[index]?.message,
+    );
+  return same ? state : candidate;
 };
 
 /**
@@ -267,26 +347,27 @@ export const reduceSession = (state: SessionState, event: UiEvent, context: Sess
   if (state.finalized) {
     return unchanged(state);
   }
-  const pending = isPendingWork(state);
+  const validatedState = synchronizedValidation(state, context.validationRules);
+  const pending = isPendingWork(validatedState);
   switch (event.kind) {
     case "key":
-      return handleKey(state, event.key, context, pending);
+      return handleKey(validatedState, event.key, context, pending);
 
     case "mouse":
-      return handleMouse(state, event, context, pending);
+      return handleMouse(validatedState, event, context, pending);
 
     case "external-result":
-      return handleExternalResult(state, event);
+      return handleExternalResult(validatedState, event);
 
     case "activity":
     case "timer":
       // Progress validation and activity retention are owned by subtask 5.1. These
       // events are permitted status updates that the core reducer leaves unchanged.
-      return unchanged(state);
+      return unchanged(validatedState);
 
     case "resize":
       // Resize and presentation transitions are owned by subtask 3.3.
-      return unchanged(state);
+      return unchanged(validatedState);
   }
 };
 

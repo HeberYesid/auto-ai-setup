@@ -2,34 +2,38 @@ import { lstat, realpath } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { PathPolicy } from "../../domain/index.js";
 import { err, ok } from "../../domain/index.js";
-import type { CanonicalPath, PlanningError, ProjectRelativePath, Result, SafeProjectPath } from "../../domain/index.js";
+import type { CanonicalPath, PathSecurityReason, PlanningError, ProjectRelativePath, Result, SafeProjectPath } from "../../domain/index.js";
 
 const WINDOWS_DEVICE = /^(?:con|prn|aux|nul|clock\$|com[1-9]|lpt[1-9])(?:\..*)?$/i;
 const WINDOWS_DRIVE = /^[a-z]:/i;
 
-const unsafe = (path: string, message: string): Result<SafeProjectPath, PlanningError> =>
+const unsafe = (path: string, message: string, reason: PathSecurityReason): Result<SafeProjectPath, PlanningError> =>
   err({
     code: "UNSAFE_DESTINATION",
     message,
     recoverability: "none",
     path,
     exitCode: 2,
+    security: "path",
+    reason,
   });
 
 const normalizeRequested = (requested: string): Result<string, PlanningError> => {
-  if (requested.length === 0 || requested.includes("\0") || requested.includes("\\"))
-    return unsafe(requested, "Destination must use normalized project-relative separators");
+  if (requested.length === 0) return unsafe(requested, "Destination must name a project-relative path", "lexical-containment");
+  if (requested.includes("\0")) return unsafe(requested, "NUL bytes are not valid destinations", "nul-byte");
+  if (requested.includes("\\")) return unsafe(requested, "Destination must use normalized project-relative separators", "absolute-path");
   if (isAbsolute(requested) || requested.startsWith("/") || WINDOWS_DRIVE.test(requested))
-    return unsafe(requested, "Absolute and device paths are not allowed");
+    return unsafe(requested, "Absolute and device paths are not allowed", "absolute-path");
   const parts = requested.split("/");
   const normalized: string[] = [];
   for (const part of parts) {
     if (part === "" || part === ".") continue;
-    if (part === "..") return unsafe(requested, "Path traversal is not allowed");
-    if (WINDOWS_DEVICE.test(part)) return unsafe(requested, "Device names are not valid destinations");
+    if (part === "..") return unsafe(requested, "Path traversal is not allowed", "traversal");
+    if (WINDOWS_DRIVE.test(part)) return unsafe(requested, "Drive-qualified path segments are not valid destinations", "device-path");
+    if (WINDOWS_DEVICE.test(part)) return unsafe(requested, "Device names are not valid destinations", "device-path");
     normalized.push(part);
   }
-  if (normalized.length === 0) return unsafe(requested, "Destination must name a project-relative path");
+  if (normalized.length === 0) return unsafe(requested, "Destination must name a project-relative path", "lexical-containment");
   return ok(normalized.join("/"));
 };
 
@@ -48,6 +52,8 @@ const pathError = (path: string, cause: unknown): Result<SafeProjectPath, Planni
     recoverability: "none",
     path,
     exitCode: 2,
+    security: "path",
+    reason: "unverifiable-containment",
   });
 
 /**
@@ -61,7 +67,7 @@ export class NodePathPolicy implements PathPolicy {
     if (!normalized.ok) return normalized;
     const rootPath = resolve(root);
     const candidate = resolve(rootPath, normalized.value);
-    if (!isContained(rootPath, candidate)) return unsafe(requested, "Destination is outside the project root");
+    if (!isContained(rootPath, candidate)) return unsafe(requested, "Destination is outside the project root", "lexical-containment");
 
     let canonicalRoot: string;
     try {
@@ -69,8 +75,6 @@ export class NodePathPolicy implements PathPolicy {
     } catch (cause: unknown) {
       return pathError(root, cause);
     }
-    if (!isContained(canonicalRoot, rootPath)) return unsafe(requested, "Project root is not canonical");
-
     const segments = normalized.value.split("/");
     let current = canonicalRoot;
     for (const segment of segments) {
@@ -90,17 +94,18 @@ export class NodePathPolicy implements PathPolicy {
           return pathError(current, cause);
         }
         if (!isContained(canonicalRoot, linked))
-          return unsafe(requested, "Destination ancestor escapes the project root through a symlink");
-        if (current === candidate) return unsafe(requested, "A destination symlink cannot be replaced safely");
+          return unsafe(requested, "Destination ancestor escapes the project root through a symlink", "symlink-escape");
+        if (current === candidate) return unsafe(requested, "A destination symlink cannot be replaced safely", "symlink-escape");
         current = linked;
       }
     }
 
     try {
       const targetStat = await lstat(candidate);
-      if (targetStat.isSymbolicLink()) return unsafe(requested, "A destination symlink cannot be replaced safely");
+      if (targetStat.isSymbolicLink()) return unsafe(requested, "A destination symlink cannot be replaced safely", "symlink-escape");
       const targetReal = await realpath(candidate);
-      if (!isContained(canonicalRoot, targetReal)) return unsafe(requested, "Destination resolves outside the project root");
+      if (!isContained(canonicalRoot, targetReal))
+        return unsafe(requested, "Destination resolves outside the project root", "real-containment");
     } catch (cause: unknown) {
       if (!isMissing(cause)) return pathError(candidate, cause);
       // A new destination is checked through its nearest existing ancestor above.

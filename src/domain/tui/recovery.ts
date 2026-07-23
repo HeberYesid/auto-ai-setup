@@ -1,4 +1,6 @@
 import type { ExitCode, ProjectRelativePath } from "../shared/types.js";
+import { err, ok } from "../shared/types.js";
+import { tuiError, type TuiResult } from "./errors.js";
 import type { Stage } from "./session.js";
 
 /** The recovery actions a failed stage may register. */
@@ -54,3 +56,54 @@ export interface SummaryViewModel {
   readonly warnings: readonly string[];
   readonly exitCode: ExitCode;
 }
+/**
+ * Normalize a project-relative recovery path without consulting the filesystem.
+ * Recovery paths are expected to come from the transaction boundary, but this
+ * runtime validation keeps presentation fail-closed when a malformed value is
+ * supplied by an adapter or persisted journal.
+ */
+export const canonicalizeRecoveryPath = (value: string): TuiResult<ProjectRelativePath> => {
+  if (value.length === 0 || value.includes("\0") || value.includes("\\") || value.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value)) {
+    return err(
+      tuiError("INVALID_RECOVERY_PATH", `Recovery path is not project-relative: ${value}`, {
+        path: value,
+        suggestedAction: "Keep recovery paths canonical and relative to the project root",
+      }),
+    );
+  }
+
+  const parts = value.split("/");
+  if (parts.some((part) => part === ".." || /^[A-Za-z]:$/.test(part))) {
+    return err(
+      tuiError("INVALID_RECOVERY_PATH", `Recovery path contains traversal: ${value}`, {
+        path: value,
+        suggestedAction: "Resolve the recovery path within the project before presenting it",
+      }),
+    );
+  }
+
+  const canonical = parts.filter((part) => part.length > 0 && part !== ".").join("/");
+  if (canonical.length === 0) {
+    return err(
+      tuiError("INVALID_RECOVERY_PATH", `Recovery path is empty after canonicalization: ${value}`, {
+        path: value,
+      }),
+    );
+  }
+  return ok(canonical as ProjectRelativePath);
+};
+
+/** Canonicalize and deduplicate recovery paths while preserving lexical order. */
+export const canonicalizeRecoveryPaths = (paths: readonly string[]): TuiResult<readonly ProjectRelativePath[]> => {
+  const canonical = new Set<string>();
+  for (const path of paths) {
+    const result = canonicalizeRecoveryPath(path);
+    if (!result.ok) return result;
+    canonical.add(result.value);
+  }
+  return ok([...canonical].sort((left, right) => left.localeCompare(right)) as ProjectRelativePath[]);
+};
+
+/** A recovery result is visible only after an actual recovery attempt completed. */
+export const hasVisibleRecoveryResult = (recovery: RecoveryState | undefined): boolean =>
+  recovery !== undefined && recovery.result !== "not-required";

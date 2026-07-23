@@ -1,7 +1,7 @@
 import type { PlanViewModel } from "./plan-view.js";
 import type { ProgressModel } from "./progress.js";
-import type { SummaryViewModel } from "./recovery.js";
-import type { Control } from "./session.js";
+import type { RecoveryState, SummaryViewModel } from "./recovery.js";
+import type { Control, Stage } from "./session.js";
 import type { PositiveInteger } from "./values.js";
 
 /**
@@ -30,6 +30,13 @@ export interface HelpModel {
   readonly entries: readonly HelpEntry[];
 }
 
+/** Redacted activity information retained separately from the progress details. */
+export interface ActivityViewModel {
+  readonly stage: Stage;
+  readonly description: string;
+  readonly progress: ProgressModel | undefined;
+}
+
 /** Severity of a status message; each maps to a distinct textual label and marker. */
 export type StatusSeverity = "success" | "warning" | "error" | "info";
 
@@ -55,8 +62,31 @@ export interface ViewModel {
   readonly sections: readonly ViewSection[];
   readonly help: HelpModel | undefined;
   readonly status: readonly StatusMessage[];
+  readonly activity: ActivityViewModel | undefined;
   readonly progress: ProgressModel | undefined;
   readonly plan: PlanViewModel | undefined;
+  readonly recovery: RecoveryState | undefined;
+  readonly summary: SummaryViewModel | undefined;
+}
+
+/**
+ * Redaction-first semantic state. This is the only input accepted by view-model
+ * construction; it contains presentation-safe values and no source session object.
+ */
+export interface PresentationState {
+  readonly viewId: string;
+  readonly brandLabel: "auto-ai-setup";
+  readonly stage: Stage;
+  readonly stageLabel: string;
+  readonly primaryAction: Control | undefined;
+  readonly controls: readonly Control[];
+  readonly focusControlId: string | undefined;
+  readonly sections: readonly ViewSection[];
+  readonly help: HelpModel | undefined;
+  readonly status: readonly StatusMessage[];
+  readonly activity: ActivityViewModel | undefined;
+  readonly plan: PlanViewModel | undefined;
+  readonly recovery: RecoveryState | undefined;
   readonly summary: SummaryViewModel | undefined;
 }
 

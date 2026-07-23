@@ -366,7 +366,7 @@ export class SessionOrchestrator implements SessionOrchestratorPort {
     let selectedIds: readonly ComponentId[] = [];
     if (definitions.length > 0)
       try {
-        selectedIds = await ui.selectComponents(view);
+        selectedIds = await ui.selectComponents(view, modeResult.value);
       } catch (cause) {
         return this.finish(
           withAnalysis(

@@ -93,8 +93,11 @@ export class InteractiveUserInteraction implements UserInteraction {
     }
   }
 
-  async selectComponents(view: ComponentSelectionView): Promise<readonly import("../domain/index.js").ComponentId[]> {
-    this.terminal.write("Componentes disponibles:");
+  async selectComponents(
+    view: ComponentSelectionView,
+    mode: RunMode = "manual",
+  ): Promise<readonly import("../domain/index.js").ComponentId[]> {
+    this.terminal.write(mode === "auto" ? "Componentes detectados para el modo automático:" : "Componentes disponibles:");
     if (view.cliRecommendations === undefined || view.cliRecommendations.length === 0)
       this.terminal.write("Recomendaciones de CLI: ninguna basada en el Stack confirmado.");
     else {
@@ -120,7 +123,16 @@ export class InteractiveUserInteraction implements UserInteraction {
           this.terminal.write(`    evidencia: ${component.compatibility.evidenceRefs.join(", ")}`);
       }
     }
-    const selected = listInput(await this.terminal.question("IDs a incluir (separados por coma; vacío cancela): "));
+    if (mode === "auto") {
+      this.terminal.write("Modo automático: se incluirán todos los componentes compatibles mostrados arriba.");
+      return view.components.map((component) => component.definition.id);
+    }
+
+    this.terminal.write("Escribe el ID que aparece al inicio de cada línea; no escribas el nombre interno del servidor MCP.");
+    const mcpExample = view.components.find((component) => component.definition.type === "mcp-server");
+    if (mcpExample !== undefined)
+      this.terminal.write(`Ejemplo MCP: ${mcpExample.definition.id} (ese ID configura el servidor mostrado en la lista).`);
+    const selected = listInput(await this.terminal.question("IDs de componentes a incluir (separados por coma; Enter cancela): "));
     return selected as readonly import("../domain/index.js").ComponentId[];
   }
 

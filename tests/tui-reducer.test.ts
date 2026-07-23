@@ -11,6 +11,7 @@ import {
 import type {
   Control,
   ControlKind,
+  ChangePlan,
   ExternalResultEvent,
   RegisteredAction,
   RenderProfile,
@@ -19,6 +20,7 @@ import type {
   Stage,
   UiEvent,
 } from "../src/domain/tui/index.js";
+import { calculatePlanHash } from "../src/domain/planning/planner.js";
 import { err, ok, type OperationId, type Sha256 } from "../src/domain/shared/types.js";
 import { tuiError } from "../src/domain/tui/errors.js";
 import type { NonNegativeInteger } from "../src/domain/tui/values.js";
@@ -48,7 +50,22 @@ const control = (id: string, action: RegisteredAction, kind: ControlKind = "butt
   ...overrides,
 });
 
-/** Seed a session at a given stage with a stored focus on `controlId` for that view. */
+const approvalPlan = (): ChangePlan => {
+  const unsigned: Omit<ChangePlan, "planHash"> = {
+    schemaVersion: 1,
+    runId: "run-approval" as never,
+    root: "/virtual/project" as never,
+    mode: "manual",
+    confirmedStackDigest: "a".repeat(64) as Sha256,
+    createdAt: "2025-01-01T00:00:00.000Z",
+    fileChanges: [],
+    externalOperations: [],
+    warnings: [],
+  };
+  return { ...unsigned, planHash: calculatePlanHash(unsigned) };
+};
+
+
 const seed = (stage: Stage, controlId: string | undefined, overrides: Partial<SessionState> = {}): SessionState => {
   const base = createInitialSession(LINEAR_PROFILE);
   const focusByView = controlId === undefined ? base.focusByView : new Map([[stage, { viewId: stage, controlId }]]);
@@ -121,9 +138,10 @@ describe("reduceSession — invalid actions are immutable", () => {
 
 describe("reduceSession — command separation and closed commands", () => {
   it("emits an apply command bound to the displayed plan hash on approve-plan", () => {
-    const hash = "a".repeat(64) as Sha256;
+    const plan = approvalPlan();
+    const hash = plan.planHash;
     const approve = control("approve", "approve-plan");
-    const state = seed("approve", "approve", { displayedPlanHash: hash });
+    const state = seed("approve", "approve", { plan, displayedPlanHash: hash });
     const result = reduceSession(state, enter, context([approve]));
     expect(result.command).toEqual({ kind: "apply-approved-plan", hash });
     expect(result.state.approval).toEqual({ decision: "approved", hash });
@@ -138,9 +156,10 @@ describe("reduceSession — command separation and closed commands", () => {
   });
 
   it("records rejection as a pure state transition without a command", () => {
-    const hash = "b".repeat(64) as Sha256;
+    const plan = approvalPlan();
+    const hash = plan.planHash;
     const reject = control("reject", "reject-plan");
-    const state = seed("approve", "reject", { displayedPlanHash: hash });
+    const state = seed("approve", "reject", { plan, displayedPlanHash: hash });
     const result = reduceSession(state, enter, context([reject]));
     expect(result.command).toEqual({ kind: "none" });
     expect(result.state.approval).toEqual({ decision: "rejected", hash });
@@ -250,24 +269,33 @@ describe("reduceSession — pending work locks unsafe edits", () => {
 });
 
 describe("reduceSession — navigation and deferred events", () => {
-  it("leaves state unchanged for focus-navigation keys (owned by subtask 3.2)", () => {
-    const state = seed("select", "go");
-    for (const name of ["Tab", "ShiftTab", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"] as const) {
-      const result = reduceSession(state, { kind: "key", key: { kind: "named", name } }, context([control("go", "advance")]));
-      expect(result.state).toBe(state);
-      expect(result.command).toEqual({ kind: "none" });
-    }
+  it("moves focus circularly in documented order and keeps one enabled focus", () => {
+    const first = control("first", "back", "button", { bounds: { top: 3 as NonNegativeInteger, bottom: 3 as NonNegativeInteger } });
+    const second = control("second", "advance", "button", { bounds: { top: 1 as NonNegativeInteger, bottom: 1 as NonNegativeInteger } });
+    const state = seed("select", "second");
+    const forward = reduceSession(state, { kind: "key", key: { kind: "named", name: "Tab" } }, context([first, second]));
+    expect(forward.state.focusByView.get("select")?.controlId).toBe("first");
+    const backward = reduceSession(forward.state, { kind: "key", key: { kind: "named", name: "ShiftTab" } }, context([first, second]));
+    expect(backward.state.focusByView.get("select")?.controlId).toBe("second");
   });
 
-  it("leaves state unchanged for activity, timer, and resize events", () => {
-    const state = seed("apply", undefined);
+  it("falls back to the first enabled control and removes focus when none are available", () => {
+    const state = seed("select", "missing");
+    const restored = reduceSession(state, { kind: "key", key: { kind: "named", name: "Tab" } }, context([control("first", "back")]));
+    expect(restored.state.focusByView.get("select")?.controlId).toBe("first");
+    const none = reduceSession(restored.state, { kind: "key", key: { kind: "named", name: "Tab" } }, context([]));
+    expect(none.state.focusByView.get("select")?.controlId).toBeUndefined();
+  });
+
+  it("leaves state unchanged for invalid printable input and deferred activity events", () => {
+    const state = seed("select", "go");
+    const printable = reduceSession(state, { kind: "key", key: { kind: "printable", text: "x" } }, context([control("go", "advance")]));
+    expect(printable.state).toBe(state);
     const events: UiEvent[] = [
       { kind: "activity", progress: { kind: "indeterminate", description: "working" } },
       { kind: "timer", tick: 1 as NonNegativeInteger },
     ];
-    for (const event of events) {
-      expect(reduceSession(state, event, context([])).state).toBe(state);
-    }
+    for (const event of events) expect(reduceSession(state, event, context([])).state).toBe(state);
   });
 
   it("navigates backward to the previous stage", () => {

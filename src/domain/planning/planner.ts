@@ -4,6 +4,7 @@ import type { PlanningInput } from "../shared/ports.js";
 import type { PlanningError, Result, Sha256 } from "../shared/types.js";
 import type { ChangePlan, FieldChange, FileChange, ExternalOperation, RedactedPreview } from "./models.js";
 import { SecretRedactor } from "../security/redaction.js";
+import { autoSkillsPolicyFailure, isAllowedAutoSkillsOperation } from "../security/product-policy.js";
 
 const actionOrder: Record<FileChange["action"], number> = { create: 0, modify: 1, preserve: 2, skip: 3 };
 const conflictOrder: Record<FileChange["conflict"], number> = {
@@ -136,6 +137,7 @@ export class DeterministicChangePlanner {
     const operationIds = new Set<string>();
     const externalOperations: ExternalOperation[] = [];
     for (const original of input.externalOperations) {
+      if (!isAllowedAutoSkillsOperation(original)) return invalid(autoSkillsPolicyFailure(original), original.id);
       if (
         operationIds.has(original.id) ||
         original.id.length === 0 ||

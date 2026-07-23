@@ -100,6 +100,36 @@ describe("Kiro command adapter", () => {
     }
   });
 
+  it("preserves unrelated arrays, duplicate values, and user-owned command fields", () => {
+    const result = adaptKiroCommandIndex(
+      source(KIRO_COMMANDS_INDEX_PATH, '{"keep":["first","first","last"],"commands":{"build":{"legacy":{"tags":["x","x"]}}}}'),
+      { id: "build", name: "Build", prompt: "run build", metadata: { category: "development" } },
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.model.keep).toEqual(["first", "first", "last"]);
+      expect(((result.value.model.commands as Record<string, unknown>).build as Record<string, unknown>).legacy).toEqual({
+        tags: ["x", "x"],
+      });
+    }
+  });
+
+  it("returns the original JSON bytes for an equivalent command index", () => {
+    const text =
+      '{ "commands" : { "build" : { "id" : "build", "name" : "build", "description" : "", "promptPath" : ".kiro/prompts/build.md" } } }';
+    const result = adaptKiroCommandIndex(source(KIRO_COMMANDS_INDEX_PATH, text), {
+      id: "build",
+      prompt: "run build",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.changed).toBe(false);
+      expect(result.value.text).toBe(text);
+    }
+  });
+
   it("writes prompt content separately and preserves an equivalent command on the second projection", () => {
     const definition = { id: "review", name: "Review", description: "Review code", prompt: "Review this code." };
     const first = adaptKiroCommandDocuments(

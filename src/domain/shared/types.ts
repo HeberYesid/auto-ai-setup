@@ -91,9 +91,22 @@ export interface CompatibilityError extends AppErrorBase<"INCOMPATIBLE_COMPONENT
   readonly unsatisfied: readonly string[];
 }
 
+export type PathSecurityReason =
+  | "traversal"
+  | "absolute-path"
+  | "device-path"
+  | "nul-byte"
+  | "lexical-containment"
+  | "real-containment"
+  | "symlink-escape"
+  | "unverifiable-containment";
+
 export interface PlanningError extends AppErrorBase<"UNSAFE_DESTINATION" | "INVALID_PLAN" | "STALE_PLAN" | "INVALID_CONFIGURATION"> {
   readonly code: "UNSAFE_DESTINATION" | "INVALID_PLAN" | "STALE_PLAN" | "INVALID_CONFIGURATION";
   readonly exitCode?: 2;
+  /** Present for unsafe destinations so callers can handle them as typed security failures. */
+  readonly security?: "path";
+  readonly reason?: PathSecurityReason;
 }
 
 export interface ApprovalError extends AppErrorBase<

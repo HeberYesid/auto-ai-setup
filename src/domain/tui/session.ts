@@ -3,7 +3,7 @@ import type { ChangePlan } from "../planning/models.js";
 import type { Sha256 } from "../shared/types.js";
 import type { RenderProfile } from "./capabilities.js";
 import type { ActionId } from "./events.js";
-import type { ProgressModel } from "./progress.js";
+import type { ProgressModel, ProgressViolation } from "./progress.js";
 import type { RecoveryState } from "./recovery.js";
 import type { NonNegativeInteger } from "./values.js";
 
@@ -62,10 +62,7 @@ export interface ValidationState {
   readonly errors: readonly ValidationError[];
 }
 
-/**
- * A classified failure surfaced within a session. Carries the stage, operation,
- * and an already-redacted human-readable cause required by failure presentation.
- */
+/** A classified failure surfaced within a session. */
 export interface SessionError {
   readonly stage: Stage;
   readonly operation: string;
@@ -78,6 +75,12 @@ export interface ActivityState {
   readonly description: string;
   readonly progress: ProgressModel | undefined;
   readonly lastValidProgress: ProgressModel | undefined;
+  /** Violations from the most recent rejected progress update. */
+  readonly progressViolations?: readonly ProgressViolation[];
+  /** Monotonic start time supplied by an injected clock; legacy states may omit it. */
+  readonly startedAtMs?: number;
+  /** True after an injected timer observes the inclusive one-second threshold. */
+  readonly persistent?: boolean;
 }
 
 /** The user's approval decision, bound to the plan hash it was made against. */
@@ -89,11 +92,7 @@ export interface ApprovalState {
   readonly hash: Sha256 | undefined;
 }
 
-/**
- * The complete, immutable interactive session state. The reducer treats transitions
- * as values, stores the last valid state for invalid events, and never mutates the
- * project from within a state transition.
- */
+/** The complete, immutable interactive session state. */
 export interface SessionState {
   readonly stage: Stage;
   readonly selections: readonly Selection[];
@@ -110,13 +109,7 @@ export interface SessionState {
   readonly errors: readonly SessionError[];
   readonly warnings: readonly string[];
   readonly recovery: RecoveryState | undefined;
-  /** Whether contextual help is currently visible; toggled without changing focus or selections. */
   readonly helpVisible: boolean;
-  /**
-   * Whether a cancellation confirmation is currently awaiting the user's decision.
-   * A `cancel` action requests confirmation (sets this to `true`); `confirm-cancel`
-   * finalizes cancellation and `resume` continues the session (both clear it).
-   */
   readonly cancellationPending: boolean;
   readonly cancelled: boolean;
   readonly finalized: boolean;
