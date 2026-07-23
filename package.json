@@ -2,7 +2,27 @@
   "name": "auto-ai-setup",
   "version": "0.1.0",
   "description": "Local, consent-driven AI agent project setup CLI",
+  "keywords": [
+    "ai",
+    "cli",
+    "kiro",
+    "mcp",
+    "developer-tools",
+    "project-setup",
+    "typescript"
+  ],
+  "homepage": "https://github.com/HeberYesid/auto-ai-setup#readme",
+  "bugs": {
+    "url": "https://github.com/HeberYesid/auto-ai-setup/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HeberYesid/auto-ai-setup.git"
+  },
+  "license": "MIT",
+  "author": "Heber Yesid <heberyesiddazatoloza@gmail.com>",
   "type": "module",
+  "packageManager": "pnpm@11.15.1",
   "engines": {
     "node": ">=20"
   },
