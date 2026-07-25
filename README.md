@@ -49,12 +49,22 @@ No requiere instalación global. La CLI solicita el proyecto si no se indica `--
 
 ### Opciones disponibles
 
-| Opción                | Descripción                                                                |
-| --------------------- | -------------------------------------------------------------------------- |
-| `--path <ruta>`       | Proyecto objetivo; si se omite, se solicita interactivamente.              |
-| `--mode auto\|manual` | Fija el modo de selección; si se omite, la CLI lo solicita.                |
-| `--verbose`           | Incluye evidencias de stack y decisiones de compatibilidad en los eventos. |
-| `--recover`           | Busca y recupera una transacción incompleta del proyecto indicado.         |
+| Opción                | Descripción                                                                     |
+| --------------------- | ------------------------------------------------------------------------------- |
+| `--path <ruta>`       | Proyecto objetivo; si se omite, se solicita interactivamente.                   |
+| `--mode auto\|manual` | Fija el modo de selección; si se omite, la CLI lo solicita.                     |
+| `--verbose`           | Incluye evidencias de stack y decisiones de compatibilidad en los eventos.      |
+| `--recover`           | Busca y recupera una transacción incompleta del proyecto indicado.              |
+| `--non-interactive`   | No solicita nada; requiere `--path` y `--mode`. Previsualiza y no aplica nada.  |
+| `--json`              | Como `--non-interactive` y escribe un único resumen JSON redactado en `stdout`. |
+| `-h`, `--help`        | Muestra la ayuda de uso.                                                        |
+| `-V`, `--version`     | Muestra la versión.                                                             |
+
+Una ejecución automatizada nunca puede aprobar una mutación: la aprobación explícita exige una
+persona en una terminal, así que `--non-interactive` y `--json` calculan y reportan el plan sin
+modificar el proyecto. Ambas requieren `--mode auto`, porque el modo manual necesita una selección
+interactiva. La ayuda, la versión y los errores de invocación se escriben en `stderr`, de modo que
+`stdout` conserva únicamente el valor JSON en el modo procesable.
 
 ---
 

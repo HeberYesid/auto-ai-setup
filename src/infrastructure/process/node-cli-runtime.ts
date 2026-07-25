@@ -1,5 +1,6 @@
 import { createInterface } from "node:readline/promises";
-import { stdin, stdout } from "node:process";
+import { createRequire } from "node:module";
+import { stdin, stdout, stderr } from "node:process";
 import type { CanonicalPath } from "../../domain/index.js";
 import {
   createAgentsRuleAdapter,
@@ -44,6 +45,16 @@ export class NodeCliTerminal implements CliTerminal {
 }
 
 const createRootFileSystem = (root: CanonicalPath): NodeTransactionalFileSystem => new NodeTransactionalFileSystem(root);
+
+/** Reads the published version from the package manifest that ships next to `dist/`. */
+const packageVersion = (): string | undefined => {
+  try {
+    const manifest = createRequire(import.meta.url)("../../../package.json") as { readonly version?: unknown };
+    return typeof manifest.version === "string" ? manifest.version : undefined;
+  } catch {
+    return undefined;
+  }
+};
 
 export const createDefaultCliDependencies = (): { readonly terminal: NodeCliTerminal; readonly dependencies: CliDependencies } => {
   const terminal = new NodeCliTerminal();
@@ -97,6 +108,11 @@ export const createDefaultCliDependencies = (): { readonly terminal: NodeCliTerm
       stdout: (text: string) => {
         stdout.write(text);
       },
+      // Diagnostics, usage, and version never contaminate the data stream.
+      stderr: (text: string) => {
+        stderr.write(text);
+      },
+      version: packageVersion() ?? "desconocida",
     },
   };
 };

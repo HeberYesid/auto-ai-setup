@@ -4,6 +4,7 @@ import type { ExitCode } from "../domain/shared/types.js";
 import { InteractiveUserInteraction, type CliTerminal } from "./terminal.js";
 import { JSON_FLAG, NON_INTERACTIVE_FLAG, missingAutomationInput, resolveInvocation, type ResolvedInvocation } from "./invocation.js";
 import { writeJsonSummary } from "./json-output.js";
+import { createAutomationUserInteraction } from "./automation.js";
 
 export interface CliParseError {
   readonly code: "CLI_INVALID_ARGUMENT";
@@ -22,7 +23,35 @@ export interface CliDependencies {
    * validated JSON value, or nothing at all when preparation fails.
    */
   readonly stdout?: (text: string) => void;
+  /** Diagnostic sink. Invocation errors, usage, and version are never mixed into stdout data. */
+  readonly stderr?: (text: string) => void;
+  /** Reported by `--version`; supplied by the composition root that owns the package metadata. */
+  readonly version?: string;
 }
+
+export const HELP_FLAGS = ["--help", "-h"] as const;
+export const VERSION_FLAGS = ["--version", "-V"] as const;
+
+/** Usage text for `--help` and for any invocation the parser rejects. */
+export const usageText = (): string =>
+  [
+    "Uso: auto-ai-setup [opciones]",
+    "",
+    "Prepara un proyecto local para flujos de trabajo con agentes de IA. Muestra un plan de",
+    "cambios determinista y no modifica nada sin aprobación explícita.",
+    "",
+    "Opciones:",
+    "  --path <ruta>          Proyecto objetivo. Si se omite, se solicita interactivamente.",
+    "  --mode auto|manual     Modo de selección. Si se omite, se solicita interactivamente.",
+    "  --verbose              Añade evidencias y decisiones de compatibilidad a los eventos.",
+    "  --recover              Busca y recupera una transacción incompleta del proyecto.",
+    "  --non-interactive      No solicita nada; requiere --path y --mode. No aplica cambios.",
+    "  --json                 Como --non-interactive y escribe un único resumen JSON.",
+    "  -h, --help             Muestra esta ayuda.",
+    "  -V, --version          Muestra la versión.",
+    "",
+    "Códigos de salida: 0 correcto o cancelado, 1 revertido, 2 entrada inválida, 3 incompleto.",
+  ].join("\n");
 
 export const parseArgsResult = (args: readonly string[]): CliParseResult => {
   let targetPath: string | undefined;
@@ -62,11 +91,16 @@ export const parseArgsResult = (args: readonly string[]): CliParseResult => {
   };
 };
 
-/** Backwards-compatible parser for consumers that already use parseArgs. */
+/**
+ * Backwards-compatible parser for consumers that already use parseArgs.
+ *
+ * A rejected invocation no longer fabricates a value: it yields the default input instead of placing
+ * the error message in `mode`, where a caller could mistake it for a selection mode. Use
+ * `parseArgsResult` when the rejection itself must be observed.
+ */
 export const parseArgs = (args: readonly string[] = []): SessionInput => {
   const parsed = parseArgsResult(args);
-  if (!parsed.ok) return { verbose: false, recover: false, mode: parsed.error.message };
-  return parsed.value;
+  return parsed.ok ? parsed.value : { verbose: false, recover: false };
 };
 
 /**
@@ -76,8 +110,26 @@ export const parseArgs = (args: readonly string[] = []): SessionInput => {
  * instantiates a TUI adapter or control.
  */
 export const runCli = async (args: readonly string[] = [], dependencies: CliDependencies = {}): Promise<ExitCode> => {
+  const diagnose = (text: string): void => dependencies.stderr?.(`${text}\n`);
+  // Usage and version are answered first: they need no project, no session, and no terminal, and
+  // they must work in a pipe.
+  if (args.some((argument) => (HELP_FLAGS as readonly string[]).includes(argument))) {
+    diagnose(usageText());
+    return 0;
+  }
+  if (args.some((argument) => (VERSION_FLAGS as readonly string[]).includes(argument))) {
+    diagnose(dependencies.version ?? "desconocida");
+    return 0;
+  }
+
   const parsed = parseArgsResult(args);
-  if (!parsed.ok) return 2;
+  if (!parsed.ok) {
+    // An invocation error used to exit silently, leaving no way to tell what was wrong.
+    diagnose(`auto-ai-setup: ${parsed.error.message}`);
+    diagnose("");
+    diagnose(usageText());
+    return 2;
+  }
 
   const invocation: ResolvedInvocation = resolveInvocation({
     args,
@@ -87,12 +139,26 @@ export const runCli = async (args: readonly string[] = [], dependencies: CliDepe
 
   // A non-interactive run must never wait for input it did not receive; it finishes immediately with
   // the existing invalid-input code and leaves the project untouched.
-  if (!invocation.interactiveAllowed && missingAutomationInput(parsed.value).length > 0) return 2;
+  const missing = invocation.interactiveAllowed ? [] : missingAutomationInput(parsed.value);
+  if (missing.length > 0) {
+    diagnose(`auto-ai-setup: una ejecución no interactiva requiere ${missing.join(" y ")}`);
+    return 2;
+  }
 
-  if (dependencies.terminal !== undefined && (!dependencies.terminal.inputIsTTY || !dependencies.terminal.outputIsTTY)) return 2;
-  if (dependencies.session === undefined || dependencies.ui === undefined) return 2;
+  if (dependencies.session === undefined) return 2;
+  // The interactive interaction is only usable on a real terminal. Every other invocation is served
+  // by the automation interaction, which never prompts and never authorizes a mutation on its own,
+  // so `--json` and `--non-interactive` stay usable in a pipe instead of failing closed.
+  const interaction = invocation.interactiveAllowed
+    ? dependencies.ui
+    : createAutomationUserInteraction(parsed.value, {
+        ...(invocation.mode.kind === "json" || dependencies.stdout === undefined
+          ? {}
+          : { write: (line: string) => dependencies.stdout?.(`${line}\n`) }),
+      });
+  if (interaction === undefined) return 2;
   try {
-    const summary = await dependencies.session.run(parsed.value, dependencies.ui);
+    const summary = await dependencies.session.run(parsed.value, interaction);
     if (invocation.mode.kind === "json" && dependencies.stdout !== undefined) {
       const written = writeJsonSummary(summary, dependencies.stdout);
       // A preparation or redaction failure writes zero bytes and returns the controlled error code.

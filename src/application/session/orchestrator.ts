@@ -423,12 +423,15 @@ export class SessionOrchestrator implements SessionOrchestratorPort {
     });
     if (!projection.ok)
       return this.finish(withAnalysis(baseSummary(runId, "invalid-input", 2, [projection.error.message]), analysis), ui, render);
+    // Projection warnings explain omitted components; they must reach the summary in every path, not
+    // only when nothing at all was projected.
+    catalogWarnings.push(...projection.value.warnings.map((warning) => warning.message));
     if (projection.value.components.length === 0)
       return this.finish(
         withAnalysis(
           {
             ...baseSummary(runId, "success", 0),
-            warnings: [...catalogWarnings, ...projection.value.warnings.map((warning) => warning.message)],
+            warnings: [...catalogWarnings],
           },
           analysis,
         ),

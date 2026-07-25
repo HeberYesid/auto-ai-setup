@@ -199,6 +199,16 @@ export class ComponentInspectionProjection {
           });
         destinationsSeen.add(String(operation.destination));
       }
+      if (projected.length === 0)
+        // An adapter yields nothing when it cannot interpret the current destination, for example a
+        // configuration file the user broke by hand. The file is left untouched, but the omission
+        // must be reported instead of finishing as a silent success.
+        for (const member of group.members)
+          warnings.push({
+            code: "COMPONENT_NOT_PROJECTED",
+            message: `El componente ${member.component.id} se omitió: su archivo de configuración destino no pudo interpretarse y se conserva sin cambios.`,
+            componentId: member.component.id,
+          });
 
       for (const member of group.members) {
         const owned = projected.filter((operation) => operation.componentId === member.component.id);

@@ -64,13 +64,17 @@ export class InteractiveUserInteraction implements UserInteraction {
     for (const conflict of conflicts) {
       this.terminal.write(`Conflicto de Stack (${conflict.category}):`);
       conflict.candidates.forEach((candidate, index) => this.terminal.write(`  ${index + 1}. ${candidate.displayName} (${candidate.id})`));
-      const selected = await this.terminal.question("Selecciona el valor: ");
-      const index = Number.parseInt(selected, 10) - 1;
-      const candidate = Number.isInteger(index)
-        ? conflict.candidates[index]
-        : conflict.candidates.find((entry) => entry.id === selected.trim());
-      if (candidate === undefined) throw new Error(`Valor de Stack inválido para ${conflict.category}`);
-      result[conflict.category] = candidate.id;
+      // An unusable answer must not end the session: the prompt is repeated until one of the listed
+      // candidates is chosen, mirroring how the mode prompt recovers from a typo.
+      let selected: (typeof conflict.candidates)[number] | undefined;
+      while (selected === undefined) {
+        const answer = (await this.terminal.question("Selecciona el valor (número o id): ")).trim();
+        const index = Number.parseInt(answer, 10) - 1;
+        selected = Number.isInteger(index) ? conflict.candidates[index] : undefined;
+        selected ??= conflict.candidates.find((candidate) => candidate.id === answer);
+        if (selected === undefined) this.terminal.write(`Valor inválido para ${conflict.category}. Elige uno de los mostrados arriba.`);
+      }
+      result[conflict.category] = selected.id;
     }
     return result;
   }
