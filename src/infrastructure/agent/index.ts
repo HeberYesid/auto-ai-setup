@@ -6,11 +6,17 @@ export {
   createKiroMcpWorkspaceAdapter,
   kiroMcpWorkspaceAdapter,
   mergeMcpServers,
+  resolveMcpTransport,
+  MCP_REMOTE_TRANSPORTS,
 } from "./kiro-mcp-adapter.js";
 export type {
   EnvironmentVariableInput,
   KiroMcpComponentDefinition,
   McpServerDefinition,
+  McpTransport,
+  McpTransportKind,
+  McpStdioTransport,
+  McpRemoteTransport,
   McpWorkspaceAdaptation,
 } from "./kiro-mcp-adapter.js";
 export {

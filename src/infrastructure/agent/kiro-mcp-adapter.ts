@@ -25,11 +25,36 @@ export const MCP_SETTINGS_PATH = KIRO_MCP_SETTINGS_PATH;
 
 export type EnvironmentVariableInput = readonly string[] | Readonly<Record<string, string>>;
 
+/**
+ * Transport of an MCP server, kept agent-neutral on purpose: every agent spells the same transport
+ * differently (Kiro infers it from `url`, Claude Code requires `type`, VS Code nests servers under
+ * another key), so the dialect belongs to the adapter and not to the component definition.
+ */
+export type McpTransportKind = "stdio" | "http" | "sse" | "ws";
+export const MCP_REMOTE_TRANSPORTS: readonly McpTransportKind[] = ["http", "sse", "ws"];
+
+export interface McpStdioTransport {
+  readonly kind: "stdio";
+  readonly command: string;
+  readonly args: readonly string[];
+}
+
+export interface McpRemoteTransport {
+  readonly kind: "http" | "sse" | "ws";
+  readonly url: string;
+  readonly headers?: Readonly<Record<string, string>>;
+}
+
+export type McpTransport = McpStdioTransport | McpRemoteTransport;
+
 /** A catalog-provided MCP definition. `env` values are deliberately ignored. */
 export interface McpServerDefinition {
   readonly id: string;
+  readonly transport?: McpTransportKind;
   readonly command?: string;
   readonly args?: readonly string[];
+  readonly url?: string;
+  readonly headers?: Readonly<Record<string, string>>;
   readonly env?: EnvironmentVariableInput;
   readonly configuration?: JsonObject;
   readonly options?: JsonObject;
@@ -104,6 +129,80 @@ const environmentObject = (value: JsonValue | undefined, path: string): Result<J
   return ok(Object.fromEntries(names.map((name) => [name, `\${${name}}`])) as JsonObject);
 };
 
+const isLoopbackHost = (hostname: string): boolean =>
+  hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname === "[::1]";
+
+/**
+ * Remote MCP endpoints must be HTTPS; plain HTTP is only tolerated for loopback, mirroring the rule
+ * every supported agent enforces. Rejecting here keeps an invalid endpoint out of the change plan.
+ */
+const isAllowedRemoteUrl = (raw: string): boolean => {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.protocol === "https:") return true;
+  return url.protocol === "http:" && isLoopbackHost(url.hostname);
+};
+
+const isPlaceholder = (value: string): boolean => /^\$\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(value);
+
+const definitionUrl = (definition: McpServerDefinition): string | undefined => {
+  if (definition.url !== undefined) return definition.url;
+  const fromConfiguration = definition.configuration?.url;
+  return typeof fromConfiguration === "string" ? fromConfiguration : undefined;
+};
+
+/**
+ * Resolves the transport without inspecting the target dialect. Returns `ok(undefined)` when the
+ * definition carries no transport hint at all, so a definition that only patches unknown fields of an
+ * existing entry stays valid.
+ */
+const resolveOptionalTransport = (definition: McpServerDefinition): Result<McpTransport | undefined, ConfigError> => {
+  const path = `/mcpServers/${definition.id}`;
+  const url = definitionUrl(definition);
+  const kind: McpTransportKind | undefined =
+    definition.transport ?? (definition.command !== undefined ? "stdio" : url !== undefined ? "http" : undefined);
+  if (kind === undefined) return ok(undefined);
+  if (kind === "stdio") {
+    if (definition.command === undefined || !isNonEmpty(definition.command))
+      return err(configError("A stdio MCP server requires a command", path));
+    if (url !== undefined) return err(configError("A stdio MCP server must not declare a url", path));
+    return ok({ kind, command: definition.command, args: definition.args === undefined ? [] : [...definition.args] });
+  }
+  if (url === undefined || !isNonEmpty(url)) return err(configError(`A ${kind} MCP server requires a url`, path));
+  if (!isAllowedRemoteUrl(url)) return err(configError("A remote MCP url must use https, or http on loopback", path));
+  if (definition.command !== undefined) return err(configError(`A ${kind} MCP server must not declare a command`, path));
+  const headers = definition.headers;
+  if (headers !== undefined) {
+    for (const [name, value] of Object.entries(headers))
+      if (!isPlaceholder(value))
+        return err(configError(`MCP header ${name} must reference an environment variable such as \${TOKEN}`, `${path}/headers`));
+  }
+  return ok(headers === undefined ? { kind, url } : { kind, url, headers });
+};
+
+/** Public resolver for adapters that must know the transport, e.g. to emit an explicit `type` field. */
+export const resolveMcpTransport = (definition: McpServerDefinition): Result<McpTransport, ConfigError> => {
+  const resolved = resolveOptionalTransport(definition);
+  if (!resolved.ok) return resolved;
+  return resolved.value === undefined
+    ? err(configError("MCP server declares no transport", `/mcpServers/${definition.id}`))
+    : ok(resolved.value);
+};
+
+/**
+ * Kiro dialect: a stdio server is `command`/`args` and a remote server is a bare `url`, with no
+ * explicit `type` discriminator. Other agents require different shapes, which is why the transport is
+ * resolved from the neutral definition instead of being copied verbatim.
+ */
+const kiroTransportFields = (transport: McpTransport): JsonObject =>
+  transport.kind === "stdio"
+    ? ({ command: transport.command, ...(transport.args.length === 0 ? {} : { args: [...transport.args] }) } as JsonObject)
+    : ({ url: transport.url, ...(transport.headers === undefined ? {} : { headers: { ...transport.headers } }) } as JsonObject);
+
 const desiredServer = (definition: McpServerDefinition): Result<JsonObject, ConfigError> => {
   if (!isNonEmpty(definition.id)) return err(configError("MCP server id must not be empty", "/mcpServers"));
   if (definition.command !== undefined && !isNonEmpty(definition.command))
@@ -112,8 +211,6 @@ const desiredServer = (definition: McpServerDefinition): Result<JsonObject, Conf
     return err(configError("MCP args must contain strings", "/mcpServers"));
   let result: JsonObject = definition.configuration === undefined ? {} : (clone(definition.configuration) as JsonObject);
   if (definition.options !== undefined) result = mergeObjects(result, definition.options);
-  if (definition.command !== undefined) result = mergeObjects(result, { command: definition.command });
-  if (definition.args !== undefined) result = mergeObjects(result, { args: [...definition.args] });
   const envResult = environmentObject(result.env, `/mcpServers/${definition.id}/env`);
   if (!envResult.ok) return envResult;
   if (definition.env !== undefined) {
@@ -126,6 +223,9 @@ const desiredServer = (definition: McpServerDefinition): Result<JsonObject, Conf
   } else if (result.env !== undefined) {
     result = mergeObjects(result, { env: envResult.value });
   }
+  const transport = resolveOptionalTransport(definition);
+  if (!transport.ok) return transport;
+  if (transport.value !== undefined) result = mergeObjects(result, kiroTransportFields(transport.value));
   return ok(result);
 };
 
@@ -189,10 +289,17 @@ const safePreview = (value: JsonValue): JsonValue => {
   if (!isRecord(value)) return value;
   const result: Record<string, JsonValue> = {};
   for (const [key, entry] of Object.entries(value)) {
-    result[key] =
-      key === "env" && isRecord(entry)
-        ? (Object.fromEntries(Object.keys(entry).map((name) => [name, `\${${name}}`])) as JsonObject)
-        : safePreview(entry);
+    if (key === "env" && isRecord(entry)) {
+      result[key] = Object.fromEntries(Object.keys(entry).map((name) => [name, `\${${name}}`])) as JsonObject;
+      continue;
+    }
+    if (key === "headers" && isRecord(entry)) {
+      result[key] = Object.fromEntries(
+        Object.entries(entry).map(([name, header]) => [name, typeof header === "string" && isPlaceholder(header) ? header : "***"]),
+      ) as JsonObject;
+      continue;
+    }
+    result[key] = safePreview(entry);
   }
   return result;
 };

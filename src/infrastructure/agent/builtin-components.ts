@@ -51,7 +51,8 @@ export const builtinAgentComponents: readonly ComponentDefinition[] = [
     40,
     {
       id: "context7",
-      configuration: { url: "https://mcp.context7.com/mcp" },
+      transport: "http",
+      url: "https://mcp.context7.com/mcp",
     },
   ),
   mcpComponent(
@@ -62,7 +63,8 @@ export const builtinAgentComponents: readonly ComponentDefinition[] = [
     35,
     {
       id: "github",
-      configuration: { url: "https://api.githubcopilot.com/mcp/" },
+      transport: "http",
+      url: "https://api.githubcopilot.com/mcp/",
     },
   ),
   mcpComponent(
@@ -73,7 +75,8 @@ export const builtinAgentComponents: readonly ComponentDefinition[] = [
     34,
     {
       id: "sentry",
-      configuration: { url: "https://mcp.sentry.dev/mcp" },
+      transport: "http",
+      url: "https://mcp.sentry.dev/mcp",
     },
   ),
   mcpComponent(
@@ -84,7 +87,8 @@ export const builtinAgentComponents: readonly ComponentDefinition[] = [
     33,
     {
       id: "cloudflare",
-      configuration: { url: "https://mcp.cloudflare.com/mcp" },
+      transport: "http",
+      url: "https://mcp.cloudflare.com/mcp",
     },
   ),
   mcpComponent(
@@ -119,7 +123,8 @@ export const builtinAgentComponents: readonly ComponentDefinition[] = [
     30,
     {
       id: "supabase",
-      configuration: { url: "https://mcp.supabase.com/mcp" },
+      transport: "http",
+      url: "https://mcp.supabase.com/mcp",
     },
   ),
   {

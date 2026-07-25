@@ -132,6 +132,38 @@ describe("Kiro MCP workspace adapter", () => {
     if (!invalid.ok) expect(invalid.error.message).toContain("invalid variable");
   });
 
+  it("emits the Kiro dialect for a remote transport and rejects invalid endpoints", () => {
+    const remote = mergeMcpServers({}, [{ id: "docs", transport: "http", url: "https://mcp.example.com/mcp" }]);
+    const insecure = mergeMcpServers({}, [{ id: "docs", transport: "http", url: "http://mcp.example.com/mcp" }]);
+    const loopback = mergeMcpServers({}, [{ id: "local", transport: "http", url: "http://localhost:3000/mcp" }]);
+    const mixed = mergeMcpServers({}, [{ id: "docs", transport: "http", url: "https://mcp.example.com/mcp", command: "node" }]);
+    const missing = mergeMcpServers({}, [{ id: "docs", transport: "sse" }]);
+
+    expect(remote.ok).toBe(true);
+    // Kiro infers the transport from `url` and rejects an explicit `type`, unlike Claude Code.
+    if (remote.ok) expect((remote.value.mcpServers as JsonObject).docs).toEqual({ url: "https://mcp.example.com/mcp" });
+    expect(insecure.ok).toBe(false);
+    expect(loopback.ok).toBe(true);
+    expect(mixed.ok).toBe(false);
+    expect(missing.ok).toBe(false);
+  });
+
+  it("keeps header secrets out of the written configuration and the preview", () => {
+    const literal = mergeMcpServers({}, [
+      { id: "docs", transport: "http", url: "https://mcp.example.com/mcp", headers: { Authorization: "Bearer super-secret" } },
+    ]);
+    const referenced = adaptKiroMcpDocument(source("{}\n"), [
+      { id: "docs", transport: "http", url: "https://mcp.example.com/mcp", headers: { Authorization: "${MCP_TOKEN}" } },
+    ]);
+
+    expect(literal.ok).toBe(false);
+    expect(referenced.ok).toBe(true);
+    if (referenced.ok) {
+      expect(referenced.value.text).toContain("${MCP_TOKEN}");
+      expect(referenced.value.text).not.toContain("super-secret");
+    }
+  });
+
   it("only proposes the workspace file and never starts an MCP process", async () => {
     const fileSystem = new FakeFileSystem();
     fileSystem.seed(KIRO_MCP_SETTINGS_PATH, "{}\n");
