@@ -258,7 +258,10 @@ const addSemanticContent = (
   lines.push(headingLine("brand", projection.brandLabel, projection.symbols));
   lines.push(headingLine("stage", `Etapa: ${projection.stageLabel}`, projection.symbols));
 
-  for (const section of projection.sections)
+  for (const section of projection.sections) {
+    // The stage is already emitted as its own heading line above; skipping the equivalent
+    // section keeps one canonical stage row instead of repeating it.
+    if (section.id === "stage") continue;
     addWrappedLines(
       lines,
       `section:${section.id}`,
@@ -267,6 +270,7 @@ const addSemanticContent = (
       width,
       `${semanticMarker(section.token, projection.symbols)} `,
     );
+  }
 
   const { activity, status, progress, help } = projection.view;
   if (activity !== undefined) {
@@ -300,7 +304,14 @@ const addSemanticContent = (
   const controlBounds = addControls(lines, projection, width);
 
   if (projection.primaryAction !== undefined && projection.primaryAction.enabled && projection.primaryAction.visible) {
-    addWrappedLines(lines, "primary-action", "selected", projection.primaryAction.label, width, "Acción principal: ");
+    addWrappedLines(
+      lines,
+      "primary-action",
+      "selected",
+      projection.primaryAction.label,
+      width,
+      `${semanticMarker("selected", projection.symbols)} Acción principal: `,
+    );
   }
   if (projection.view.recovery !== undefined) {
     lines.push(headingLine("recovery", REGION_LABELS.recovery, projection.symbols));
