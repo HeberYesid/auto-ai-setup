@@ -120,6 +120,72 @@ describe("stack aggregation and views", () => {
     expect(analysis.conflicts[0]?.blocksCapabilities).toEqual(["skill.node"]);
     expect(analysis.items.filter((item) => item.category === "language")).toHaveLength(2);
   });
+
+  it("descarta el gestor de paquetes derivado cuando un lockfile aporta evidencia explícita", () => {
+    const analysis = aggregateDetections([
+      claim({
+        category: "package-manager",
+        id: "npm",
+        displayName: "npm",
+        confidence: "derived",
+        evidence: evidence({ recognizedValue: "package.json", detectorId: "package-manager.npm" }),
+      }),
+      claim({
+        category: "package-manager",
+        id: "pnpm",
+        displayName: "pnpm",
+        evidence: evidence({
+          path: "pnpm-lock.yaml" as never,
+          format: "yaml",
+          recognizedValue: "pnpm-lock.yaml",
+          detectorId: "package-manager.pnpm",
+        }),
+      }),
+    ]);
+    expect(analysis.conflicts).toHaveLength(0);
+    expect(analysis.items.map((item) => item.id)).toEqual(["pnpm"]);
+  });
+
+  it("conserva el gestor derivado cuando es la única evidencia disponible", () => {
+    const analysis = aggregateDetections([
+      claim({
+        category: "package-manager",
+        id: "npm",
+        displayName: "npm",
+        confidence: "derived",
+        evidence: evidence({ recognizedValue: "package.json", detectorId: "package-manager.npm" }),
+      }),
+    ]);
+    expect(analysis.conflicts).toHaveLength(0);
+    expect(analysis.items.map((item) => item.id)).toEqual(["npm"]);
+  });
+
+  it("mantiene el conflicto cuando dos lockfiles reales coexisten", () => {
+    const registry = new DefaultStackDetectorRegistry();
+    const detect = (path: string, text: string) => {
+      const safe = asSafeProjectPath(path);
+      if (!safe.ok) throw new Error(safe.error.message);
+      const format = path.endsWith(".yaml") ? "yaml" : path.endsWith(".json") ? "json" : "lockfile";
+      const parsed = parseRecognizedEvidence(safe.value, new TextEncoder().encode(text), { format });
+      if (!parsed.ok) throw new Error(parsed.error.message);
+      return registry.find(safe.value).flatMap((detector) => detector.detect(parsed.value));
+    };
+    const manifestOnly = aggregateDetections(detect("package.json", '{"name":"demo"}'));
+    const withPnpmLock = aggregateDetections([
+      ...detect("package.json", '{"name":"demo"}'),
+      ...detect("pnpm-lock.yaml", "lockfileVersion: 9.0\n"),
+    ]);
+    const twoLockfiles = aggregateDetections([
+      ...detect("package-lock.json", '{"lockfileVersion":3}'),
+      ...detect("pnpm-lock.yaml", "lockfileVersion: 9.0\n"),
+    ]);
+    expect(manifestOnly.items.filter((item) => item.category === "package-manager").map((item) => item.id)).toEqual(["npm"]);
+    expect(manifestOnly.conflicts).toHaveLength(0);
+    expect(withPnpmLock.items.filter((item) => item.category === "package-manager").map((item) => item.id)).toEqual(["pnpm"]);
+    expect(withPnpmLock.conflicts).toHaveLength(0);
+    expect(twoLockfiles.conflicts).toHaveLength(1);
+    expect(twoLockfiles.conflicts[0]?.candidates.map((candidate) => candidate.id)).toEqual(["npm", "pnpm"]);
+  });
 });
 
 describe("stack conflict resolution and selective suspension", () => {

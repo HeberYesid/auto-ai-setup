@@ -79,9 +79,12 @@ const packageManagerDetector = (
   detect: (file) => {
     if (!valid(file)) return [];
     const name = file.path.split("/").pop()?.toLowerCase() ?? "";
-    const explicit = names.includes(name) || (name === "package.json" && id === "npm");
-    if (!explicit) return [];
-    return [claim("package-manager", id, manager, "explicit", file, name, `package-manager.${id}`)];
+    const lockfile = names.includes(name);
+    // `package.json` is only a hint: it exists in every Node project regardless of the manager, so
+    // it yields a derived claim that a real lockfile supersedes.
+    const manifestHint = name === "package.json" && id === "npm";
+    if (!lockfile && !manifestHint) return [];
+    return [claim("package-manager", id, manager, lockfile ? "explicit" : "derived", file, name, `package-manager.${id}`)];
   },
 });
 

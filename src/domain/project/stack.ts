@@ -119,10 +119,24 @@ export const aggregateDetections = (claims: readonly DetectionClaim[], options: 
     }))
     .sort(compareItems);
   const exclusive = new Set(options.exclusiveCategories ?? defaultExclusiveCategories);
+  /**
+   * Within an exclusive category an explicit claim supersedes a derived one: a lockfile is proof of
+   * the package manager, while the presence of a manifest is only a hint. Dropping the superseded
+   * items keeps a single-manager project free of a conflict the user cannot meaningfully resolve.
+   */
+  const superseded = new Set(
+    [...exclusive].flatMap((category) => {
+      const candidates = items.filter((item) => item.category === category);
+      return candidates.some((item) => item.confidence === "explicit")
+        ? candidates.filter((item) => item.confidence === "derived").map((item) => `${item.category}\u0000${item.id}`)
+        : [];
+    }),
+  );
+  const retained = items.filter((item) => !superseded.has(`${item.category}\u0000${item.id}`));
   const conflicts: StackConflict[] = [];
   for (const category of categoryOrder) {
     if (!exclusive.has(category)) continue;
-    const candidates = items.filter((item) => item.category === category);
+    const candidates = retained.filter((item) => item.category === category);
     if (candidates.length < 2) continue;
     conflicts.push({
       category,
@@ -130,12 +144,12 @@ export const aggregateDetections = (claims: readonly DetectionClaim[], options: 
       blocksCapabilities: [...(options.blocksCapabilities?.[category] ?? [])].sort((left, right) => left.localeCompare(right)),
     });
   }
-  const analyzedFileCount = nonNegativeInteger(options.analyzedFileCount ?? countEvidenceFiles(items));
+  const analyzedFileCount = nonNegativeInteger(options.analyzedFileCount ?? countEvidenceFiles(retained));
   const analyzedBytes = nonNegativeInteger(options.analyzedBytes ?? 0);
   const withinPerformanceProfile =
     options.withinPerformanceProfile ?? (analyzedFileCount <= performanceFileLimit && analyzedBytes <= performanceByteLimit);
   return {
-    items,
+    items: retained,
     conflicts: conflicts.sort((left, right) => compareCategory(left.category, right.category)),
     analyzedFileCount,
     analyzedBytes,
