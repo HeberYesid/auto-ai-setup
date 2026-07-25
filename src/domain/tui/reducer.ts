@@ -1,15 +1,19 @@
-import type { RenderProfile } from "./capabilities.js";
+import type { InvocationMode, RenderProfile } from "./capabilities.js";
 import { coordinateApproval } from "./approval.js";
+import { applyPresentationTransition } from "./presentation-transition.js";
 import {
   noCommand,
+  type ActivityEvent,
   type ExternalResultEvent,
   type KeyStroke,
   type MouseEvent,
   type RegisteredAction,
+  type ResizeEvent,
+  type TimerEvent,
   type UiCommand,
   type UiEvent,
 } from "./events.js";
-import { startActivity } from "./progress.js";
+import { activityIsPersistent, applyProgressUpdate, startActivity } from "./progress.js";
 import {
   computeScrollTop,
   focusedControl as resolveFocusedControl,
@@ -49,6 +53,8 @@ export interface SessionReducerContext {
   readonly validationRules?: ValidationRules;
   /** Current monotonic time supplied by the application clock when an action starts work. */
   readonly nowMs?: number;
+  /** How the CLI was invoked; resize events re-select a compatible profile with it. */
+  readonly invocation?: InvocationMode;
 }
 
 /**
@@ -191,10 +197,7 @@ const dispatchAction = (
             : [...state.errors, { stage: state.stage, operation: "approval", cause: outcome.error.message }],
       };
       if (outcome.status !== "approved") return stateOnly(nextState);
-      return withCommand(
-        { ...nextState, activity: pendingActivity("apply", control.label, startedAtMs) },
-        outcome.command,
-      );
+      return withCommand({ ...nextState, activity: pendingActivity("apply", control.label, startedAtMs) }, outcome.command);
     }
 
     case "reject-plan": {
@@ -228,19 +231,13 @@ const dispatchAction = (
 const navigationControls = (state: SessionState, context: SessionReducerContext): readonly Control[] =>
   gateAdvanceControls(context.controls, state.validation);
 
-const applyNavigation = (
-  state: SessionState,
-  context: SessionReducerContext,
-  direction: "forward" | "backward",
-): ReductionResult => {
+const applyNavigation = (state: SessionState, context: SessionReducerContext, direction: "forward" | "backward"): ReductionResult => {
   const viewId = currentViewId(state);
   const controls = navigationControls(state, context);
   const moved = moveFocus(state, viewId, controls, direction);
   const focusId = moved.focusByView.get(viewId)?.controlId;
   const scrollTop =
-    context.viewportRows === undefined
-      ? moved.scrollTop
-      : computeScrollTop(controls, focusId, context.viewportRows, moved.scrollTop);
+    context.viewportRows === undefined ? moved.scrollTop : computeScrollTop(controls, focusId, context.viewportRows, moved.scrollTop);
   const next = scrollTop === moved.scrollTop ? moved : { ...moved, scrollTop };
   return next === state ? unchanged(state) : stateOnly(next);
 };
@@ -311,6 +308,69 @@ const handleExternalResult = (state: SessionState, event: ExternalResultEvent): 
   return stateOnly({ ...cleared, errors: [...state.errors, error] });
 };
 
+/**
+ * Apply one progress update to the in-progress activity. Validation, monotonic
+ * completion, the `0/0 -> 0%` rule, and the retention of the last valid model on
+ * rejection are owned by the pure progress policy; the reducer only stores its
+ * outcome. An update that arrives with no active work is an invalid event and
+ * returns the exact prior state (Requirements 5.1-5.6).
+ */
+const handleActivity = (state: SessionState, event: ActivityEvent): ReductionResult => {
+  const activity = state.activity;
+  if (activity === undefined) return unchanged(state);
+  const update = applyProgressUpdate(activity.lastValidProgress, event.progress);
+  const startedAtMs = activity.startedAtMs ?? 0;
+  const persistent = activity.persistent === true || (event.atMs !== undefined && activityIsPersistent({ startedAtMs }, event.atMs));
+  return stateOnly({
+    ...state,
+    activity: {
+      ...activity,
+      progress: update.model,
+      lastValidProgress: update.lastValid,
+      progressViolations: update.violations,
+      startedAtMs,
+      persistent,
+    },
+  });
+};
+
+/**
+ * Observe injected time. Persistent textual activity becomes visible only once the
+ * inclusive one-second threshold is reached; no wall-clock sleep is involved
+ * (Requirements 5.1, 8.4).
+ */
+const handleTimer = (state: SessionState, event: TimerEvent): ReductionResult => {
+  const activity = state.activity;
+  if (activity === undefined || activity.persistent === true) return unchanged(state);
+  if (!activityIsPersistent({ startedAtMs: activity.startedAtMs ?? 0 }, event.tick)) return unchanged(state);
+  return stateOnly({ ...state, activity: { ...activity, persistent: true } });
+};
+
+const sameProfile = (left: RenderProfile, right: RenderProfile): boolean =>
+  left.mode === right.mode &&
+  left.width === right.width &&
+  left.height === right.height &&
+  left.ansi === right.ansi &&
+  left.color === right.color &&
+  left.unicode === right.unicode &&
+  left.animation === right.animation &&
+  left.mouse === right.mouse &&
+  left.symbols === right.symbols &&
+  left.downgradeReasons.length === right.downgradeReasons.length &&
+  left.downgradeReasons.every((reason, index) => reason === right.downgradeReasons[index]);
+
+/**
+ * Recompute the presentation profile for a resize without rebuilding session state.
+ * Every named field is carried over by the transition, and an impossible transition
+ * retains the current mode while exposing registered recovery controls
+ * (Requirements 1.9, 8.8, 8.9, 8.10, 9.4).
+ */
+const handleResize = (state: SessionState, event: ResizeEvent, context: SessionReducerContext): ReductionResult => {
+  const transition = applyPresentationTransition(state, event.capabilities, context.invocation);
+  if (transition.preserved && sameProfile(transition.profile, state.presentation)) return unchanged(state);
+  return stateOnly(transition.state);
+};
+
 const synchronizedValidation = (state: SessionState, rules: ValidationRules | undefined): SessionState => {
   if (rules === undefined) return state;
   const candidate = revalidateInputs(state, rules, state.validation.pending);
@@ -360,14 +420,13 @@ export const reduceSession = (state: SessionState, event: UiEvent, context: Sess
       return handleExternalResult(validatedState, event);
 
     case "activity":
+      return handleActivity(validatedState, event);
+
     case "timer":
-      // Progress validation and activity retention are owned by subtask 5.1. These
-      // events are permitted status updates that the core reducer leaves unchanged.
-      return unchanged(validatedState);
+      return handleTimer(validatedState, event);
 
     case "resize":
-      // Resize and presentation transitions are owned by subtask 3.3.
-      return unchanged(validatedState);
+      return handleResize(validatedState, event, context);
   }
 };
 

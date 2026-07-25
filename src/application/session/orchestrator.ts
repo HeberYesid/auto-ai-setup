@@ -364,24 +364,31 @@ export class SessionOrchestrator implements SessionOrchestratorPort {
       modeResult.value === "manual",
     );
     let selectedIds: readonly ComponentId[] = [];
-    if (definitions.length > 0)
-      try {
-        selectedIds = await ui.selectComponents(view, modeResult.value);
-      } catch (cause) {
-        return this.finish(
-          withAnalysis(
-            baseSummary(
-              runId,
-              isCancellation(cause) ? "cancelled" : "invalid-input",
-              isCancellation(cause) ? 0 : 2,
-              isCancellation(cause) ? [] : [messageOf(cause)],
+    if (definitions.length > 0) {
+      if (modeResult.value === "auto") {
+        // Automatic mode derives its selection from the compatible components in the view. It never
+        // delegates to an interactive selector, so an automated run performs no prompt at all.
+        selectedIds = view.components.filter((candidate) => candidate.compatibility.compatible).map((candidate) => candidate.definition.id);
+      } else {
+        try {
+          selectedIds = await ui.selectComponents(view, modeResult.value);
+        } catch (cause) {
+          return this.finish(
+            withAnalysis(
+              baseSummary(
+                runId,
+                isCancellation(cause) ? "cancelled" : "invalid-input",
+                isCancellation(cause) ? 0 : 2,
+                isCancellation(cause) ? [] : [messageOf(cause)],
+              ),
+              analysis,
             ),
-            analysis,
-          ),
-          ui,
-          render,
-        );
+            ui,
+            render,
+          );
+        }
       }
+    }
     const byId = new Map(definitions.map((definition) => [definition.id, definition]));
     if (selectedIds.some((id) => !byId.has(id)))
       return this.finish(

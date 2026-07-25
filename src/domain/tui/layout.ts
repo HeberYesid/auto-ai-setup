@@ -1,5 +1,6 @@
 import { ASCII_SYMBOLS } from "./compatibility.js";
-import type { RenderProfile, PresentationMode } from "./capabilities.js";
+import type { RenderProfile, PresentationMode, SymbolSet } from "./capabilities.js";
+import { activityStatusText, REGION_LABELS, semanticMarker, statusMarker, statusToken } from "./visual.js";
 import type { Control, ControlBounds } from "./session.js";
 import type { FrameLine, FrameSpan, SemanticToken, ViewModel, ViewSection } from "./view.js";
 
@@ -73,6 +74,16 @@ const line = (regionId: string, token: SemanticToken, text: string): FrameLine =
   regionId,
   spans: [span(token, text)],
 });
+
+/**
+ * Prefix a line with the non-color marker for its semantic token. Markers make every
+ * semantic state distinguishable without color, so color remains a pure enhancement.
+ */
+const marked = (regionId: string, token: SemanticToken, text: string, symbols: SymbolSet): FrameLine =>
+  line(regionId, token, `${semanticMarker(token, symbols)} ${text}`);
+
+/** A section heading, marked so titles are identifiable without color. */
+const headingLine = (regionId: string, text: string, symbols: SymbolSet): FrameLine => marked(regionId, "heading", text, symbols);
 
 /**
  * Wrap text deterministically to a positive width. Newlines are preserved as
@@ -192,7 +203,7 @@ const addPathField = (lines: FrameLine[], regionId: string, label: string, path:
 const addPlan = (lines: FrameLine[], projection: RenderModeProjection, width: number, indicator: string): void => {
   const plan = projection.view.plan;
   if (plan === undefined) return;
-  lines.push(line("plan", "heading", "PLAN"));
+  lines.push(headingLine("plan", REGION_LABELS.plan, projection.symbols));
   lines.push(line("plan:hash", "secondary", `Hash: ${plan.planHash}`));
   for (const operation of plan.operations) {
     const region = `plan:${operation.operationId}`;
@@ -218,7 +229,7 @@ const addPlan = (lines: FrameLine[], projection: RenderModeProjection, width: nu
 const addControls = (lines: FrameLine[], projection: RenderModeProjection, width: number): ReadonlyMap<string, ControlBounds> => {
   const bounds = new Map<string, ControlBounds>();
   if (projection.controls.length === 0) return bounds;
-  lines.push(line("controls", "heading", "ACCIONES"));
+  lines.push(headingLine("controls", REGION_LABELS.actions, projection.symbols));
   for (const control of projection.controls) {
     if (!control.visible) continue;
     const top = lines.length;
@@ -244,14 +255,23 @@ const addSemanticContent = (
   indicator: string,
 ): ReadonlyMap<string, ControlBounds> => {
   if (projection.useBorders) lines.push(line("border:top", "muted", projection.symbols.horizontalBorder.repeat(width)));
-  lines.push(line("brand", "heading", projection.brandLabel));
-  lines.push(line("stage", "heading", `Etapa: ${projection.stageLabel}`));
+  lines.push(headingLine("brand", projection.brandLabel, projection.symbols));
+  lines.push(headingLine("stage", `Etapa: ${projection.stageLabel}`, projection.symbols));
 
-  for (const section of projection.sections) addWrappedLines(lines, `section:${section.id}`, section.token, sectionText(section), width);
+  for (const section of projection.sections)
+    addWrappedLines(
+      lines,
+      `section:${section.id}`,
+      section.token,
+      sectionText(section),
+      width,
+      `${semanticMarker(section.token, projection.symbols)} `,
+    );
 
   const { activity, status, progress, help } = projection.view;
   if (activity !== undefined) {
-    addWrappedLines(lines, "activity", "secondary", activity.description, width, "Actividad: ");
+    // Activity is always a static textual statement: no animation carries meaning.
+    addWrappedLines(lines, "activity", "secondary", activityStatusText(activity.description, activity.progress), width, "Actividad: ");
     if (activity.progress !== undefined && activity.progress.kind === "determined") {
       addWrappedLines(
         lines,
@@ -267,15 +287,10 @@ const addSemanticContent = (
     addWrappedLines(
       lines,
       `status:${message.severity}`,
-      message.severity === "error"
-        ? "error"
-        : message.severity === "warning"
-          ? "warning"
-          : message.severity === "success"
-            ? "success"
-            : "plain",
+      statusToken(message.severity),
       `${message.label}: ${message.text}`,
       width,
+      `${statusMarker(message.severity, projection.symbols)} `,
     );
   if (progress !== undefined && activity?.progress === undefined && progress.kind === "determined") {
     addWrappedLines(lines, "progress", "secondary", `${progress.completed}/${progress.total} (${progress.percent}%)`, width, "Progreso: ");
@@ -288,7 +303,7 @@ const addSemanticContent = (
     addWrappedLines(lines, "primary-action", "selected", projection.primaryAction.label, width, "Acción principal: ");
   }
   if (projection.view.recovery !== undefined) {
-    lines.push(line("recovery", "heading", "RECUPERACIÓN"));
+    lines.push(headingLine("recovery", REGION_LABELS.recovery, projection.symbols));
     for (const control of projection.view.recovery.controls)
       addWrappedLines(
         lines,
@@ -296,10 +311,11 @@ const addSemanticContent = (
         control.enabled ? "plain" : "muted",
         `${control.label} (${control.enabled ? "habilitado" : "deshabilitado"})`,
         width,
+        `${semanticMarker(control.enabled ? "plain" : "muted", projection.symbols)} `,
       );
   }
   if (projection.view.summary !== undefined) {
-    lines.push(line("summary", "heading", "RESUMEN FINAL"));
+    lines.push(headingLine("summary", REGION_LABELS.summary, projection.symbols));
     addWrappedLines(lines, "summary:status", "heading", projection.view.summary.status, width, "Estado: ");
     for (const change of projection.view.summary.changes)
       addWrappedLines(lines, `summary:change:${change.operationId}`, "plain", change.operationId, width, "Cambio: ");
@@ -307,7 +323,7 @@ const addSemanticContent = (
       addWrappedLines(lines, `summary:omission:${omission}`, "secondary", omission, width, "Omisión: ");
   }
   if (help?.visible === true) {
-    lines.push(line("help", "heading", "AYUDA"));
+    lines.push(headingLine("help", REGION_LABELS.help, projection.symbols));
     for (const entry of help.entries)
       addWrappedLines(lines, `help:${entry.keys}`, "secondary", entry.description, width, `${entry.keys}: `);
   }

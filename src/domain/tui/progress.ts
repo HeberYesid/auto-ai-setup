@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "../shared/types.js";
+import { err, ok } from "../shared/types.js";
 import { tuiError, type TuiError, type TuiResult } from "./errors.js";
 import type { Stage } from "./session.js";
 import { asNonNegativeInteger, type NonNegativeInteger } from "./values.js";
@@ -85,10 +85,7 @@ export const progressPercent = (completed: number, total: number): NonNegativeIn
  * Validate and build a progress model. `previous` is used only to enforce monotonic
  * completion for consecutive determined updates; indeterminate progress has no counts.
  */
-export const validateProgress = (
-  input: ProgressInput,
-  previous: ProgressModel | undefined = undefined,
-): TuiResult<ProgressModel> => {
+export const validateProgress = (input: ProgressInput, previous: ProgressModel | undefined = undefined): TuiResult<ProgressModel> => {
   if (input.kind === "indeterminate") {
     return ok({ kind: "indeterminate", description: input.description });
   }
@@ -134,10 +131,7 @@ export const validateProgress = (
 };
 
 /** Apply an update without ever replacing the last valid model after a rejection. */
-export const applyProgressUpdate = (
-  lastValid: ProgressModel | undefined,
-  input: ProgressInput,
-): ProgressUpdate => {
+export const applyProgressUpdate = (lastValid: ProgressModel | undefined, input: ProgressInput): ProgressUpdate => {
   const result = validateProgress(input, lastValid);
   if (result.ok) {
     return { accepted: true, model: result.value, lastValid: result.value, violations: [] };

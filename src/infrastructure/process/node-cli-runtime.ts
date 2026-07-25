@@ -83,7 +83,18 @@ export const createDefaultCliDependencies = (): { readonly terminal: NodeCliTerm
     },
     recoveryFactory: (root) => new FileSystemRecoveryJournalReader(createRootFileSystem(root)),
   });
-  return { terminal, dependencies: { session, ui, terminal } };
+  return {
+    terminal,
+    dependencies: {
+      session,
+      ui,
+      terminal,
+      // Machine-readable mode writes exactly one fully prepared, redacted JSON value.
+      stdout: (text: string) => {
+        stdout.write(text);
+      },
+    },
+  };
 };
 
 export const runNodeCli = async (args: readonly string[] = process.argv.slice(2)): Promise<void> => {

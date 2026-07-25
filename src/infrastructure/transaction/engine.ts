@@ -18,7 +18,16 @@ import type {
   TransactionResult,
   TxContext,
 } from "../../domain/index.js";
-import { asSafeProjectPath, autoSkillsPolicyFailure, calculatePlanHash, err, isAllowedAutoSkillsOperation, isSafeRelativePath, mergeManagedState, ok } from "../../domain/index.js";
+import {
+  asSafeProjectPath,
+  autoSkillsPolicyFailure,
+  calculatePlanHash,
+  err,
+  isAllowedAutoSkillsOperation,
+  isSafeRelativePath,
+  mergeManagedState,
+  ok,
+} from "../../domain/index.js";
 import type { FileSystemPort } from "../../domain/shared/ports.js";
 import type { AppError, CanonicalPath, RunId } from "../../domain/shared/types.js";
 import type { ExternalOperation } from "../../domain/planning/models.js";
@@ -530,7 +539,9 @@ export class PersistentTransactionEngine implements TransactionEngine {
   }
 
   private async validatePlanContainment(plan: ApprovedPlan): Promise<string | undefined> {
-    const validate = this.fileSystem.validateContained;
+    // The port method must stay bound to its adapter: an unbound reference loses `this` and the
+    // containment check would throw instead of rejecting an unsafe destination.
+    const validate = this.fileSystem.validateContained?.bind(this.fileSystem);
     if (validate === undefined) return undefined;
     const paths = new Set<string>();
     for (const change of plan.fileChanges) paths.add(String(change.destination));

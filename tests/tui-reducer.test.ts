@@ -65,7 +65,6 @@ const approvalPlan = (): ChangePlan => {
   return { ...unsigned, planHash: calculatePlanHash(unsigned) };
 };
 
-
 const seed = (stage: Stage, controlId: string | undefined, overrides: Partial<SessionState> = {}): SessionState => {
   const base = createInitialSession(LINEAR_PROFILE);
   const focusByView = controlId === undefined ? base.focusByView : new Map([[stage, { viewId: stage, controlId }]]);

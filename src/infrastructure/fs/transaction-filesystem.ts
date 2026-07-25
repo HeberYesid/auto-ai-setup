@@ -162,7 +162,8 @@ export class NodeTransactionalFileSystem implements AtomicFileSystemPort {
 
 const securityException = (error: PlanningError): Error => {
   const exception = new Error(`Path escapes transaction root: ${error.message}`);
-  const { message: _message, ...details } = error;
+  const details: Record<string, unknown> = { ...error };
+  delete details.message;
   Object.assign(exception, details);
   return exception;
 };

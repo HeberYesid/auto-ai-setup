@@ -10,10 +10,7 @@ import {
   AUTOSKILLS_MAX_OUTPUT_BYTES,
   type RegisteredAutoSkillsRequest,
 } from "../../domain/catalog/autoskills.js";
-import {
-  isApprovedAutoSkillsInteractiveRequest,
-  isOfficialAutoSkillsCommand,
-} from "../../domain/security/product-policy.js";
+import { isApprovedAutoSkillsInteractiveRequest, isOfficialAutoSkillsCommand } from "../../domain/security/product-policy.js";
 
 export interface AutoSkillsProcessOptions {
   readonly maxOutputBytes?: number;
@@ -88,7 +85,12 @@ export class RegisteredAutoSkillsProcessAdapter implements ProcessExecutor {
     try {
       return ok(await this.execute(registered, signal));
     } catch (cause) {
-      return err(processDenied(`PROCESS_NOT_ALLOWED: autoskills execution failed safely (${cause instanceof Error ? cause.message : String(cause)})`, path));
+      return err(
+        processDenied(
+          `PROCESS_NOT_ALLOWED: autoskills execution failed safely (${cause instanceof Error ? cause.message : String(cause)})`,
+          path,
+        ),
+      );
     }
   }
 
@@ -112,10 +114,7 @@ export class RegisteredAutoSkillsProcessAdapter implements ProcessExecutor {
 
   private validRequest(request: RegisteredAutoSkillsRequest): boolean {
     if (request.cwd.length === 0 || request.cwd.includes("\0") || !/^(?:[A-Za-z]:[\\/]|[\\/]{1,2})/.test(request.cwd)) return false;
-    return (
-      isApprovedAutoSkillsInteractiveRequest(request) &&
-      isOfficialAutoSkillsCommand(["npx", "--yes", "autoskills", ...request.args])
-    );
+    return isApprovedAutoSkillsInteractiveRequest(request) && isOfficialAutoSkillsCommand(["npx", "--yes", "autoskills", ...request.args]);
   }
 
   private run(
@@ -208,7 +207,8 @@ const processDenied = (message: string, path: string): SecurityError => ({
 
 const securityException = (error: SecurityError): Error => {
   const exception = new Error(error.message);
-  const { message: _message, ...details } = error;
+  const details: Record<string, unknown> = { ...error };
+  delete details.message;
   Object.assign(exception, details);
   return exception;
 };

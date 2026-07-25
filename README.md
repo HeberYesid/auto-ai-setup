@@ -12,11 +12,11 @@ Analiza evidencia local, detecta el stack tecnológico, recomienda CLIs relacion
 
 ## 🎯 Demo y video
 
-| Recurso | Enlace |
-|---|---|
-| **Demo funcional** | 🔗 *(enlace pendiente — se publicará en AWS Amplify)* |
-| **Video de presentación (≤5 min)** | 🎥 *(enlace pendiente — YouTube)* |
-| **Asciinema interactivo** | 💻 *(enlace pendiente — asciinema.org)* |
+| Recurso                            | Enlace                                                |
+| ---------------------------------- | ----------------------------------------------------- |
+| **Demo funcional**                 | 🔗 _(enlace pendiente — se publicará en AWS Amplify)_ |
+| **Video de presentación (≤5 min)** | 🎥 _(enlace pendiente — YouTube)_                     |
+| **Asciinema interactivo**          | 💻 _(enlace pendiente — asciinema.org)_               |
 
 > Los enlaces se actualizarán al publicar los entregables finales del hackathon. La demo se desplegará en AWS Amplify; el asciinema mostrará la ejecución completa del flujo principal.
 
@@ -25,7 +25,6 @@ Analiza evidencia local, detecta el stack tecnológico, recomienda CLIs relacion
 ## ¿Qué problema resuelve?
 
 Configurar un proyecto nuevo para trabajar con agentes de IA (Kiro, Claude, Copilot) es un proceso manual y propenso a errores:
-
 
 - Editar manualmente `.kiro/settings/mcp.json`, `AGENTS.md` y `.kiro/prompts/` en cada proyecto
 - Buscar qué Skills existen y cuáles aplican al stack del proyecto
@@ -50,12 +49,12 @@ No requiere instalación global. La CLI solicita el proyecto si no se indica `--
 
 ### Opciones disponibles
 
-| Opción | Descripción |
-|---|---|
-| `--path <ruta>` | Proyecto objetivo; si se omite, se solicita interactivamente. |
-| `--mode auto\|manual` | Fija el modo de selección; si se omite, la CLI lo solicita. |
-| `--verbose` | Incluye evidencias de stack y decisiones de compatibilidad en los eventos. |
-| `--recover` | Busca y recupera una transacción incompleta del proyecto indicado. |
+| Opción                | Descripción                                                                |
+| --------------------- | -------------------------------------------------------------------------- |
+| `--path <ruta>`       | Proyecto objetivo; si se omite, se solicita interactivamente.              |
+| `--mode auto\|manual` | Fija el modo de selección; si se omite, la CLI lo solicita.                |
+| `--verbose`           | Incluye evidencias de stack y decisiones de compatibilidad en los eventos. |
+| `--recover`           | Busca y recupera una transacción incompleta del proyecto indicado.         |
 
 ---
 
@@ -156,20 +155,20 @@ flowchart LR
 
 ### Módulos
 
-| Módulo | Responsabilidad |
-|---|---|
-| `src/cli` | Flags, TTY, interacción, render y códigos de proceso |
-| `src/application/session` | Máquina de estados y coordinación de casos de uso |
-| `src/domain/project` | Clasificación nuevo/existente, evidencia, stack, conflictos |
-| `src/domain/catalog` | Validación de snapshots de Skills de autoskills |
-| `src/domain/config` | Parseo, merge, diff y equivalencia de JSON estructurado |
-| `src/domain/planning` | Plan determinista, aprobaciones, hash SHA-256 |
-| `src/domain/security` | Contención de rutas, allowlists, política de red, redacción |
-| `src/infrastructure/fs` | Escaneo acotado, staging, backups y escrituras atómicas |
-| `src/infrastructure/agent` | Adaptadores para Kiro, MCP, `AGENTS.md` y comandos |
-| `src/infrastructure/process` | Única invocación registrada: `npx autoskills` |
-| `src/infrastructure/transaction` | Journal, prepare/verify/commit/rollback/recovery |
-| `src/infrastructure/observability` | Eventos locales y render humano con redacción |
+| Módulo                             | Responsabilidad                                             |
+| ---------------------------------- | ----------------------------------------------------------- |
+| `src/cli`                          | Flags, TTY, interacción, render y códigos de proceso        |
+| `src/application/session`          | Máquina de estados y coordinación de casos de uso           |
+| `src/domain/project`               | Clasificación nuevo/existente, evidencia, stack, conflictos |
+| `src/domain/catalog`               | Validación de snapshots de Skills de autoskills             |
+| `src/domain/config`                | Parseo, merge, diff y equivalencia de JSON estructurado     |
+| `src/domain/planning`              | Plan determinista, aprobaciones, hash SHA-256               |
+| `src/domain/security`              | Contención de rutas, allowlists, política de red, redacción |
+| `src/infrastructure/fs`            | Escaneo acotado, staging, backups y escrituras atómicas     |
+| `src/infrastructure/agent`         | Adaptadores para Kiro, MCP, `AGENTS.md` y comandos          |
+| `src/infrastructure/process`       | Única invocación registrada: `npx autoskills`               |
+| `src/infrastructure/transaction`   | Journal, prepare/verify/commit/rollback/recovery            |
+| `src/infrastructure/observability` | Eventos locales y render humano con redacción               |
 
 ---
 
@@ -208,12 +207,12 @@ El SDD completo está en [`.kiro/specs/auto-ai-setup/`](.kiro/specs/auto-ai-setu
 
 Kiro Spec mode permitió formalizar el producto de forma incremental antes de escribir una línea de implementación:
 
-| Artefacto | Ubicación | Descripción |
-|---|---|---|
-| Requisitos | `.kiro/specs/auto-ai-setup/requirements.md` | 15 user stories con 150+ criterios de aceptación numerados |
-| Diseño | `.kiro/specs/auto-ai-setup/design.md` | Arquitectura, interfaces, modelos de datos, propiedades de corrección y estrategia de pruebas |
-| Tareas | `.kiro/specs/auto-ai-setup/tasks.md` | 40+ tareas de implementación incrementales con dependencias explícitas |
-| Trazabilidad | `.kiro/specs/auto-ai-setup/traceability.md` | Mapa bidireccional requisito ↔ propiedad ↔ test |
+| Artefacto    | Ubicación                                   | Descripción                                                                                   |
+| ------------ | ------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Requisitos   | `.kiro/specs/auto-ai-setup/requirements.md` | 15 user stories con 150+ criterios de aceptación numerados                                    |
+| Diseño       | `.kiro/specs/auto-ai-setup/design.md`       | Arquitectura, interfaces, modelos de datos, propiedades de corrección y estrategia de pruebas |
+| Tareas       | `.kiro/specs/auto-ai-setup/tasks.md`        | 40+ tareas de implementación incrementales con dependencias explícitas                        |
+| Trazabilidad | `.kiro/specs/auto-ai-setup/traceability.md` | Mapa bidireccional requisito ↔ propiedad ↔ test                                               |
 
 Cada tarea generada por Kiro incluye qué implementar, qué probar y qué requisitos cubre, creando un ciclo completo de diseño → código → verificación.
 
@@ -229,12 +228,12 @@ Los archivos en `.kiro/steering/` guiaron todas las sesiones de desarrollo con r
 
 Se usaron las siguientes Skills de Kiro durante el desarrollo:
 
-| Skill | Uso |
-|---|---|
-| `typescript-advanced-types` | Branded types, discriminated unions, Result types y utility types del dominio |
-| `vitest` | Configuración de cobertura, property-based testing con fast-check, fakes e inyección |
-| `nodejs-best-practices` | Patrones de async/await, manejo de errores, ESM y decisiones de arquitectura |
-| `nodejs-backend-patterns` | Puertos y adaptadores, inyección de dependencias y separación de efectos |
+| Skill                       | Uso                                                                                  |
+| --------------------------- | ------------------------------------------------------------------------------------ |
+| `typescript-advanced-types` | Branded types, discriminated unions, Result types y utility types del dominio        |
+| `vitest`                    | Configuración de cobertura, property-based testing con fast-check, fakes e inyección |
+| `nodejs-best-practices`     | Patrones de async/await, manejo de errores, ESM y decisiones de arquitectura         |
+| `nodejs-backend-patterns`   | Puertos y adaptadores, inyección de dependencias y separación de efectos             |
 
 ### Desarrollo asistido
 
@@ -261,11 +260,13 @@ GitHub repo
 ```
 
 **¿Por qué Amplify?**
+
 - Despliegue automático desde GitHub en cada push a `main`
 - Hosting del asciinema interactivo y el video embed
 - Zero config: conecta el repo, detecta que es un sitio estático y despliega
 
 **Configuración en AWS Amplify:**
+
 1. Conectar el repositorio `HeberYesid/auto-ai-setup` en la consola de Amplify
 2. Branch: `main`, directorio de build: `docs/` (o `public/`)
 3. Amplify asigna automáticamente una URL `https://<id>.amplifyapp.com`
@@ -293,13 +294,13 @@ flowchart LR
     LAMBDA --> RDS
 ```
 
-| Servicio AWS | Rol futuro | Estado |
-|---|---|---|
-| **Amazon Bedrock** | Inferencia de recomendaciones de componentes basada en el contexto del proyecto | Trabajo futuro |
-| **AWS Lambda** | API serverless de recomendaciones inteligentes | Trabajo futuro |
-| **Amazon S3** | Hosting del catálogo de componentes versionado | Demo actual (sitio estático) |
-| **AWS Amplify** | CI/CD y hosting de la demo funcional | **Activo en demo** |
-| **Amazon RDS** | Estadísticas de adopción anónimas opt-in | Trabajo futuro |
+| Servicio AWS       | Rol futuro                                                                      | Estado                       |
+| ------------------ | ------------------------------------------------------------------------------- | ---------------------------- |
+| **Amazon Bedrock** | Inferencia de recomendaciones de componentes basada en el contexto del proyecto | Trabajo futuro               |
+| **AWS Lambda**     | API serverless de recomendaciones inteligentes                                  | Trabajo futuro               |
+| **Amazon S3**      | Hosting del catálogo de componentes versionado                                  | Demo actual (sitio estático) |
+| **AWS Amplify**    | CI/CD y hosting de la demo funcional                                            | **Activo en demo**           |
+| **Amazon RDS**     | Estadísticas de adopción anónimas opt-in                                        | Trabajo futuro               |
 
 **¿Por qué esta arquitectura tiene sentido?**
 
@@ -311,12 +312,12 @@ El MVP detecta el stack localmente con reglas deterministas. La extensión natur
 
 ### El problema
 
-| Situación actual | Consecuencia |
-|---|---|
-| Configurar MCP, reglas y Skills es manual en cada proyecto | Tiempo perdido, configuraciones inconsistentes entre proyectos |
-| No hay plan visible antes de aplicar cambios | Riesgo de sobrescribir configuraciones existentes sin forma de volver atrás |
-| Los agentes de IA reciben contexto diferente según cómo configuró cada dev | Resultados impredecibles, difícil de reproducir |
-| Integrar un dev nuevo a un workflow con agentes tarda horas | Barrera de entrada alta, especialmente en educación |
+| Situación actual                                                           | Consecuencia                                                                |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Configurar MCP, reglas y Skills es manual en cada proyecto                 | Tiempo perdido, configuraciones inconsistentes entre proyectos              |
+| No hay plan visible antes de aplicar cambios                               | Riesgo de sobrescribir configuraciones existentes sin forma de volver atrás |
+| Los agentes de IA reciben contexto diferente según cómo configuró cada dev | Resultados impredecibles, difícil de reproducir                             |
+| Integrar un dev nuevo a un workflow con agentes tarda horas                | Barrera de entrada alta, especialmente en educación                         |
 
 ### El impacto de `auto-ai-setup`
 
@@ -331,17 +332,17 @@ El MVP detecta el stack localmente con reglas deterministas. La extensión natur
 
 ### Diferenciadores frente a alternativas
 
-| Característica | `auto-ai-setup` | Scripts manuales | Dotfiles/starters | `autoskills` solo |
-|---|---|---|---|---|
-| Detección automática de stack | ✅ | ❌ | ❌ | ❌ |
-| Plan determinista con hash SHA-256 | ✅ | ❌ | ❌ | ❌ |
-| Aprobación explícita antes de mutaciones | ✅ | ❌ | ❌ | ❌ |
-| Transacción con rollback automático | ✅ | ❌ | ❌ | ❌ |
-| Idempotencia semántica | ✅ | ❌ | ❌ | Parcial |
-| Preserva configuración existente | ✅ | ❌ | ❌ | ❌ |
-| Redacción automática de secretos | ✅ | ❌ | ❌ | ❌ |
-| MCP + reglas + comandos | ✅ | Manual | Manual | ❌ |
-| Arquitectura extensible por adaptadores | ✅ | ❌ | ❌ | ❌ |
+| Característica                           | `auto-ai-setup` | Scripts manuales | Dotfiles/starters | `autoskills` solo |
+| ---------------------------------------- | --------------- | ---------------- | ----------------- | ----------------- |
+| Detección automática de stack            | ✅              | ❌               | ❌                | ❌                |
+| Plan determinista con hash SHA-256       | ✅              | ❌               | ❌                | ❌                |
+| Aprobación explícita antes de mutaciones | ✅              | ❌               | ❌                | ❌                |
+| Transacción con rollback automático      | ✅              | ❌               | ❌                | ❌                |
+| Idempotencia semántica                   | ✅              | ❌               | ❌                | Parcial           |
+| Preserva configuración existente         | ✅              | ❌               | ❌                | ❌                |
+| Redacción automática de secretos         | ✅              | ❌               | ❌                | ❌                |
+| MCP + reglas + comandos                  | ✅              | Manual           | Manual            | ❌                |
+| Arquitectura extensible por adaptadores  | ✅              | ❌               | ❌                | ❌                |
 
 ### Ventajas técnicas
 
@@ -364,14 +365,14 @@ La CLI nunca descarga archivos de Skills directamente ni ejecuta scripts de cicl
 
 ### Protecciones locales
 
-| Protección | Mecanismo |
-|---|---|
+| Protección     | Mecanismo                                                                                                        |
+| -------------- | ---------------------------------------------------------------------------------------------------------------- |
 | **Aprobación** | Ningún archivo cambia antes de mostrar y aprobar el plan. Conflictos requieren aprobación específica por archivo |
-| **Red** | Denegada por defecto. Solo operaciones enumeradas en el plan con ID aprobado explícitamente |
-| **Secretos** | Tokens, contraseñas, claves PEM y URLs con credenciales → `[REDACTED]` antes de cualquier terminal o archivo |
-| **Rutas** | Se rechazan rutas absolutas, traversal `..`, NUL, dispositivos y escapes por symlink |
-| **Procesos** | Sin comandos de shell libres; solo adaptadores registrados; cero CLIs recomendadas se ejecutan automáticamente |
-| **Datos** | Análisis, logs y plan permanecen locales. Sin telemetría, login ni cloud sync |
+| **Red**        | Denegada por defecto. Solo operaciones enumeradas en el plan con ID aprobado explícitamente                      |
+| **Secretos**   | Tokens, contraseñas, claves PEM y URLs con credenciales → `[REDACTED]` antes de cualquier terminal o archivo     |
+| **Rutas**      | Se rechazan rutas absolutas, traversal `..`, NUL, dispositivos y escapes por symlink                             |
+| **Procesos**   | Sin comandos de shell libres; solo adaptadores registrados; cero CLIs recomendadas se ejecutan automáticamente   |
+| **Datos**      | Análisis, logs y plan permanecen locales. Sin telemetría, login ni cloud sync                                    |
 
 No incluyas secretos literales en componentes o prompts. Usa referencias a variables de entorno: `${NOMBRE_VARIABLE}`.
 
@@ -381,12 +382,12 @@ No incluyas secretos literales en componentes o prompts. Usa referencias a varia
 
 Los cambios aprobados se preparan en staging, verifican y aplican con escrituras atómicas. El journal persiste en `.auto-ai-setup/transactions` hasta completar commit o rollback.
 
-| Código | Significado | Acción |
-|---|---|---|
-| `0` | Éxito, sin cambios o cancelación segura | Ninguna |
-| `1` | Fallo con estado anterior restaurado | Revisar error e intentar de nuevo |
-| `2` | Entrada, ruta o configuración inválida antes de aplicar | Corregir los datos indicados |
-| `3` | Ejecución o recuperación incompleta | Revisar `manualReviewPaths` y ejecutar `--recover` |
+| Código | Significado                                             | Acción                                             |
+| ------ | ------------------------------------------------------- | -------------------------------------------------- |
+| `0`    | Éxito, sin cambios o cancelación segura                 | Ninguna                                            |
+| `1`    | Fallo con estado anterior restaurado                    | Revisar error e intentar de nuevo                  |
+| `2`    | Entrada, ruta o configuración inválida antes de aplicar | Corregir los datos indicados                       |
+| `3`    | Ejecución o recuperación incompleta                     | Revisar `manualReviewPaths` y ejecutar `--recover` |
 
 > Si termina con código `3`, no asumas que el proyecto volvió a su estado anterior. Conserva `.auto-ai-setup/transactions` y revisa las rutas informadas.
 
@@ -413,22 +414,22 @@ pnpm install --frozen-lockfile
 
 ### Comandos reproducibles
 
-| Objetivo | Comando |
-|---|---|
-| Formatear | `pnpm run format` |
-| Comprobar formato | `pnpm run format:check` |
-| Análisis estático | `pnpm run lint` |
-| Comprobar tipos | `pnpm run typecheck` |
-| Pruebas unitarias | `pnpm run test:unit` |
-| Pruebas de integración | `pnpm run test:integration` |
-| Pruebas basadas en propiedades | `pnpm run test:property` |
-| Todas las pruebas | `pnpm run test` |
-| Cobertura | `pnpm run test:coverage` |
-| Compilar | `pnpm run build` |
-| Empaquetar | `pnpm run pack` |
-| Smoke test | `pnpm run smoke` |
-| Validar trazabilidad SDD | `pnpm run traceability` |
-| Pipeline completo | `pnpm run ci` |
+| Objetivo                       | Comando                     |
+| ------------------------------ | --------------------------- |
+| Formatear                      | `pnpm run format`           |
+| Comprobar formato              | `pnpm run format:check`     |
+| Análisis estático              | `pnpm run lint`             |
+| Comprobar tipos                | `pnpm run typecheck`        |
+| Pruebas unitarias              | `pnpm run test:unit`        |
+| Pruebas de integración         | `pnpm run test:integration` |
+| Pruebas basadas en propiedades | `pnpm run test:property`    |
+| Todas las pruebas              | `pnpm run test`             |
+| Cobertura                      | `pnpm run test:coverage`    |
+| Compilar                       | `pnpm run build`            |
+| Empaquetar                     | `pnpm run pack`             |
+| Smoke test                     | `pnpm run smoke`            |
+| Validar trazabilidad SDD       | `pnpm run traceability`     |
+| Pipeline completo              | `pnpm run ci`               |
 
 El pipeline de CI ejecuta formato, lint, tipos, pruebas, cobertura mínima de 80 % en statements/lines/functions y 70 % en branches, compilación, empaquetado, smoke y trazabilidad. Las pruebas no dependen de red pública.
 
@@ -450,9 +451,9 @@ Registra 10 ejecuciones, perfil del equipo, estado de caché, tiempo de escaneo 
 
 El MVP es una CLI local e interactiva. No implementa ni invoca:
 
-- Inferencia mediante **Amazon Bedrock** *(trabajo futuro)*
-- Backend serverless en AWS *(trabajo futuro)*
-- Hooks de seguridad automáticos *(trabajo futuro)*
+- Inferencia mediante **Amazon Bedrock** _(trabajo futuro)_
+- Backend serverless en AWS _(trabajo futuro)_
+- Hooks de seguridad automáticos _(trabajo futuro)_
 - Telemetría, autenticación o sincronización cloud
 - Ejecución de servidores MCP
 - Instalación automática de CLIs recomendadas

@@ -32,16 +32,7 @@ export type ActionId = RegisteredAction;
 
 /** Normalized non-printable keys. Raw escape sequences never reach the domain. */
 export type NormalizedKey =
-  | "Tab"
-  | "ShiftTab"
-  | "Enter"
-  | "Space"
-  | "Question"
-  | "Escape"
-  | "ArrowUp"
-  | "ArrowDown"
-  | "ArrowLeft"
-  | "ArrowRight";
+  "Tab" | "ShiftTab" | "Enter" | "Space" | "Question" | "Escape" | "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight";
 
 /** A normalized keystroke: either a named control key or printable text. */
 export type KeyStroke = { readonly kind: "named"; readonly name: NormalizedKey } | { readonly kind: "printable"; readonly text: string };

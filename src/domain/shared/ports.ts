@@ -31,10 +31,7 @@ export interface UserInteraction {
     conflicts: readonly import("../project/models.js").StackConflict[],
   ): Promise<Readonly<Partial<Record<import("../project/models.js").StackCategory, string>>>>;
   chooseMode(initial?: string): Promise<RunMode>;
-  selectComponents(
-    view: import("../catalog/models.js").ComponentSelectionView,
-    mode?: RunMode,
-  ): Promise<readonly ComponentId[]>;
+  selectComponents(view: import("../catalog/models.js").ComponentSelectionView, mode?: RunMode): Promise<readonly ComponentId[]>;
   confirmIncompatible?(component: ComponentDefinition, decision: import("../planning/models.js").CompatibilityDecision): Promise<boolean>;
   confirmExternal?(command: readonly string[], purpose: string): Promise<boolean>;
   /** Temporarily releases stdin so an approved interactive child process can own the TTY. */

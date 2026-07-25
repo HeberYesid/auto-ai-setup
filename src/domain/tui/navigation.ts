@@ -3,13 +3,7 @@ import type { Control, FocusState, SessionState, ValidationError } from "./sessi
 import type { NonNegativeInteger } from "./values.js";
 
 /** Actions that move the workflow forward and are gated by validation. */
-export const ADVANCE_ACTIONS: ReadonlySet<RegisteredAction> = new Set([
-  "advance",
-  "confirm",
-  "approve-plan",
-  "confirm-cancel",
-  "finish",
-]);
+export const ADVANCE_ACTIONS: ReadonlySet<RegisteredAction> = new Set(["advance", "confirm", "approve-plan", "confirm-cancel", "finish"]);
 
 /** A deterministic validation rule for one editable control. */
 export interface ValidationRule {

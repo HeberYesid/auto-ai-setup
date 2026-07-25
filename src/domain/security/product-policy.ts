@@ -54,7 +54,4 @@ export const isApprovedAutoSkillsInteractiveRequest = (request: {
   readonly args: readonly string[];
   readonly authorized: boolean;
 }): boolean =>
-  request.command === "npx-autoskills" &&
-  request.operation === "interactive" &&
-  request.authorized === true &&
-  request.args.length === 0;
+  request.command === "npx-autoskills" && request.operation === "interactive" && request.authorized === true && request.args.length === 0;

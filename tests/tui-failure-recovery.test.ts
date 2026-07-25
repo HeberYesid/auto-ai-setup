@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createInitialSession, projectSessionState, canonicalizeRecoveryPaths, type RenderProfile, type SessionState } from "../src/domain/tui/index.js";
+import {
+  createInitialSession,
+  projectSessionState,
+  canonicalizeRecoveryPaths,
+  type RenderProfile,
+  type SessionState,
+} from "../src/domain/tui/index.js";
 import type { ExecutionSummary, SafeProjectPath } from "../src/domain/index.js";
 import { ASCII_SYMBOLS } from "../src/domain/tui/capabilities.js";
 
@@ -77,7 +83,13 @@ describe("typed failure, recovery, and summary projections", () => {
       exitCode: 1,
       changes: [{ operationId: "file:one" }],
       omissions: ["file:two"],
-      recovery: { result: "partial", controls: [{ id: "retry", enabled: true }, { id: "finish", enabled: false }] },
+      recovery: {
+        result: "partial",
+        controls: [
+          { id: "retry", enabled: true },
+          { id: "finish", enabled: false },
+        ],
+      },
       warnings: ["session warning", "transaction warning"],
     });
     expect(projected.value.summary?.errors).toHaveLength(2);

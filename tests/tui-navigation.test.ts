@@ -77,8 +77,15 @@ describe("TUI focus, scrolling, and validation reducers", () => {
   });
 
   it("blocks only advance controls while validation is invalid", () => {
-    const controls = [control("back", "back", "button", 0), control("continue", "advance", "button", 1), control("help", "toggle-help", "button", 2)];
-    const gated = gateAdvanceControls(controls, { pending: false, errors: [{ controlId: "name", rule: "required", message: "value is required" }] });
+    const controls = [
+      control("back", "back", "button", 0),
+      control("continue", "advance", "button", 1),
+      control("help", "toggle-help", "button", 2),
+    ];
+    const gated = gateAdvanceControls(controls, {
+      pending: false,
+      errors: [{ controlId: "name", rule: "required", message: "value is required" }],
+    });
     expect(gated.map((item) => [item.id, item.enabled])).toEqual([
       ["back", true],
       ["continue", false],

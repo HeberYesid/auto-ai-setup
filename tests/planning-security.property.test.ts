@@ -59,7 +59,7 @@ const operation = (id: string): ExternalOperation => ({
   id: id as ExternalOperation["id"],
   componentId: component.id,
   kind: "skill-install",
-  command: ["npx", "autoskills", "install", "property"],
+  command: ["npx", "--yes", "autoskills"],
   origin: "https://github.com/midudev/autoskills",
   destination: ".kiro/skills/property" as ExternalOperation["destination"],
   purpose: "property",

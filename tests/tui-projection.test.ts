@@ -104,7 +104,6 @@ describe("redaction-first presentation projection", () => {
     expect(projected.value.sections.map((item) => item.id)).not.toContain(expect.stringContaining(secret));
   });
 
-
   it("fails closed with a typed error when the redactor throws", () => {
     const projected = projectSessionState(stateAtSelect(), {
       redactor: {

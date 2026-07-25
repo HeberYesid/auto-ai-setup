@@ -26,6 +26,7 @@ import type { PlanViewModel } from "./plan-view.js";
 import { NOT_APPLICABLE, projectCanonicalPlan } from "./plan-view.js";
 import type { RegisteredAction } from "./events.js";
 import { gateAdvanceControls } from "./navigation.js";
+import { ACTION_LABELS as VISUAL_ACTION_LABELS, BRAND_LABEL, DEFAULT_HELP_ENTRIES, STATUS_LABELS } from "./visual.js";
 
 /** Inputs supplied by the application when it has stage-specific controls. */
 export interface PresentationProjectionOptions {
@@ -50,31 +51,9 @@ const STAGE_LABELS: Readonly<Record<Stage, string>> = {
 
 const ADVANCE_ACTIONS: ReadonlySet<RegisteredAction> = new Set(["advance", "confirm", "approve-plan", "confirm-cancel", "finish"]);
 
-const DEFAULT_HELP: readonly HelpEntry[] = [
-  { keys: "Tab / Shift+Tab", description: "mover el foco" },
-  { keys: "Enter", description: "activar la acción enfocada" },
-  { keys: "?", description: "mostrar u ocultar ayuda" },
-  { keys: "Esc", description: "solicitar cancelación" },
-];
+const DEFAULT_HELP: readonly HelpEntry[] = DEFAULT_HELP_ENTRIES;
 
-const ACTION_LABELS: Readonly<Record<RegisteredAction, string>> = {
-  advance: "Continuar",
-  back: "Atrás",
-  "select-choice": "Seleccionar",
-  "toggle-option": "Alternar selección",
-  "edit-input": "Editar",
-  confirm: "Confirmar",
-  cancel: "Cancelar",
-  "confirm-cancel": "Confirmar cancelación",
-  resume: "Continuar sesión",
-  "approve-plan": "Aprobar plan",
-  "reject-plan": "Rechazar plan",
-  "toggle-help": "Ayuda",
-  retry: "Reintentar",
-  correct: "Corregir",
-  rollback: "Revertir",
-  finish: "Finalizar",
-};
+const ACTION_LABELS: Readonly<Record<RegisteredAction, string>> = VISUAL_ACTION_LABELS;
 
 const DEFAULT_ACTIONS: Readonly<Record<Stage, readonly { id: string; action: RegisteredAction; label: string }[]>> = {
   inspect: [{ id: "continue", action: "advance", label: ACTION_LABELS.advance }],
@@ -258,7 +237,7 @@ const projectStatus = (state: SessionState, context: RedactionContext): TuiResul
   for (const [index, warning] of [...state.warnings].entries()) {
     const text = requiredText(warning, `warnings[${index}]`, context);
     if (!text.ok) return text;
-    statuses.push({ severity: "warning", label: "ADVERTENCIA", text: text.value });
+    statuses.push({ severity: "warning", label: STATUS_LABELS.warning, text: text.value });
   }
   for (const [index, failure] of [...state.errors].entries()) {
     const cause = requiredText(failure.cause, `errors[${index}].cause`, context);
@@ -267,7 +246,7 @@ const projectStatus = (state: SessionState, context: RedactionContext): TuiResul
     if (!operation.ok) return operation;
     statuses.push({
       severity: "error",
-      label: "ERROR",
+      label: STATUS_LABELS.error,
       text: `${STAGE_LABELS[failure.stage]} · ${operation.value}: ${cause.value}`,
     });
   }
@@ -277,18 +256,19 @@ const projectStatus = (state: SessionState, context: RedactionContext): TuiResul
     const severity = state.result.status === "success" ? "success" : state.result.status === "cancelled" ? "info" : "error";
     statuses.push({
       severity,
-      label: state.result.status === "success" ? "ÉXITO" : state.result.status === "cancelled" ? "CANCELADO" : "ERROR",
+      label:
+        state.result.status === "success" ? STATUS_LABELS.success : state.result.status === "cancelled" ? "CANCELADO" : STATUS_LABELS.error,
       text: resultText.value,
     });
     for (const [index, warning] of state.result.warnings.entries()) {
       const text = requiredText(warning, `result.warnings[${index}]`, context);
       if (!text.ok) return text;
-      statuses.push({ severity: "warning", label: "ADVERTENCIA", text: text.value });
+      statuses.push({ severity: "warning", label: STATUS_LABELS.warning, text: text.value });
     }
     for (const [index, error] of state.result.errors.entries()) {
       const text = requiredText(error, `result.errors[${index}]`, context);
       if (!text.ok) return text;
-      statuses.push({ severity: "error", label: "ERROR", text: text.value });
+      statuses.push({ severity: "error", label: STATUS_LABELS.error, text: text.value });
     }
   }
   return ok(statuses);
@@ -337,7 +317,13 @@ const projectRecovery = (state: SessionState, context: RedactionContext): TuiRes
   // An operation failure still needs a visible recovery region even when the
   // application registered no controls. This makes the absence of controls
   // explicit instead of silently skipping the failure's recovery state.
-  if (source === undefined && controls.length === 0 && unresolvedPaths.length === 0 && state.errors.length === 0 && state.result === undefined)
+  if (
+    source === undefined &&
+    controls.length === 0 &&
+    unresolvedPaths.length === 0 &&
+    state.errors.length === 0 &&
+    state.result === undefined
+  )
     return ok(undefined);
   return ok({ result: resultStatus, controls, unresolvedPaths });
 };
@@ -504,23 +490,19 @@ export const buildPresentationState = (state: SessionState, options: Presentatio
         ? focusIdResult.value
         : projectedControls.find((control) => control.visible && control.enabled)?.id;
     const primaryActionIdResult =
-      options.primaryActionId === undefined
-        ? ok(undefined)
-        : requiredText(options.primaryActionId, "primaryActionId", context);
+      options.primaryActionId === undefined ? ok(undefined) : requiredText(options.primaryActionId, "primaryActionId", context);
     if (!primaryActionIdResult.ok) return primaryActionIdResult;
     const primaryAction = projectedControls.find(
       (control) =>
         control.visible &&
         control.enabled &&
-        (primaryActionIdResult.value === undefined
-          ? ADVANCE_ACTIONS.has(control.action)
-          : control.id === primaryActionIdResult.value),
+        (primaryActionIdResult.value === undefined ? ADVANCE_ACTIONS.has(control.action) : control.id === primaryActionIdResult.value),
     );
     const sections = projectSections(state, projectedControls, context);
     if (!sections.ok) return sections;
     const presentation: PresentationState = {
       viewId: state.stage,
-      brandLabel: "auto-ai-setup",
+      brandLabel: BRAND_LABEL,
       stage: state.stage,
       stageLabel: STAGE_LABELS[state.stage],
       primaryAction,

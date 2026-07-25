@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   ApprovedNetworkGateway,
+  AUTOSKILLS_SOURCE_REPOSITORY,
   DeterministicChangePlanner,
   ImmutableApprovalPolicy,
   SecretRedactor,
@@ -68,8 +69,10 @@ const external = (): ExternalOperation => ({
   id: "skill-install:component.example" as ExternalOperation["id"],
   componentId,
   kind: "skill-install",
-  command: ["npx", "autoskills", "install", "example"],
-  origin: "https://github.com/midudev/autoskills#revision/skills/example",
+  // Only the fixed official interactive command shape is an approved autoskills operation:
+  // catalog/install subcommands are rejected by the product policy before they can enter a plan.
+  command: ["npx", "--yes", "autoskills"],
+  origin: AUTOSKILLS_SOURCE_REPOSITORY,
   destination: ".kiro/skills/example" as ExternalOperation["destination"],
   purpose: "Install the selected Skill",
   usesNetwork: true,

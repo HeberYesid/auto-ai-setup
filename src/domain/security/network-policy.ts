@@ -18,14 +18,18 @@ const denied = (message: string): Result<Uint8Array, AppError> =>
  * connection in the wrapped gateway.
  */
 export class ApprovedNetworkGateway implements NetworkGateway {
-  public constructor(private readonly delegate: NetworkGateway, private readonly expectedPlanHash?: Sha256) {}
+  public constructor(
+    private readonly delegate: NetworkGateway,
+    private readonly expectedPlanHash?: Sha256,
+  ) {}
 
   public request(
     operation: ExternalOperation,
     approval: ExternalOperationApproval,
     signal?: AbortSignal,
   ): Promise<Result<Uint8Array, AppError>> {
-    if (!isAllowedAutoSkillsOperation(operation)) return Promise.resolve(denied("The requested external operation is prohibited by product policy"));
+    if (!isAllowedAutoSkillsOperation(operation))
+      return Promise.resolve(denied("The requested external operation is prohibited by product policy"));
     if (
       approval.approved !== true ||
       approval.operationId !== operation.id ||
