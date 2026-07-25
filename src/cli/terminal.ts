@@ -45,6 +45,7 @@ const componentTypeLabel = (type: ComponentDefinition["type"]): string =>
     "mcp-server": "Servidores MCP",
     "agent-rule": "Reglas de agente",
     "agent-command": "Comandos de agente",
+    "agent-hook": "Hooks de agente",
   })[type];
 
 export class InteractiveUserInteraction implements UserInteraction {

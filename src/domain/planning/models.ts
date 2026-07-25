@@ -10,7 +10,7 @@ export type CompatibilityExpression =
   | { readonly op: "noneOf"; readonly clauses: readonly CompatibilityExpression[] }
   | { readonly op: "always" };
 
-export type ComponentType = "skill" | "mcp-server" | "agent-rule" | "agent-command";
+export type ComponentType = "skill" | "mcp-server" | "agent-rule" | "agent-command" | "agent-hook";
 
 export type ComponentSource =
   | { readonly kind: "catalog"; readonly origin: string; readonly revision: string; readonly digest: Sha256 }

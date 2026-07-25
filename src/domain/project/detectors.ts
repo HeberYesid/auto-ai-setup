@@ -192,6 +192,10 @@ const detectors: readonly StackDetector[] = [
   packageDependencyDetector("tool.prisma", "Prisma", ["prisma", "@prisma/client"], "tool"),
   packageDependencyDetector("tool.supabase", "Supabase", ["@supabase/supabase-js", "supabase"], "tool"),
   packageDependencyDetector("tool.vercel", "Vercel", ["vercel"], "tool"),
+  packageDependencyDetector("tool.mongodb", "MongoDB", ["mongodb", "mongoose"], "tool"),
+  packageDependencyDetector("tool.stripe", "Stripe", ["stripe", "@stripe/stripe-js"], "tool"),
+  packageDependencyDetector("tool.aws", "AWS", ["aws-cdk-lib", "aws-cdk", "@aws-sdk/client-s3", "serverless"], "tool"),
+  textDetector("tool.aws.python", "AWS", ["boto3", "aws-cdk-lib"], "tool", pythonFiles),
   textDetector("tool.github-actions", "GitHub Actions", ["name:", "on:"], "tool", [
     { pattern: "**/.github/workflows/*.yml", format: "yaml" },
     { pattern: "**/.github/workflows/*.yaml", format: "yaml" },

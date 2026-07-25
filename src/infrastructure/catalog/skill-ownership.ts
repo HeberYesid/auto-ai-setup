@@ -22,7 +22,7 @@ const isNonEmptyString = (value: unknown): value is string => typeof value === "
 const parseComponent = (value: unknown): value is ManagedComponent => {
   if (
     !isRecord(value) ||
-    !["skill", "mcp-server", "agent-rule", "agent-command"].includes(String(value.type)) ||
+    !["skill", "mcp-server", "agent-rule", "agent-command", "agent-hook"].includes(String(value.type)) ||
     !isNonEmptyString(value.origin) ||
     !Array.isArray(value.destinations) ||
     !isNonEmptyString(value.contentDigest)

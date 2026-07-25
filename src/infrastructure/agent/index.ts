@@ -50,6 +50,23 @@ export type {
   KiroCommandIndexAdaptation,
   KiroCommandDocumentsAdaptation,
 } from "./kiro-command-adapter.js";
+export {
+  KIRO_HOOKS_PATH,
+  AGENT_HOOK_TRIGGERS,
+  KiroHookAdapter,
+  adaptAgentHookDocument,
+  agentHookModel,
+  createKiroHookAdapter,
+  kiroHookAdapter,
+  validateAgentHook,
+} from "./kiro-hook-adapter.js";
+export type {
+  AgentHookAction,
+  AgentHookAdaptation,
+  AgentHookComponentDefinition,
+  AgentHookDefinition,
+  AgentHookTrigger,
+} from "./kiro-hook-adapter.js";
 export { builtinAgentComponents, createBuiltinAgentComponents } from "./builtin-components.js";
 export {
   ComponentInspectionProjection,

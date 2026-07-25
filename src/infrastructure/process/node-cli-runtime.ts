@@ -6,6 +6,7 @@ import {
   createAgentsRuleAdapter,
   createBuiltinAgentComponents,
   createKiroCommandAdapter,
+  createKiroHookAdapter,
   createKiroMcpWorkspaceAdapter,
 } from "../agent/index.js";
 import { createMidudevAutoSkillsGateway, createFileSystemSkillOwnershipStore } from "../catalog/index.js";
@@ -73,7 +74,12 @@ export const createDefaultCliDependencies = (): { readonly terminal: NodeCliTerm
       const fileSystem = createRootFileSystem(root);
       return new ComponentInspectionProjection({
         fileSystem,
-        adapters: [createKiroMcpWorkspaceAdapter(fileSystem), createAgentsRuleAdapter(fileSystem), createKiroCommandAdapter(fileSystem)],
+        adapters: [
+          createKiroMcpWorkspaceAdapter(fileSystem),
+          createAgentsRuleAdapter(fileSystem),
+          createKiroCommandAdapter(fileSystem),
+          createKiroHookAdapter(fileSystem),
+        ],
       });
     },
     transactionFactory: (root, context) => {

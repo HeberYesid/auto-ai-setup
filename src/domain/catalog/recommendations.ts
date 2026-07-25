@@ -6,7 +6,7 @@ import type { CompatibilityInput, ComponentGroup, ComponentSelectionView, Compon
 /** The only external CLIs that can be mentioned by the MVP recommendation engine. */
 export const INITIAL_CLI_ORDER: readonly InitialCli[] = ["gh", "supabase", "vercel", "playwright"];
 
-const COMPONENT_TYPE_ORDER: readonly ComponentDefinition["type"][] = ["skill", "mcp-server", "agent-rule", "agent-command"];
+const COMPONENT_TYPE_ORDER: readonly ComponentDefinition["type"][] = ["skill", "mcp-server", "agent-rule", "agent-command", "agent-hook"];
 
 interface CliRule {
   readonly cli: InitialCli;
