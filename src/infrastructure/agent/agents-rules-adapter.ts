@@ -175,20 +175,49 @@ export class AgentsRuleAdapter implements ComponentAdapter<AgentRuleComponentDef
     return { present: adapted.ok && !adapted.value.changed && adapted.value.conflict === "none", destinations: [this.destination] };
   }
 
-  public async propose(_ctx: PlanningContext, component: AgentRuleComponentDefinition): Promise<readonly ProposedOperation[]> {
+  public async propose(ctx: PlanningContext, component: AgentRuleComponentDefinition): Promise<readonly ProposedOperation[]> {
+    return this.proposeAll(ctx, [component]);
+  }
+
+  /**
+   * Every managed rule lives in the same AGENTS.md, so the selected rules are folded into a single
+   * operation: a change plan admits at most one action per destination.
+   */
+  public async proposeAll(
+    _ctx: PlanningContext,
+    components: readonly AgentRuleComponentDefinition[],
+  ): Promise<readonly ProposedOperation[]> {
+    const selected = [...components].sort((left, right) => left.id.localeCompare(right.id));
+    const primary = selected[0];
+    if (primary === undefined) return [];
     const source = await this.readSource();
     if (!source.ok) return [];
-    const adapted = adaptAgentsDocument(source.value, component.rule);
-    if (!adapted.ok) return [];
+    const original = source.value.text;
+    let text = original;
+    let changed = false;
+    let conflict: RuleConflict = "none";
+    for (const component of selected) {
+      const adapted = adaptAgentsDocument({ ...source.value, text }, component.rule);
+      if (!adapted.ok) return [];
+      text = adapted.value.text;
+      changed = changed || adapted.value.changed;
+      if (conflict === "none") conflict = adapted.value.conflict;
+    }
+    const action = changed ? (original.length === 0 ? "create" : "modify") : "preserve";
+    const ruleIds = selected.map((component) => component.rule.id).join(", ");
     return [
       {
-        id: `rule:${component.id}`,
-        componentId: component.id,
+        id: `rule:${selected.map((component) => component.id).join("+")}`,
+        componentId: primary.id,
         destination: this.destination,
-        action: adapted.value.action,
-        reason: `Add or update the managed agent rule ${component.rule.id} in AGENTS.md.`,
-        conflict: adapted.value.conflict,
-        preview: redactedText(adapted.value.text),
+        action,
+        reason:
+          selected.length === 1
+            ? `Add or update the managed agent rule ${ruleIds} in AGENTS.md.`
+            : `Add or update the managed agent rules ${ruleIds} in AGENTS.md.`,
+        conflict,
+        preview: redactedText(text),
+        ...(action === "preserve" ? {} : { content: text }),
       },
     ];
   }

@@ -81,10 +81,11 @@ export class ImmutableApprovalPolicy implements ApprovalPolicyPort {
       else omittedFileChangeIds.push(change.id);
     }
     const approvedExternalOperationIds = [...plan.externalOperations].map((operation) => operation.id);
+    // The canonical plan body is what the user saw and what the plan hash covers, so it is kept
+    // intact: consent is expressed only through the approved id lists. Filtering the body here would
+    // invalidate the recomputed plan hash at the transaction boundary.
     const approved = {
       ...plan,
-      fileChanges: plan.fileChanges.filter((change) => approvedFileChangeIds.includes(change.id)),
-      externalOperations: plan.externalOperations.filter((operation) => approvedExternalOperationIds.includes(operation.id)),
       approval: cloneDecisions(decisions),
       approvedFileChangeIds: [...approvedFileChangeIds],
       approvedExternalOperationIds,

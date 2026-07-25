@@ -39,6 +39,18 @@ export interface ComponentInspectionProjectionOptions {
   readonly fileSystem: FileSystemPort;
 }
 
+interface AdapterGroupMember {
+  readonly component: ComponentDefinition;
+  readonly safeDefinition: ComponentDefinition;
+  readonly decision: CompatibilityDecision;
+  readonly override: boolean;
+}
+
+interface AdapterGroup {
+  readonly adapter: ComponentAdapter;
+  readonly members: AdapterGroupMember[];
+}
+
 export interface ProjectionError {
   readonly code: "INVALID_PLAN" | "UNSUPPORTED_COMPONENT" | "CATALOG_SOURCE_MISMATCH";
   readonly message: string;
@@ -76,12 +88,17 @@ const safeOperation = (
   component: ComponentDefinition,
   decision: CompatibilityDecision,
   override: boolean,
-): FileChange => ({
-  ...operation,
-  origin: operation.origin ?? originFor(component),
-  preview: sanitize(operation.preview) as FileChange["preview"],
-  ...(override ? { incompatibleOverride: decision } : {}),
-});
+): FileChange => {
+  // `content` is resolved destination bytes, not plan metadata: it must never reach the plan.
+  const { content, ...rest } = operation;
+  void content;
+  return {
+    ...rest,
+    origin: operation.origin ?? originFor(component),
+    preview: sanitize(operation.preview) as FileChange["preview"],
+    ...(override ? { incompatibleOverride: decision } : {}),
+  };
+};
 const canonicalComponent = (component: ComponentDefinition): string =>
   stableJson({
     id: component.id,
@@ -107,7 +124,9 @@ export class ComponentInspectionProjection {
     const components: ComponentProjection[] = [];
     const fileChanges: FileChange[] = [];
     const externalOperations: ExternalOperation[] = [];
+    const fileContents = new Map<string, Uint8Array>();
     const warnings: { code: string; message: string; componentId?: import("../../domain/index.js").ComponentId }[] = [];
+    const groups: AdapterGroup[] = [];
 
     for (const selection of input.selected) {
       const component = selection.definition;
@@ -147,23 +166,60 @@ export class ComponentInspectionProjection {
           recoverability: "none",
           componentId: component.id,
         });
-      const inspection = await adapter.inspect({ root: input.root, stack: input.stack }, component);
-      const proposed = await adapter.propose({ root: input.root, stack: input.stack, runId: input.runId }, component);
-      const changes = proposed.map((operation) => safeOperation(operation, component, decision, override));
-      const destinations = [...new Set([...inspection.destinations, ...changes.map((change) => change.destination)])];
-      const projection: ComponentProjection = {
-        component: safeDefinition,
-        compatibility: decision,
-        incompatibleOverride: override,
-        present: inspection.present,
-        destinations,
-        fileChanges: changes,
-        externalOperations: [],
-      };
-      components.push(projection);
-      fileChanges.push(...changes);
+      const existing = groups.find((candidate) => candidate.adapter === adapter);
+      const member: AdapterGroupMember = { component, safeDefinition, decision, override };
+      if (existing === undefined) groups.push({ adapter, members: [member] });
+      else existing.members.push(member);
     }
-    return ok({ components, fileChanges, externalOperations, warnings });
+
+    for (const group of groups) {
+      // Components served by one adapter may share a destination, and a plan admits at most one
+      // action per destination. They are therefore projected together whenever the adapter supports
+      // it; otherwise each component is projected alone, which is safe because its destinations are
+      // then component-specific.
+      const planningContext = { root: input.root, stack: input.stack, runId: input.runId };
+      const projected: ProposedOperation[] = [];
+      if (group.adapter.proposeAll === undefined) {
+        for (const member of group.members) projected.push(...(await group.adapter.propose(planningContext, member.component)));
+      } else {
+        projected.push(
+          ...(await group.adapter.proposeAll(
+            planningContext,
+            group.members.map((member) => member.component),
+          )),
+        );
+      }
+      const destinationsSeen = new Set<string>();
+      for (const operation of projected) {
+        if (destinationsSeen.has(String(operation.destination)))
+          return err({
+            code: "INVALID_PLAN",
+            message: `An adapter projected more than one action for ${operation.destination}`,
+            recoverability: "none",
+          });
+        destinationsSeen.add(String(operation.destination));
+      }
+
+      for (const member of group.members) {
+        const owned = projected.filter((operation) => operation.componentId === member.component.id);
+        const changes = owned.map((operation) => safeOperation(operation, member.component, member.decision, member.override));
+        const inspection = await group.adapter.inspect({ root: input.root, stack: input.stack }, member.component);
+        const destinations = [...new Set([...inspection.destinations, ...changes.map((change) => change.destination)])];
+        components.push({
+          component: member.safeDefinition,
+          compatibility: member.decision,
+          incompatibleOverride: member.override,
+          present: inspection.present,
+          destinations,
+          fileChanges: changes,
+          externalOperations: [],
+        });
+        fileChanges.push(...changes);
+        for (const operation of owned)
+          if (operation.content !== undefined) fileContents.set(operation.id, new TextEncoder().encode(operation.content));
+      }
+    }
+    return ok({ components, fileChanges, externalOperations, warnings, fileContents });
   }
 }
 

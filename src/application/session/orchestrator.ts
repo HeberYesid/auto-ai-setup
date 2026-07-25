@@ -61,6 +61,8 @@ export interface SessionTransactionContext {
   readonly plan?: ApprovedPlan;
   readonly catalog?: CatalogSnapshot;
   readonly catalogGateway?: AutoSkillsGateway;
+  /** Resolved destination bytes keyed by file change id, produced by the component projection. */
+  readonly fileContents?: ReadonlyMap<string, Uint8Array>;
 }
 
 export interface SessionDependencies {
@@ -497,6 +499,7 @@ export class SessionOrchestrator implements SessionOrchestratorPort {
     }
     const transaction = this.dependencies.transactionFactory(root, {
       plan: approved.value,
+      ...(projection.value.fileContents === undefined ? {} : { fileContents: projection.value.fileContents }),
       ...(catalog === undefined ? {} : { catalog }),
       ...(catalogGateway === undefined ? {} : { catalogGateway }),
     });

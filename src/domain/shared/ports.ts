@@ -110,6 +110,12 @@ export interface ComponentAdapter<D extends ComponentDefinition = ComponentDefin
   supports(component: D): boolean;
   inspect(ctx: InspectionContext, component: D): Promise<CurrentComponentState>;
   propose(ctx: PlanningContext, component: D): Promise<readonly ProposedOperation[]>;
+  /**
+   * Optional batch projection for adapters whose components share a destination. Several components
+   * writing the same file must collapse into a single operation, because a plan may hold at most one
+   * action per destination. Callers fall back to `propose` when this is not implemented.
+   */
+  proposeAll?(ctx: PlanningContext, components: readonly D[]): Promise<readonly ProposedOperation[]>;
   verify(ctx: VerificationContext, operation: ProposedOperation): Promise<Result<void>>;
 }
 

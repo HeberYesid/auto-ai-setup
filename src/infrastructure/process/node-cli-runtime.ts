@@ -65,11 +65,15 @@ export const createDefaultCliDependencies = (): { readonly terminal: NodeCliTerm
         adapters: [createKiroMcpWorkspaceAdapter(fileSystem), createAgentsRuleAdapter(fileSystem), createKiroCommandAdapter(fileSystem)],
       });
     },
-    transactionFactory: (root) => {
+    transactionFactory: (root, context) => {
       const fileSystem = createRootFileSystem(root);
       return new PersistentTransactionEngine({
         fileSystem,
         stateStore: createFileSystemSkillOwnershipStore(fileSystem),
+        componentDefinitions: createBuiltinAgentComponents(),
+        // Without the resolved contents the engine has no implementation for an approved file
+        // operation and the whole transaction fails closed.
+        ...(context?.fileContents === undefined ? {} : { fileContents: context.fileContents }),
       });
     },
     catalogFactory: (root) => {

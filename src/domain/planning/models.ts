@@ -47,6 +47,12 @@ export interface ProposedOperation {
   readonly beforeDigest?: Sha256;
   readonly afterDigest?: Sha256;
   readonly incompatibleOverride?: CompatibilityDecision;
+  /**
+   * Fully resolved destination content for an actionable operation. It is deliberately kept out of
+   * `FileChange` so the plan, its preview, and its hash stay free of raw file bodies; the projection
+   * moves it into a separate content map consumed only by the transaction engine.
+   */
+  readonly content?: string;
 }
 
 export type RedactedPreview = { readonly kind: "text"; readonly content: string; readonly truncated: boolean };
@@ -152,6 +158,8 @@ export interface ComponentProjectionResult {
   readonly fileChanges: readonly FileChange[];
   readonly externalOperations: readonly ExternalOperation[];
   readonly warnings: readonly PlanWarning[];
+  /** Resolved destination bytes keyed by file change id; never part of the plan or its hash. */
+  readonly fileContents?: ReadonlyMap<string, Uint8Array>;
 }
 
 export interface RecoveryJournal {

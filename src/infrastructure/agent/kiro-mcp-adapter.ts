@@ -229,23 +229,44 @@ export class KiroMcpWorkspaceAdapter implements ComponentAdapter<KiroMcpComponen
   }
 
   public async propose(_ctx: PlanningContext, component: KiroMcpComponentDefinition): Promise<readonly ProposedOperation[]> {
+    return this.proposeAll(_ctx, [component]);
+  }
+
+  /**
+   * Every MCP component writes the same workspace settings file, so the selection is merged into one
+   * operation. Proposing one action per component would produce several actions for a single
+   * destination, which a change plan rejects.
+   */
+  public async proposeAll(_ctx: PlanningContext, components: readonly KiroMcpComponentDefinition[]): Promise<readonly ProposedOperation[]> {
+    const selected = [...components].sort((left, right) => left.id.localeCompare(right.id));
+    if (selected.length === 0) return [];
+    const primary = selected[0] as KiroMcpComponentDefinition;
     const source = await this.readSource();
     if (!source.ok) return [];
     const parsed = this.codec.parse(source.value);
     if (!parsed.ok) return [];
-    const adapted = adaptKiroMcpDocument(source.value, [component.mcp], this.codec);
+    const adapted = adaptKiroMcpDocument(
+      source.value,
+      selected.map((component) => component.mcp),
+      this.codec,
+    );
     if (!adapted.ok) return [];
     const action = adapted.value.changed ? (parsed.value.model.mcpServers === undefined ? "create" : "modify") : "preserve";
     const preview = diffFields(safePreview(parsed.value.model), safePreview(adapted.value.model));
+    const serverIds = selected.map((component) => component.mcp.id).join(", ");
     return [
       {
-        id: `mcp:${component.id}`,
-        componentId: component.id,
+        id: `mcp:${selected.map((component) => component.id).join("+")}`,
+        componentId: primary.id,
         destination: this.destination,
         action,
-        reason: `Configure MCP server ${component.mcp.id} in the Kiro workspace settings.`,
+        reason:
+          selected.length === 1
+            ? `Configure MCP server ${serverIds} in the Kiro workspace settings.`
+            : `Configure MCP servers ${serverIds} in the Kiro workspace settings.`,
         conflict: action === "modify" ? "content-differs" : "none",
         preview,
+        ...(action === "preserve" ? {} : { content: adapted.value.text }),
       },
     ];
   }

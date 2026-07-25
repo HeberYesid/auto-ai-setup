@@ -222,17 +222,51 @@ export class KiroCommandAdapter implements ComponentAdapter<KiroCommandComponent
     };
   }
 
-  public async propose(_ctx: PlanningContext, component: KiroCommandComponentDefinition): Promise<readonly ProposedOperation[]> {
-    if (!this.supports(component)) return [];
-    const sources = await this.readSources(component.command.id);
-    if (!sources.ok) return [];
-    const adapted = adaptKiroCommandDocuments(sources.value.prompt, sources.value.index, component.command, this.codec);
-    if (!adapted.ok) return [];
-    const promptDestination = this.promptDestinationFor(component.command.id);
-    const promptAction = adapted.value.promptChanged ? (sources.value.prompt.text.length === 0 ? "create" : "modify") : "preserve";
-    const indexAction = adapted.value.index.changed ? (sources.value.index.text === "{}\n" ? "create" : "modify") : "preserve";
-    return [
-      {
+  public async propose(ctx: PlanningContext, component: KiroCommandComponentDefinition): Promise<readonly ProposedOperation[]> {
+    return this.proposeAll(ctx, [component]);
+  }
+
+  /**
+   * Prompt files are per command, but the command index is a single shared document, so the index
+   * entries of every selected command are folded into one operation.
+   */
+  public async proposeAll(
+    _ctx: PlanningContext,
+    components: readonly KiroCommandComponentDefinition[],
+  ): Promise<readonly ProposedOperation[]> {
+    const selected = [...components].filter((component) => this.supports(component)).sort((left, right) => left.id.localeCompare(right.id));
+    const primary = selected[0];
+    if (primary === undefined) return [];
+    const operations: ProposedOperation[] = [];
+    let indexSource: SourceDocument | undefined;
+    let indexParsedModel: JsonObject | undefined;
+    let indexText: string | undefined;
+    let indexModel: JsonObject | undefined;
+    let indexChanged = false;
+    let indexConflict: "none" | "content-differs" = "none";
+
+    for (const component of selected) {
+      const sources = await this.readSources(component.command.id);
+      if (!sources.ok) return [];
+      if (indexSource === undefined) {
+        indexSource = sources.value.index;
+        indexParsedModel = sources.value.indexParsedModel;
+        indexText = sources.value.index.text;
+      }
+      const adapted = adaptKiroCommandDocuments(
+        sources.value.prompt,
+        { ...(indexSource as SourceDocument), text: indexText as string },
+        component.command,
+        this.codec,
+      );
+      if (!adapted.ok) return [];
+      indexText = adapted.value.index.text;
+      indexModel = adapted.value.index.model;
+      indexChanged = indexChanged || adapted.value.index.changed;
+      if (indexConflict === "none") indexConflict = adapted.value.index.conflict;
+      const promptDestination = this.promptDestinationFor(component.command.id);
+      const promptAction = adapted.value.promptChanged ? (sources.value.prompt.text.length === 0 ? "create" : "modify") : "preserve";
+      operations.push({
         id: `command-prompt:${component.id}`,
         componentId: component.id,
         destination: promptDestination,
@@ -240,17 +274,27 @@ export class KiroCommandAdapter implements ComponentAdapter<KiroCommandComponent
         reason: `Create or update the Kiro prompt for command ${component.command.id}.`,
         conflict: adapted.value.promptConflict,
         preview: redactedText(adapted.value.promptText),
-      },
-      {
-        id: `command-index:${component.id}`,
-        componentId: component.id,
-        destination: this.indexDestination,
-        action: indexAction,
-        reason: `Register command ${component.command.id} in the managed Kiro command index.`,
-        conflict: adapted.value.index.conflict,
-        preview: diffFields(sources.value.indexParsedModel, adapted.value.index.model),
-      },
-    ];
+        ...(promptAction === "preserve" ? {} : { content: adapted.value.promptText }),
+      });
+    }
+
+    if (indexModel === undefined || indexText === undefined || indexParsedModel === undefined) return operations;
+    const indexAction = indexChanged ? ((indexSource as SourceDocument).text === "{}\n" ? "create" : "modify") : "preserve";
+    const commandIds = selected.map((component) => component.command.id).join(", ");
+    operations.push({
+      id: `command-index:${selected.map((component) => component.id).join("+")}`,
+      componentId: primary.id,
+      destination: this.indexDestination,
+      action: indexAction,
+      reason:
+        selected.length === 1
+          ? `Register command ${commandIds} in the managed Kiro command index.`
+          : `Register commands ${commandIds} in the managed Kiro command index.`,
+      conflict: indexConflict,
+      preview: diffFields(indexParsedModel, indexModel),
+      ...(indexAction === "preserve" ? {} : { content: indexText }),
+    });
+    return operations;
   }
 
   public async verify(_ctx: VerificationContext, operation: ProposedOperation): Promise<Result<void>> {
