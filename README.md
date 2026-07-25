@@ -2,7 +2,7 @@
 
 > **CLI local e interactiva para preparar proyectos para flujos de trabajo con agentes de IA.**
 
-Analiza evidencia local, detecta el stack tecnológico, recomienda CLIs relacionadas y permite configurar servidores MCP, reglas `AGENTS.md`, comandos reutilizables y Skills mediante un plan determinista que requiere aprobación explícita antes de escribir cualquier archivo.
+Analiza evidencia local, detecta el stack tecnológico, recomienda CLIs relacionadas y permite configurar servidores MCP, reglas de agente, comandos reutilizables, hooks y Skills mediante un plan determinista que requiere aprobación explícita antes de escribir cualquier archivo. Configura Kiro, Claude Code, OpenAI Codex y OpenCode, cada uno en su propia ruta oficial.
 
 [![CI](https://github.com/HeberYesid/auto-ai-setup/actions/workflows/ci.yml/badge.svg)](https://github.com/HeberYesid/auto-ai-setup/actions)
 [![npm version](https://img.shields.io/npm/v/auto-ai-setup)](https://www.npmjs.com/package/auto-ai-setup)
@@ -24,12 +24,25 @@ Analiza evidencia local, detecta el stack tecnológico, recomienda CLIs relacion
 
 ## ¿Qué problema resuelve?
 
-Configurar un proyecto nuevo para trabajar con agentes de IA (Kiro, Claude, Copilot) es un proceso manual y propenso a errores:
+Configurar un proyecto nuevo para trabajar con agentes de IA es un proceso manual y propenso a errores:
 
-- Editar manualmente `.kiro/settings/mcp.json`, `AGENTS.md` y `.kiro/prompts/` en cada proyecto
+- Editar a mano `.kiro/settings/mcp.json`, `.mcp.json`, `.codex/config.toml`, `opencode.json`, `AGENTS.md`, `CLAUDE.md` y los directorios de comandos y hooks de cada agente, proyecto a proyecto
+- Recordar el dialecto exacto de cada agente: Claude Code exige `type` en un servidor MCP remoto, OpenCode discrimina `local`/`remote` y usa `{env:VAR}`, Codex solo lee MCP desde TOML y reenvía variables con `env_vars`
 - Buscar qué Skills existen y cuáles aplican al stack del proyecto
 - Riesgo de sobrescribir configuraciones existentes sin backup ni rollback
 - Sin plan visible ni aprobación explícita antes de aplicar cambios
+
+### Agentes soportados
+
+| Componente       | Kiro                              | Claude Code                | OpenAI Codex         | OpenCode                     |
+| ---------------- | --------------------------------- | -------------------------- | -------------------- | ---------------------------- |
+| Servidores MCP   | `.kiro/settings/mcp.json`         | `.mcp.json`                | `.codex/config.toml` | `opencode.json`              |
+| Reglas de agente | `.kiro/steering/auto-ai-setup.md` | `CLAUDE.md`                | `AGENTS.md`          | `AGENTS.md`                  |
+| Comandos slash   | `.kiro/prompts/<id>.md`           | `.claude/commands/<id>.md` | fase posterior       | `.opencode/commands/<id>.md` |
+| Hooks            | `.kiro/hooks/<id>.json`           | `.claude/settings.json`    | `.codex/hooks.json`  | fase posterior               |
+| Skills           | TUI externa `npx autoskills`      | TUI externa                | TUI externa          | TUI externa                  |
+
+Se configuran los agentes cuya huella ya está en el proyecto (`.kiro/`, `.claude/`, `.codex/`, `opencode.json`…) y los cuatro cuando no hay ninguna. Cursor, GitHub Copilot, Gemini CLI, Windsurf y Amp quedan para fases posteriores; el detalle está en `.kiro/specs/auto-ai-setup/agents.md`.
 
 **`auto-ai-setup` convierte esa preparación en un flujo local, explicable y recuperable:**
 
@@ -149,7 +162,7 @@ flowchart LR
 
     subgraph INFRA["infrastructure — adaptadores"]
         FS[fs\nEscaneo seguro\nEscrituras atómicas]
-        AGENT[agent\nKiro · MCP · AGENTS.md\ncomandos]
+        AGENT[agent\nKiro · Claude Code · Codex · OpenCode\nMCP · reglas · comandos · hooks]
         PROC[process\nnpx autoskills\nregistrado]
         TX[transaction\nJournal · commit\nrollback · recovery]
         OBS[observability\nEventos locales\nredactados]

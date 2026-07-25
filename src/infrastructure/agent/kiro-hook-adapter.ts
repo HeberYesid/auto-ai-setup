@@ -53,8 +53,7 @@ export const AGENT_HOOK_TRIGGERS: readonly AgentHookTrigger[] = [
  * action is executed later by the agent runtime after its own confirmation.
  */
 export type AgentHookAction =
-  | { readonly type: "command"; readonly command: string; readonly timeout?: number }
-  | { readonly type: "agent"; readonly prompt: string };
+  { readonly type: "command"; readonly command: string; readonly timeout?: number } | { readonly type: "agent"; readonly prompt: string };
 
 export interface AgentHookDefinition {
   readonly id: string;
@@ -168,6 +167,7 @@ export class KiroHookAdapter implements ComponentAdapter<AgentHookComponentDefin
   public constructor(
     private readonly fileSystem: FileSystemPort,
     codec: StructuredConfigCodec<JsonObject> = new JsonStructuredConfigCodec<JsonObject>(),
+    private readonly targets?: import("./agent-targets.js").AgentTargetResolver,
   ) {
     this.codec = codec;
   }
@@ -176,7 +176,13 @@ export class KiroHookAdapter implements ComponentAdapter<AgentHookComponentDefin
     return component.type === "agent-hook" && component.hook !== undefined && validateAgentHook(component.hook).ok;
   }
 
+  /** Without a resolver the adapter is unconditional, which keeps a Kiro-only setup simple. */
+  private async applies(): Promise<boolean> {
+    return this.targets === undefined || (await this.targets.handles("kiro", "agent-hook"));
+  }
+
   public async inspect(_ctx: InspectionContext, component: AgentHookComponentDefinition): Promise<CurrentComponentState> {
+    if (!(await this.applies())) return { present: false, destinations: [] };
     const destination = this.destinationFor(component.hook.id);
     const source = await this.readSource(destination);
     if (!source.ok) return { present: false, destinations: [destination] };
@@ -193,6 +199,7 @@ export class KiroHookAdapter implements ComponentAdapter<AgentHookComponentDefin
     _ctx: PlanningContext,
     components: readonly AgentHookComponentDefinition[],
   ): Promise<readonly ProposedOperation[]> {
+    if (!(await this.applies())) return [];
     const selected = [...components].filter((component) => this.supports(component)).sort((left, right) => left.id.localeCompare(right.id));
     const operations: ProposedOperation[] = [];
     for (const component of selected) {
@@ -206,7 +213,7 @@ export class KiroHookAdapter implements ComponentAdapter<AgentHookComponentDefin
       const existed = source.value.text.trim().length > 0 && source.value.text.trim() !== "{}";
       const action = adapted.value.changed ? (existed ? "modify" : "create") : "preserve";
       operations.push({
-        id: `hook:${component.id}`,
+        id: `hook:kiro:${component.id}`,
         componentId: component.id,
         destination,
         action,
@@ -246,6 +253,9 @@ export class KiroHookAdapter implements ComponentAdapter<AgentHookComponentDefin
   }
 }
 
-export const createKiroHookAdapter = (fileSystem: FileSystemPort, codec?: StructuredConfigCodec<JsonObject>): KiroHookAdapter =>
-  new KiroHookAdapter(fileSystem, codec);
+export const createKiroHookAdapter = (
+  fileSystem: FileSystemPort,
+  codec?: StructuredConfigCodec<JsonObject>,
+  targets?: import("./agent-targets.js").AgentTargetResolver,
+): KiroHookAdapter => new KiroHookAdapter(fileSystem, codec, targets);
 export const kiroHookAdapter = KiroHookAdapter;

@@ -1,3 +1,4 @@
+export * from "./agent/index.js";
 export * from "./catalog/autoskills.js";
 export * from "./catalog/cli-probes.js";
 export * from "./catalog/models.js";

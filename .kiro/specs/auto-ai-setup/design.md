@@ -1,6 +1,8 @@
 # Design Document: auto-ai-setup
 
 > **Normative MVP scope amendment:** `scope-autoskills-tui.md` supersedes the catalog, planned Skill installation, staging, verification, rollback, ownership, idempotency, and plan-bound network design below. For the MVP, `npx autoskills` is an optional external TUI with dedicated pre-launch authorization; only changes owned by `auto-ai-setup` enter its plan and transaction.
+>
+> **Normative MVP scope amendment:** `agents.md` supersedes the single-agent design below. Kiro, Claude Code, OpenAI Codex, and OpenCode are supported, each through its own documented configuration surface.
 
 ## Overview
 
@@ -12,7 +14,7 @@ El diseño prioriza cuatro cualidades: (1) consentimiento verificable, (2) deter
 
 - **Runtime:** Node.js 22 o superior, paquete ESM, salida compilada en `dist/`, ejecutable declarado mediante `package.json#bin` y shebang portable. `npx` ejecuta el binario publicado y pasa sus argumentos a la CLI, conforme a la [documentación oficial de npx](https://docs.npmjs.com/cli/v11/commands/npx).
 - **Interfaz:** TTY interactiva; argumentos iniciales `--path`, `--mode auto|manual`, `--verbose` y `--recover`. No se diseña todavía un modo headless.
-- **Agente soportado:** perfil de workspace Kiro para MCP y prompts/comandos, más `AGENTS.md` como contrato portable. Otros agentes se añaden mediante adaptadores sin cambiar el dominio.
+- **Agentes soportados:** Kiro, Claude Code, OpenAI Codex y OpenCode. `agents.md` es la enmienda normativa que fija la matriz de soporte, las rutas oficiales de cada agente y las superficies diferidas; sustituye a esta línea. Un agente nuevo se añade mediante adaptadores sin cambiar el dominio.
 - **Skills:** se consultan e instalan exclusivamente mediante `npx autoskills`, la CLI de midudev; el MVP no descarga ni instala directamente los archivos de una Skill.
 - **MCP:** configuración de workspace en `.kiro/settings/mcp.json`; Kiro documenta configuración JSON a nivel workspace o usuario ([configuración MCP de Kiro](https://kiro.dev/docs/mcp/configuration/)). El MVP solo modifica el workspace objetivo.
 - **Comandos:** prompts Markdown en `.kiro/prompts/<id>.md` acompañados por el índice estructurado `.auto-ai-setup/commands.json`; el adaptador queda alineado con la gestión de prompts reutilizables de [Kiro CLI](https://kiro.dev/docs/cli/chat/manage-prompts/).

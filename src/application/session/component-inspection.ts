@@ -158,19 +158,36 @@ export class ComponentInspectionProjection {
           componentId: component.id,
         });
 
-      const adapter = this.options.adapters.find((candidate) => candidate.supports(component));
-      if (adapter === undefined)
+      const matching = this.options.adapters.filter((candidate) => candidate.supports(component));
+      if (matching.length === 0)
         return err({
           code: "UNSUPPORTED_COMPONENT",
           message: `No adapter supports component ${component.id} (${component.type}).`,
           recoverability: "none",
           componentId: component.id,
         });
-      const existing = groups.find((candidate) => candidate.adapter === adapter);
       const member: AdapterGroupMember = { component, safeDefinition, decision, override };
-      if (existing === undefined) groups.push({ adapter, members: [member] });
-      else existing.members.push(member);
+      // One component can reach several agents, so every adapter that supports it gets a group. Each
+      // adapter owns a different destination, which keeps the one-action-per-destination rule intact.
+      for (const adapter of matching) {
+        const existing = groups.find((candidate) => candidate.adapter === adapter);
+        if (existing === undefined) groups.push({ adapter, members: [member] });
+        else existing.members.push(member);
+      }
     }
+
+    const projectedByComponent = new Map<string, ProposedOperation[]>();
+    const participated = new Set<string>();
+    const destinationsByComponent = new Map<string, import("../../domain/index.js").SafeProjectPath[]>();
+    const presenceByComponent = new Map<string, boolean>();
+    const orderedMembers: AdapterGroupMember[] = [];
+    const seenMembers = new Set<string>();
+    for (const group of groups)
+      for (const member of group.members)
+        if (!seenMembers.has(member.component.id)) {
+          seenMembers.add(member.component.id);
+          orderedMembers.push(member);
+        }
 
     for (const group of groups) {
       // Components served by one adapter may share a destination, and a plan admits at most one
@@ -199,35 +216,57 @@ export class ComponentInspectionProjection {
           });
         destinationsSeen.add(String(operation.destination));
       }
-      if (projected.length === 0)
-        // An adapter yields nothing when it cannot interpret the current destination, for example a
-        // configuration file the user broke by hand. The file is left untouched, but the omission
-        // must be reported instead of finishing as a silent success.
-        for (const member of group.members)
-          warnings.push({
-            code: "COMPONENT_NOT_PROJECTED",
-            message: `El componente ${member.component.id} se omitió: su archivo de configuración destino no pudo interpretarse y se conserva sin cambios.`,
-            componentId: member.component.id,
-          });
+      if (projected.length === 0) continue;
 
       for (const member of group.members) {
-        const owned = projected.filter((operation) => operation.componentId === member.component.id);
-        const changes = owned.map((operation) => safeOperation(operation, member.component, member.decision, member.override));
+        const owned = projected.filter(
+          (operation) => operation.componentId === member.component.id || (operation.componentIds ?? []).includes(member.component.id),
+        );
         const inspection = await group.adapter.inspect({ root: input.root, stack: input.stack }, member.component);
-        const destinations = [...new Set([...inspection.destinations, ...changes.map((change) => change.destination)])];
-        components.push({
-          component: member.safeDefinition,
-          compatibility: member.decision,
-          incompatibleOverride: member.override,
-          present: inspection.present,
-          destinations,
-          fileChanges: changes,
-          externalOperations: [],
-        });
-        fileChanges.push(...changes);
-        for (const operation of owned)
-          if (operation.content !== undefined) fileContents.set(operation.id, new TextEncoder().encode(operation.content));
+        const destinations = destinationsByComponent.get(member.component.id) ?? [];
+        for (const destination of [...inspection.destinations, ...owned.map((operation) => operation.destination)])
+          if (!destinations.some((known) => String(known) === String(destination))) destinations.push(destination);
+        destinationsByComponent.set(member.component.id, destinations);
+        // A component counts as present only when every adapter that owns it already has it in place.
+        // An adapter that reports no destination is not applicable to this run and does not vote.
+        if (inspection.destinations.length > 0) {
+          const previous = presenceByComponent.get(member.component.id);
+          presenceByComponent.set(member.component.id, previous === undefined ? inspection.present : previous && inspection.present);
+        }
+        if (owned.length === 0) continue;
+        participated.add(member.component.id);
+        const collected = projectedByComponent.get(member.component.id) ?? [];
+        collected.push(...owned.filter((operation) => operation.componentId === member.component.id));
+        projectedByComponent.set(member.component.id, collected);
       }
+    }
+
+    for (const member of orderedMembers) {
+      const owned = projectedByComponent.get(member.component.id) ?? [];
+      if (!participated.has(member.component.id)) {
+        // Nothing was projected for this component by any adapter: either every target agent lacks the
+        // capability, or the destination file could not be interpreted. The file is left untouched, but
+        // the omission must be reported instead of finishing as a silent success.
+        warnings.push({
+          code: "COMPONENT_NOT_PROJECTED",
+          message: `El componente ${member.component.id} se omitió: ningún agente configurado pudo aplicarlo o su archivo de configuración destino no pudo interpretarse y se conserva sin cambios.`,
+          componentId: member.component.id,
+        });
+        continue;
+      }
+      const changes = owned.map((operation) => safeOperation(operation, member.component, member.decision, member.override));
+      components.push({
+        component: member.safeDefinition,
+        compatibility: member.decision,
+        incompatibleOverride: member.override,
+        present: presenceByComponent.get(member.component.id) === true,
+        destinations: destinationsByComponent.get(member.component.id) ?? [],
+        fileChanges: changes,
+        externalOperations: [],
+      });
+      fileChanges.push(...changes);
+      for (const operation of owned)
+        if (operation.content !== undefined) fileContents.set(operation.id, new TextEncoder().encode(operation.content));
     }
     return ok({ components, fileChanges, externalOperations, warnings, fileContents });
   }

@@ -52,7 +52,9 @@ describe("agent hook definition validation", () => {
   it("emits a canonical document and omits an absent matcher", () => {
     expect(agentHookModel(hook)).toEqual({
       version: "v1",
-      hooks: [{ name: "Lint on save", trigger: "PostFileSave", matcher: "\\.ts$", action: { type: "agent", prompt: "Lint the saved file." } }],
+      hooks: [
+        { name: "Lint on save", trigger: "PostFileSave", matcher: "\\.ts$", action: { type: "agent", prompt: "Lint the saved file." } },
+      ],
     });
     const withoutMatcher = agentHookModel({ ...hook, matcher: undefined });
     expect(JSON.stringify(withoutMatcher)).not.toContain("matcher");

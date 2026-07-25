@@ -22,16 +22,74 @@ export type {
 export {
   AGENTS_RULES_PATH,
   AGENT_RULES_PATH,
+  CLAUDE_RULES_PATH,
+  KIRO_STEERING_PATH,
   AgentsRuleAdapter,
   AgentRulesAdapter,
   adaptAgentsDocument,
   createAgentsRuleAdapter,
+  createSharedAgentsRuleAdapter,
+  createClaudeRulesAdapter,
+  createKiroSteeringAdapter,
   normalizeRuleContent,
   ruleBeginMarker,
   ruleEndMarker,
   agentRuleAdapter,
 } from "./agents-rules-adapter.js";
-export type { AgentRuleDefinition, AgentRuleComponentDefinition, AgentsRuleAdaptation, RuleConflict } from "./agents-rules-adapter.js";
+export type {
+  AgentRuleDefinition,
+  AgentRuleComponentDefinition,
+  AgentRulesAdapterOptions,
+  AgentsRuleAdaptation,
+  RuleConflict,
+} from "./agents-rules-adapter.js";
+export {
+  DetectedAgentTargetResolver,
+  FixedAgentTargetResolver,
+  createAgentTargetResolver,
+  createFixedAgentTargetResolver,
+} from "./agent-targets.js";
+export type { AgentTargetResolver } from "./agent-targets.js";
+export {
+  CLAUDE_MCP_PATH,
+  OPENCODE_CONFIG_PATH,
+  OPENCODE_CONFIG_SCHEMA,
+  McpJsonWorkspaceAdapter,
+  adaptMcpJsonDocument,
+  claudeCodeMcpDialect,
+  createClaudeCodeMcpAdapter,
+  createOpenCodeMcpAdapter,
+  mcpEnvironmentNames,
+  mergeMcpJsonServers,
+  openCodeMcpDialect,
+} from "./mcp-json-adapter.js";
+export type { McpJsonAdaptation, McpJsonDialect } from "./mcp-json-adapter.js";
+export { CODEX_CONFIG_PATH, CodexMcpAdapter, adaptCodexMcpDocument, codexServerTable, createCodexMcpAdapter } from "./codex-mcp-adapter.js";
+export type { CodexMcpAdaptation } from "./codex-mcp-adapter.js";
+export {
+  CLAUDE_COMMANDS_PATH,
+  OPENCODE_COMMANDS_PATH,
+  MarkdownCommandAdapter,
+  claudeCodeCommandProfile,
+  createClaudeCodeCommandAdapter,
+  createOpenCodeCommandAdapter,
+  openCodeCommandProfile,
+  renderMarkdownCommand,
+} from "./markdown-command-adapter.js";
+export type { MarkdownCommandProfile } from "./markdown-command-adapter.js";
+export {
+  CLAUDE_SETTINGS_PATH,
+  CODEX_HOOKS_PATH,
+  HooksJsonAdapter,
+  adaptHooksJsonDocument,
+  claudeCodeHooksProfile,
+  codexHooksProfile,
+  createClaudeCodeHookAdapter,
+  createCodexHookAdapter,
+  hookGroupModel,
+  hookOwnershipMarker,
+} from "./hooks-json-adapter.js";
+export type { HooksJsonAdaptation, HooksJsonProfile } from "./hooks-json-adapter.js";
 export {
   KIRO_COMMANDS_INDEX_PATH,
   KIRO_PROMPTS_PATH,

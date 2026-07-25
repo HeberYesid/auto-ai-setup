@@ -1,6 +1,8 @@
 # Product
 
-`auto-ai-setup` is a local, interactive CLI for preparing new or existing projects for AI-agent workflows. It analyzes local project evidence, detects the technology stack, recommends related CLIs, and lets users configure MCP servers, agent rules, and agent commands. It may also offer the official `npx autoskills` interactive TUI as a separate Skill-management handoff.
+`auto-ai-setup` is a local, interactive CLI for preparing new or existing projects for AI-agent workflows. It analyzes local project evidence, detects the technology stack, recommends related CLIs, and lets users configure MCP servers, agent rules, agent commands, and agent hooks for Kiro, Claude Code, OpenAI Codex, and OpenCode. It may also offer the official `npx autoskills` interactive TUI as a separate Skill-management handoff.
+
+Each agent is configured through its own documented surface, and the normative support matrix — including capabilities and agents deferred to later phases — lives in `.kiro/specs/auto-ai-setup/agents.md`.
 
 The MVP runs through `npx auto-ai-setup` and supports automatic or manual selection for changes owned by this CLI. It must show a deterministic change plan and obtain explicit approval before modifying the project. Those local changes are recoverable. The `autoskills` TUI is independently authorized before launch and is outside the `auto-ai-setup` plan, transaction, rollback, ownership, and idempotency guarantees.
 

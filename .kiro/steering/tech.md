@@ -4,7 +4,7 @@
 - TypeScript in strict mode, compiled to `dist/`.
 - Node.js 22+ runtime; publish as an ESM npm package with a portable shebang and `package.json#bin`.
 - Vitest for unit/integration tests and fast-check for property-based tests.
-- JSON is the only structured configuration format written by the MVP.
+- JSON is the only structured configuration format the MVP parses and serializes. The single exception is Codex's `.codex/config.toml`, which is the only place Codex reads MCP servers from: it is edited as marker-delimited text blocks, never parsed as TOML, so everything outside the managed markers is preserved byte for byte.
 
 ## Architecture and style
 - Use hexagonal/layered architecture: `cli` -> `application` -> pure `domain`; infrastructure implements ports.

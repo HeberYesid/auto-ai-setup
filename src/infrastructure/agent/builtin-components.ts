@@ -373,7 +373,7 @@ export const builtinAgentComponents: readonly ComponentDefinition[] = [
       content: [
         "## Next.js",
         "",
-        "- Un componente es Server Component por defecto; añade `\"use client\"` solo cuando haga falta estado, efectos o APIs del navegador.",
+        '- Un componente es Server Component por defecto; añade `"use client"` solo cuando haga falta estado, efectos o APIs del navegador.',
         "- No importes código de servidor (secretos, acceso a base de datos) desde un componente cliente.",
         "- Mantén el patrón de routing que ya usa el proyecto (App Router o Pages Router); no mezcles ambos.",
         "- Los secretos van en variables de entorno de servidor; solo lo prefijado con `NEXT_PUBLIC_` llega al navegador.",

@@ -201,6 +201,7 @@ export class KiroCommandAdapter implements ComponentAdapter<KiroCommandComponent
   public constructor(
     private readonly fileSystem: FileSystemPort,
     codec: StructuredConfigCodec<JsonObject> = new JsonStructuredConfigCodec<JsonObject>(),
+    private readonly targets?: import("./agent-targets.js").AgentTargetResolver,
   ) {
     const indexPath = asSafeProjectPath(KIRO_COMMANDS_INDEX_PATH);
     if (!indexPath.ok) throw new Error("Invalid Kiro command adapter destination");
@@ -212,7 +213,13 @@ export class KiroCommandAdapter implements ComponentAdapter<KiroCommandComponent
     return component.type === "agent-command" && component.command !== undefined && isValidId(component.command.id);
   }
 
+  /** Without a resolver the adapter is unconditional, which keeps a Kiro-only setup simple. */
+  private async applies(): Promise<boolean> {
+    return this.targets === undefined || (await this.targets.handles("kiro", "agent-command"));
+  }
+
   public async inspect(_ctx: InspectionContext, component: KiroCommandComponentDefinition): Promise<CurrentComponentState> {
+    if (!(await this.applies())) return { present: false, destinations: [] };
     const sources = await this.readSources(component.command.id);
     if (!sources.ok) return { present: false, destinations: [this.indexDestination] };
     const adapted = adaptKiroCommandDocuments(sources.value.prompt, sources.value.index, component.command, this.codec);
@@ -234,6 +241,7 @@ export class KiroCommandAdapter implements ComponentAdapter<KiroCommandComponent
     _ctx: PlanningContext,
     components: readonly KiroCommandComponentDefinition[],
   ): Promise<readonly ProposedOperation[]> {
+    if (!(await this.applies())) return [];
     const selected = [...components].filter((component) => this.supports(component)).sort((left, right) => left.id.localeCompare(right.id));
     const primary = selected[0];
     if (primary === undefined) return [];
@@ -267,7 +275,7 @@ export class KiroCommandAdapter implements ComponentAdapter<KiroCommandComponent
       const promptDestination = this.promptDestinationFor(component.command.id);
       const promptAction = adapted.value.promptChanged ? (sources.value.prompt.text.length === 0 ? "create" : "modify") : "preserve";
       operations.push({
-        id: `command-prompt:${component.id}`,
+        id: `command-prompt:kiro:${component.id}`,
         componentId: component.id,
         destination: promptDestination,
         action: promptAction,
@@ -339,7 +347,10 @@ export class KiroCommandAdapter implements ComponentAdapter<KiroCommandComponent
   }
 }
 
-export const createKiroCommandAdapter = (fileSystem: FileSystemPort, codec?: StructuredConfigCodec<JsonObject>): KiroCommandAdapter =>
-  new KiroCommandAdapter(fileSystem, codec);
+export const createKiroCommandAdapter = (
+  fileSystem: FileSystemPort,
+  codec?: StructuredConfigCodec<JsonObject>,
+  targets?: import("./agent-targets.js").AgentTargetResolver,
+): KiroCommandAdapter => new KiroCommandAdapter(fileSystem, codec, targets);
 export const KiroCommandWorkspaceAdapter = KiroCommandAdapter;
 export const kiroCommandAdapter = KiroCommandAdapter;

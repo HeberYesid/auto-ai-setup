@@ -3,7 +3,17 @@ import { createRequire } from "node:module";
 import { stdin, stdout, stderr } from "node:process";
 import type { CanonicalPath } from "../../domain/index.js";
 import {
-  createAgentsRuleAdapter,
+  createAgentTargetResolver,
+  createClaudeCodeCommandAdapter,
+  createClaudeCodeHookAdapter,
+  createClaudeCodeMcpAdapter,
+  createClaudeRulesAdapter,
+  createCodexHookAdapter,
+  createCodexMcpAdapter,
+  createKiroSteeringAdapter,
+  createOpenCodeCommandAdapter,
+  createOpenCodeMcpAdapter,
+  createSharedAgentsRuleAdapter,
   createBuiltinAgentComponents,
   createKiroCommandAdapter,
   createKiroHookAdapter,
@@ -72,13 +82,25 @@ export const createDefaultCliDependencies = (): { readonly terminal: NodeCliTerm
     approvalPolicy: new ImmutableApprovalPolicy(),
     projectionFactory: (root) => {
       const fileSystem = createRootFileSystem(root);
+      // One resolver per projection: the target agents must be identical for every adapter in a run,
+      // otherwise the plan would not be deterministic.
+      const targets = createAgentTargetResolver(fileSystem);
       return new ComponentInspectionProjection({
         fileSystem,
         adapters: [
-          createKiroMcpWorkspaceAdapter(fileSystem),
-          createAgentsRuleAdapter(fileSystem),
-          createKiroCommandAdapter(fileSystem),
-          createKiroHookAdapter(fileSystem),
+          createKiroMcpWorkspaceAdapter(fileSystem, undefined, targets),
+          createClaudeCodeMcpAdapter(fileSystem, targets),
+          createCodexMcpAdapter(fileSystem, targets),
+          createOpenCodeMcpAdapter(fileSystem, targets),
+          createSharedAgentsRuleAdapter(fileSystem, targets),
+          createClaudeRulesAdapter(fileSystem, targets),
+          createKiroSteeringAdapter(fileSystem, targets),
+          createKiroCommandAdapter(fileSystem, undefined, targets),
+          createClaudeCodeCommandAdapter(fileSystem, targets),
+          createOpenCodeCommandAdapter(fileSystem, targets),
+          createKiroHookAdapter(fileSystem, undefined, targets),
+          createClaudeCodeHookAdapter(fileSystem, targets),
+          createCodexHookAdapter(fileSystem, targets),
         ],
       });
     },

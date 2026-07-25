@@ -311,6 +311,7 @@ export class KiroMcpWorkspaceAdapter implements ComponentAdapter<KiroMcpComponen
   public constructor(
     private readonly fileSystem: FileSystemPort,
     codec: StructuredConfigCodec<JsonObject> = new JsonStructuredConfigCodec<JsonObject>(),
+    private readonly targets?: import("./agent-targets.js").AgentTargetResolver,
   ) {
     this.codec = codec;
     const destination = asSafeProjectPath(KIRO_MCP_SETTINGS_PATH);
@@ -322,7 +323,13 @@ export class KiroMcpWorkspaceAdapter implements ComponentAdapter<KiroMcpComponen
     return component.type === "mcp-server" && component.mcp !== undefined;
   }
 
+  /** Without a resolver the adapter is unconditional, which keeps a Kiro-only setup simple. */
+  private async applies(): Promise<boolean> {
+    return this.targets === undefined || (await this.targets.handles("kiro", "mcp-server"));
+  }
+
   public async inspect(_ctx: InspectionContext, component: KiroMcpComponentDefinition): Promise<CurrentComponentState> {
+    if (!(await this.applies())) return { present: false, destinations: [] };
     const source = await this.readSource();
     if (!source.ok) return { present: false, destinations: [] };
     const parsed = this.codec.parse(source.value);
@@ -345,6 +352,7 @@ export class KiroMcpWorkspaceAdapter implements ComponentAdapter<KiroMcpComponen
    * destination, which a change plan rejects.
    */
   public async proposeAll(_ctx: PlanningContext, components: readonly KiroMcpComponentDefinition[]): Promise<readonly ProposedOperation[]> {
+    if (!(await this.applies())) return [];
     const selected = [...components].sort((left, right) => left.id.localeCompare(right.id));
     if (selected.length === 0) return [];
     const primary = selected[0] as KiroMcpComponentDefinition;
@@ -363,7 +371,7 @@ export class KiroMcpWorkspaceAdapter implements ComponentAdapter<KiroMcpComponen
     const serverIds = selected.map((component) => component.mcp.id).join(", ");
     return [
       {
-        id: `mcp:${selected.map((component) => component.id).join("+")}`,
+        id: `mcp:kiro:${selected.map((component) => component.id).join("+")}`,
         componentId: primary.id,
         componentIds: selected.map((component) => component.id),
         destination: this.destination,
@@ -404,6 +412,7 @@ export class KiroMcpWorkspaceAdapter implements ComponentAdapter<KiroMcpComponen
 export const createKiroMcpWorkspaceAdapter = (
   fileSystem: FileSystemPort,
   codec?: StructuredConfigCodec<JsonObject>,
-): KiroMcpWorkspaceAdapter => new KiroMcpWorkspaceAdapter(fileSystem, codec);
+  targets?: import("./agent-targets.js").AgentTargetResolver,
+): KiroMcpWorkspaceAdapter => new KiroMcpWorkspaceAdapter(fileSystem, codec, targets);
 export const kiroMcpWorkspaceAdapter = KiroMcpWorkspaceAdapter;
 export type { ManagedPatch };

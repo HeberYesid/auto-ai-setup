@@ -1,4 +1,5 @@
 import type {
+  AgentId,
   ComponentAdapter,
   ComponentDefinition,
   CurrentComponentState,
@@ -14,9 +15,12 @@ import type {
   SourceDocument,
 } from "../../domain/index.js";
 import { asSafeProjectPath, err, ok } from "../../domain/index.js";
+import type { AgentTargetResolver } from "./agent-targets.js";
 
 export const AGENTS_RULES_PATH = "AGENTS.md";
 export const AGENT_RULES_PATH = AGENTS_RULES_PATH;
+export const CLAUDE_RULES_PATH = "CLAUDE.md";
+export const KIRO_STEERING_PATH = ".kiro/steering/auto-ai-setup.md";
 
 export interface AgentRuleDefinition {
   readonly id: string;
@@ -155,20 +159,50 @@ export const adaptAgentsDocument = (source: SourceDocument, definition: AgentRul
   });
 };
 
+/**
+ * Where the managed rule blocks are written and which agents justify writing them. The same
+ * marker-based document works for every markdown rules surface, so the destination is configuration
+ * instead of a new adapter: `AGENTS.md` for the agents that read it natively, `CLAUDE.md` for Claude
+ * Code, and a steering file for Kiro.
+ */
+export interface AgentRulesAdapterOptions {
+  readonly destination?: string;
+  /** Agents that read this destination. The adapter proposes nothing when none of them is targeted. */
+  readonly agents?: readonly AgentId[];
+  readonly targets?: AgentTargetResolver;
+}
+
 export class AgentsRuleAdapter implements ComponentAdapter<AgentRuleComponentDefinition> {
   private readonly destination: SafeProjectPath;
+  private readonly destinationPath: string;
+  private readonly agents: readonly AgentId[];
+  private readonly targets: AgentTargetResolver | undefined;
 
-  public constructor(private readonly fileSystem: FileSystemPort) {
-    const destination = asSafeProjectPath(AGENTS_RULES_PATH);
+  public constructor(
+    private readonly fileSystem: FileSystemPort,
+    options: AgentRulesAdapterOptions = {},
+  ) {
+    this.destinationPath = options.destination ?? AGENTS_RULES_PATH;
+    const destination = asSafeProjectPath(this.destinationPath);
     if (!destination.ok) throw new Error(destination.error.message);
     this.destination = destination.value;
+    this.agents = options.agents ?? [];
+    this.targets = options.targets;
   }
 
   public supports(component: AgentRuleComponentDefinition): boolean {
     return component.type === "agent-rule" && component.rule !== undefined;
   }
 
+  /** Without a resolver the adapter is unconditional, which keeps a single-destination setup simple. */
+  private async applies(): Promise<boolean> {
+    if (this.targets === undefined) return true;
+    for (const agent of this.agents) if (await this.targets.handles(agent, "agent-rule")) return true;
+    return false;
+  }
+
   public async inspect(_ctx: InspectionContext, component: AgentRuleComponentDefinition): Promise<CurrentComponentState> {
+    if (!(await this.applies())) return { present: false, destinations: [] };
     const source = await this.readSource();
     if (!source.ok) return { present: false, destinations: [this.destination] };
     const adapted = adaptAgentsDocument(source.value, component.rule);
@@ -187,6 +221,7 @@ export class AgentsRuleAdapter implements ComponentAdapter<AgentRuleComponentDef
     _ctx: PlanningContext,
     components: readonly AgentRuleComponentDefinition[],
   ): Promise<readonly ProposedOperation[]> {
+    if (!(await this.applies())) return [];
     const selected = [...components].sort((left, right) => left.id.localeCompare(right.id));
     const primary = selected[0];
     if (primary === undefined) return [];
@@ -207,15 +242,15 @@ export class AgentsRuleAdapter implements ComponentAdapter<AgentRuleComponentDef
     const ruleIds = selected.map((component) => component.rule.id).join(", ");
     return [
       {
-        id: `rule:${selected.map((component) => component.id).join("+")}`,
+        id: `rule:${this.destinationPath}:${selected.map((component) => component.id).join("+")}`,
         componentId: primary.id,
         componentIds: selected.map((component) => component.id),
         destination: this.destination,
         action,
         reason:
           selected.length === 1
-            ? `Add or update the managed agent rule ${ruleIds} in AGENTS.md.`
-            : `Add or update the managed agent rules ${ruleIds} in AGENTS.md.`,
+            ? `Add or update the managed agent rule ${ruleIds} in ${this.destinationPath}.`
+            : `Add or update the managed agent rules ${ruleIds} in ${this.destinationPath}.`,
         conflict,
         preview: redactedText(text),
         ...(action === "preserve" ? {} : { content: text }),
@@ -239,11 +274,25 @@ export class AgentsRuleAdapter implements ComponentAdapter<AgentRuleComponentDef
       if (!(await this.fileSystem.exists(this.destination))) return ok({ path: this.destination, text: "", format: "json" });
       return ok({ path: this.destination, text: new TextDecoder().decode(await this.fileSystem.read(this.destination)), format: "json" });
     } catch (cause: unknown) {
-      return err(configError(cause instanceof Error ? cause.message : "Unable to read AGENTS.md"));
+      return err(configError(cause instanceof Error ? cause.message : `Unable to read ${this.destinationPath}`, this.destinationPath));
     }
   }
 }
 
-export const createAgentsRuleAdapter = (fileSystem: FileSystemPort): AgentsRuleAdapter => new AgentsRuleAdapter(fileSystem);
+export const createAgentsRuleAdapter = (fileSystem: FileSystemPort, options?: AgentRulesAdapterOptions): AgentsRuleAdapter =>
+  new AgentsRuleAdapter(fileSystem, options);
+
+/** `AGENTS.md`: the portable contract read natively by Codex and OpenCode. */
+export const createSharedAgentsRuleAdapter = (fileSystem: FileSystemPort, targets: AgentTargetResolver): AgentsRuleAdapter =>
+  new AgentsRuleAdapter(fileSystem, { destination: AGENTS_RULES_PATH, agents: ["codex", "opencode"], targets });
+
+/** `CLAUDE.md`: Claude Code loads this file, not `AGENTS.md`. */
+export const createClaudeRulesAdapter = (fileSystem: FileSystemPort, targets: AgentTargetResolver): AgentsRuleAdapter =>
+  new AgentsRuleAdapter(fileSystem, { destination: CLAUDE_RULES_PATH, agents: ["claude-code"], targets });
+
+/** Kiro reads project rules from steering files rather than from `AGENTS.md`. */
+export const createKiroSteeringAdapter = (fileSystem: FileSystemPort, targets: AgentTargetResolver): AgentsRuleAdapter =>
+  new AgentsRuleAdapter(fileSystem, { destination: KIRO_STEERING_PATH, agents: ["kiro"], targets });
+
 export const AgentRulesAdapter = AgentsRuleAdapter;
 export const agentRuleAdapter = AgentsRuleAdapter;
