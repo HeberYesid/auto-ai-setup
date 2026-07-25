@@ -82,6 +82,10 @@ const normalizeFileChange = (change: FileChange, redactor: SecretRedactor): File
   return {
     id: change.id,
     componentId: change.componentId,
+    // Canonicalized so a shared destination hashes identically regardless of selection order.
+    ...(change.componentIds === undefined
+      ? {}
+      : { componentIds: [...new Set(change.componentIds)].sort((left, right) => left.localeCompare(right)) }),
     ...(change.origin === undefined ? {} : { origin: text(redactor.redact(change.origin)) }),
     destination: change.destination,
     action,

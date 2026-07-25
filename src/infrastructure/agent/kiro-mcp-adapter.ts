@@ -258,6 +258,7 @@ export class KiroMcpWorkspaceAdapter implements ComponentAdapter<KiroMcpComponen
       {
         id: `mcp:${selected.map((component) => component.id).join("+")}`,
         componentId: primary.id,
+        componentIds: selected.map((component) => component.id),
         destination: this.destination,
         action,
         reason:

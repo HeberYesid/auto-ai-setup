@@ -43,6 +43,8 @@ export interface AtomicFileSystemPort extends FileSystemPort {
   writeAtomic?(path: SafeProjectPath, content: Uint8Array): Promise<Result<void>>;
   createExclusive?(path: SafeProjectPath, content: Uint8Array): Promise<Result<void>>;
   fsync?(path: SafeProjectPath): Promise<Result<void>>;
+  /** Removes an empty directory. Implementations must not remove a directory recursively. */
+  removeDirectory?(path: SafeProjectPath): Promise<Result<void>>;
 }
 
 export interface TransactionEngineOptions {
@@ -201,7 +203,7 @@ export class PersistentTransactionEngine implements TransactionEngine {
       if (!state.ok) return await this.failAndRollback(journal, receipts, state.error.message);
       journal = { ...journal, phase: "committed" };
       await this.saveJournal(journal);
-      await this.cleanupArtifacts(journal);
+      await this.discardTerminalJournal(journal);
       await this.releaseLock(plan.runId);
       return {
         status: "committed",
@@ -251,7 +253,7 @@ export class PersistentTransactionEngine implements TransactionEngine {
     }
     current = { ...current, phase: "rolled-back", manualReviewPaths: [] };
     await this.saveJournal(current);
-    await this.cleanupArtifacts(current);
+    await this.discardTerminalJournal(current);
     await this.releaseLock(journal.runId);
     return { status: "restored", exitCode: 1, restored: result.restored, manualReviewPaths: [], errors: result.errors };
   }
@@ -371,9 +373,10 @@ export class PersistentTransactionEngine implements TransactionEngine {
     if (this.options.stateStore === undefined) return ok(undefined);
     const loaded = await this.options.stateStore.load();
     if (!loaded.ok) return loaded;
-    const definitions = new Map(
-      (this.options.componentDefinitions ?? []).map((component) => [`${component.type}:${component.id}`, component]),
-    );
+    // Component ids are unique, so the definition is looked up by id. Keying by `type:id` forced the
+    // caller to already know the type and made every unknown component fall back to one arbitrary
+    // type, which then got written into the ownership record.
+    const definitions = new Map((this.options.componentDefinitions ?? []).map((component) => [String(component.id), component]));
     const records = new Map<
       string,
       { component: Pick<ComponentDefinition, "id" | "type" | "source">; destinations: SafeProjectPath[]; contentDigest: Sha256 }
@@ -381,21 +384,27 @@ export class PersistentTransactionEngine implements TransactionEngine {
     for (const change of plan.fileChanges.filter(
       (item) => plan.approvedFileChangeIds.includes(item.id) && item.action !== "preserve" && item.action !== "skip",
     )) {
-      const previous =
-        loaded.value === undefined
-          ? undefined
-          : Object.entries(loaded.value.components).find(([key]) => key.endsWith(`:${change.componentId}`))?.[1];
-      const definition = definitions.get(`${previous?.type ?? "agent-command"}:${change.componentId}`);
-      const type = definition?.type ?? previous?.type ?? "agent-command";
-      const source = definition?.source ?? { kind: "builtin" as const, origin: change.origin ?? "plan" };
-      const component = { id: change.componentId, type, source };
-      const key = `${type}:${change.componentId}`;
-      const existing = records.get(key);
-      records.set(key, {
-        component,
-        destinations: [...(existing?.destinations ?? []), change.destination],
-        contentDigest: change.afterDigest ?? existing?.contentDigest ?? ("0".repeat(64) as Sha256),
-      });
+      const content = this.contents.get(change.id);
+      // One operation can serve several components when they share a destination; each of them owns
+      // the result, so each one is recorded.
+      for (const componentId of change.componentIds ?? [change.componentId]) {
+        const previous =
+          loaded.value === undefined
+            ? undefined
+            : Object.entries(loaded.value.components).find(([key]) => key.endsWith(`:${componentId}`))?.[1];
+        const definition = definitions.get(String(componentId));
+        const type = definition?.type ?? previous?.type ?? "agent-command";
+        const source = definition?.source ?? { kind: "builtin" as const, origin: change.origin ?? "plan" };
+        const key = `${type}:${componentId}`;
+        const existing = records.get(key);
+        records.set(key, {
+          component: { id: componentId, type, source },
+          destinations: [...(existing?.destinations ?? []), change.destination],
+          // The applied bytes are the authority for the digest; the plan rarely carries one.
+          contentDigest:
+            change.afterDigest ?? (content === undefined ? (existing?.contentDigest ?? ("0".repeat(64) as Sha256)) : digest(content)),
+        });
+      }
     }
     const state = mergeManagedState(loaded.value, [...records.values()], plan.runId);
     const saved = await this.options.stateStore.save(state);
@@ -425,7 +434,7 @@ export class PersistentTransactionEngine implements TransactionEngine {
         manualReviewPaths: result.manualReviewPaths,
         journal: result.journal,
       };
-    await this.cleanupArtifacts(result.journal);
+    await this.discardTerminalJournal(result.journal);
     await this.releaseLock(journal.runId);
     return {
       status: "rolled-back",
@@ -535,6 +544,28 @@ export class PersistentTransactionEngine implements TransactionEngine {
       } catch {
         /* preserve the terminal journal */
       }
+    }
+  }
+
+  /**
+   * Discards the run directory once the transaction reached a terminal phase.
+   *
+   * A journal is persisted so an interrupted transaction can be recovered. Once the phase is
+   * terminal and the backups are gone it has no recovery value left, and keeping it made every run
+   * leave a directory behind: the project accumulated them without bound and the recovery gate had to
+   * read every one of them on each subsequent run. A journal with paths awaiting manual review is
+   * evidence and is always kept. Directory removal is non-recursive, so it can never reach content
+   * this engine did not create.
+   */
+  private async discardTerminalJournal(journal: RecoveryJournal): Promise<void> {
+    await this.cleanupArtifacts(journal);
+    if (journal.manualReviewPaths.length > 0) return;
+    try {
+      await this.fileSystem.remove(journalPath(journal.runId));
+      await this.fileSystem.removeDirectory?.(`${TRANSACTION_ROOT}/${journal.runId}/backups` as SafeProjectPath);
+      await this.fileSystem.removeDirectory?.(`${TRANSACTION_ROOT}/${journal.runId}` as SafeProjectPath);
+    } catch {
+      /* a directory left behind is inert; the transaction outcome is unaffected */
     }
   }
 

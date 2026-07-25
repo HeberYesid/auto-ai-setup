@@ -209,6 +209,7 @@ export class AgentsRuleAdapter implements ComponentAdapter<AgentRuleComponentDef
       {
         id: `rule:${selected.map((component) => component.id).join("+")}`,
         componentId: primary.id,
+        componentIds: selected.map((component) => component.id),
         destination: this.destination,
         action,
         reason:

@@ -37,6 +37,11 @@ export interface ComponentDefinition {
 export interface ProposedOperation {
   readonly id: string;
   readonly componentId: ComponentId;
+  /**
+   * Every component served by this operation, when several of them share one destination. The
+   * ownership record needs all of them; `componentId` remains the primary one for presentation.
+   */
+  readonly componentIds?: readonly ComponentId[];
   /** Canonical source/provenance copied into the plan without secret values. */
   readonly origin?: string;
   readonly destination: SafeProjectPath;
@@ -84,6 +89,8 @@ export interface ChangePlan {
 export interface FileChange {
   readonly id: string;
   readonly componentId: ComponentId;
+  /** Every component served by this change when several of them share one destination. */
+  readonly componentIds?: readonly ComponentId[];
   /** Canonical source/provenance copied into the plan without secret values. */
   readonly origin?: string;
   readonly destination: SafeProjectPath;

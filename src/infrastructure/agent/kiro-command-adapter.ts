@@ -284,6 +284,7 @@ export class KiroCommandAdapter implements ComponentAdapter<KiroCommandComponent
     operations.push({
       id: `command-index:${selected.map((component) => component.id).join("+")}`,
       componentId: primary.id,
+      componentIds: selected.map((component) => component.id),
       destination: this.indexDestination,
       action: indexAction,
       reason:

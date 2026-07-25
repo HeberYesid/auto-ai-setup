@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { dirname, join, relative, resolve, sep } from "node:path";
-import { access, mkdir, open, readdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
+import { access, mkdir, open, readdir, readFile, rename, rm, rmdir, stat, unlink, writeFile } from "node:fs/promises";
 import type { CanonicalPath, FileDescriptor, PlanningError, ProjectRelativePath, Result, SafeProjectPath } from "../../domain/index.js";
 import { asSafeProjectPath, err, ok } from "../../domain/index.js";
 import type { AtomicFileSystemPort } from "../transaction/engine.js";
@@ -113,6 +113,21 @@ export class NodeTransactionalFileSystem implements AtomicFileSystemPort {
       return ok(undefined);
     } catch (cause) {
       return ioError(`Unable to remove ${path}: ${safeCause(cause)}`);
+    }
+  }
+
+  /**
+   * Removes a directory only when it is already empty. Recursion is deliberately absent so this
+   * cannot delete project content, even if it were ever called with an unexpected path.
+   */
+  public async removeDirectory(path: SafeProjectPath): Promise<Result<void>> {
+    const target = await this.checkedAbsolute(path);
+    if (!target.ok) return target;
+    try {
+      await rmdir(target.value);
+      return ok(undefined);
+    } catch (cause) {
+      return ioError(`Unable to remove directory ${path}: ${safeCause(cause)}`);
     }
   }
 
