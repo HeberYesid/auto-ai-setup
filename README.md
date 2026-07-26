@@ -73,11 +73,43 @@ No requiere instalación global. La CLI solicita el proyecto si no se indica `--
 | `-h`, `--help`        | Muestra la ayuda de uso.                                                        |
 | `-V`, `--version`     | Muestra la versión.                                                             |
 
+Cualquier argumento no listado se rechaza con código `2` y se imprime la ayuda en `stderr`.
+
 Una ejecución automatizada nunca puede aprobar una mutación: la aprobación explícita exige una
 persona en una terminal, así que `--non-interactive` y `--json` calculan y reportan el plan sin
 modificar el proyecto. Ambas requieren `--mode auto`, porque el modo manual necesita una selección
 interactiva. La ayuda, la versión y los errores de invocación se escriben en `stderr`, de modo que
 `stdout` conserva únicamente el valor JSON en el modo procesable.
+
+### Resolución del modo de invocación
+
+El modo se decide antes de construir cualquier objeto de terminal, con esta precedencia:
+
+1. `--json` → modo JSON.
+2. `--non-interactive` → modo no interactivo.
+3. `stdin` redirigido → modo no interactivo.
+4. `stdout` redirigido → modo no interactivo.
+5. TTY de entrada y salida → modo interactivo.
+
+En modo no interactivo, `--path` y `--mode` son obligatorios (salvo con `--recover`, que solo
+reproduce un journal persistido) y su ausencia termina de inmediato con código `2` sin tocar el
+proyecto.
+
+### Presentación interactiva
+
+Sobre una terminal real la CLI usa una presentación interactiva con navegación por teclado, vista de
+plan paginada, progreso y flujo de aprobación. Las capacidades del terminal se detectan una sola vez
+en el borde de la CLI y, cuando una capacidad no puede determinarse, se trata como no soportada y se
+degrada a texto lineal.
+
+| Variable de entorno          | Efecto                                                |
+| ---------------------------- | ----------------------------------------------------- |
+| `NO_COLOR`                   | Cualquier valor no vacío desactiva color y animación. |
+| `FORCE_COLOR`                | Fuerza color aunque la salida no sea TTY.             |
+| `TERM=dumb`                  | Desactiva color y reposicionamiento de cursor ANSI.   |
+| `AUTO_AI_SETUP_NO_ANIMATION` | Cualquier valor no vacío suprime la animación.        |
+
+La animación también se suprime siempre en modo texto lineal y en modo no interactivo.
 
 ---
 
@@ -98,6 +130,14 @@ npx auto-ai-setup@0.1.0 --path . --mode manual --verbose
 ```
 
 Muestra el inventario completo agrupado por tipo (MCP, reglas, comandos, Skills). Los incompatibles requieren confirmación específica y quedan marcados en el plan.
+
+### Previsualización procesable (sin cambios)
+
+```bash
+npx auto-ai-setup@0.1.0 --path . --mode auto --json
+```
+
+Escribe un único resumen JSON redactado en `stdout` y no modifica el proyecto. Útil en CI para inspeccionar el plan y su hash.
 
 ### Recuperación de transacción incompleta
 
@@ -144,7 +184,8 @@ flowchart LR
     end
 
     subgraph CLI["cli — presentación"]
-        FLAGS[Flag parsing\nTTY & prompts\nRender & exit codes]
+        FLAGS[Flag parsing\nRuteo de invocación\nRender & exit codes]
+        TUI[cli/tui\nSonda de capacidades\nAdaptador de terminal\nBucle interactivo]
     end
 
     subgraph APP["application/session — orquestación"]
@@ -152,12 +193,13 @@ flowchart LR
     end
 
     subgraph DOM["domain — lógica pura"]
-        PROJ[project\nValidación y clasificación]
-        STACK[stack\nDetección y conflictos]
+        PROJ[project\nValidación, evidencia y stack]
+        AG[agent\nMatriz de capacidades\npor agente]
         CAT[catalog\nValidación de Skills]
         PLAN[planning\nPlan determinista + hash]
         CFG[config\nParseo y merge JSON]
         SEC[security\nPolítica de rutas y red]
+        DTUI[tui\nReducer, layout,\nproyección y aprobación]
     end
 
     subgraph INFRA["infrastructure — adaptadores"]
@@ -166,11 +208,15 @@ flowchart LR
         PROC[process\nnpx autoskills\nregistrado]
         TX[transaction\nJournal · commit\nrollback · recovery]
         OBS[observability\nEventos locales\nredactados]
+        TRACE[traceability\nValidación del SDD]
+        BENCH[benchmark\nArnés reproducible]
     end
 
     U --> FLAGS
+    FLAGS --> TUI
     FLAGS --> SM
-    SM --> PROJ & STACK & CAT & PLAN & CFG & SEC
+    TUI --> DTUI
+    SM --> PROJ & AG & CAT & PLAN & CFG & SEC
     SM --> FS & AGENT & PROC & TX & OBS
     TX --> FS
     SM -. autorización\nindependiente .-> AUTOSKILLS([npx autoskills TUI])
@@ -178,20 +224,28 @@ flowchart LR
 
 ### Módulos
 
-| Módulo                             | Responsabilidad                                             |
-| ---------------------------------- | ----------------------------------------------------------- |
-| `src/cli`                          | Flags, TTY, interacción, render y códigos de proceso        |
-| `src/application/session`          | Máquina de estados y coordinación de casos de uso           |
-| `src/domain/project`               | Clasificación nuevo/existente, evidencia, stack, conflictos |
-| `src/domain/catalog`               | Validación de snapshots de Skills de autoskills             |
-| `src/domain/config`                | Parseo, merge, diff y equivalencia de JSON estructurado     |
-| `src/domain/planning`              | Plan determinista, aprobaciones, hash SHA-256               |
-| `src/domain/security`              | Contención de rutas, allowlists, política de red, redacción |
-| `src/infrastructure/fs`            | Escaneo acotado, staging, backups y escrituras atómicas     |
-| `src/infrastructure/agent`         | Adaptadores para Kiro, MCP, `AGENTS.md` y comandos          |
-| `src/infrastructure/process`       | Única invocación registrada: `npx autoskills`               |
-| `src/infrastructure/transaction`   | Journal, prepare/verify/commit/rollback/recovery            |
-| `src/infrastructure/observability` | Eventos locales y render humano con redacción               |
+| Módulo                             | Responsabilidad                                                      |
+| ---------------------------------- | -------------------------------------------------------------------- |
+| `src/cli`                          | Flags, ruteo de invocación, render y códigos de proceso              |
+| `src/cli/tui`                      | Sonda de capacidades, adaptador de terminal, entrada y bucle         |
+| `src/application/session`          | Máquina de estados y coordinación de casos de uso                    |
+| `src/domain/agent`                 | Ids de agente, matriz de capacidades y agentes diferidos             |
+| `src/domain/project`               | Clasificación nuevo/existente, evidencia, stack, conflictos          |
+| `src/domain/catalog`               | Validación de snapshots de Skills de autoskills                      |
+| `src/domain/config`                | Parseo, merge, diff y equivalencia de JSON estructurado              |
+| `src/domain/planning`              | Plan determinista, aprobaciones, hash SHA-256                        |
+| `src/domain/security`              | Contención de rutas, allowlists, política de red, redacción          |
+| `src/domain/tui`                   | Reducer, navegación, layout, proyección, aprobación y progreso puros |
+| `src/domain/observability`         | Modelo de eventos locales                                            |
+| `src/domain/invariants.ts`         | Invariantes compartidas del dominio                                  |
+| `src/infrastructure/fs`            | Escaneo acotado, staging, backups y escrituras atómicas              |
+| `src/infrastructure/agent`         | Adaptadores por agente: MCP, reglas, comandos y hooks                |
+| `src/infrastructure/catalog`       | Integración con autoskills y verificación de Skills                  |
+| `src/infrastructure/process`       | Única invocación registrada: `npx autoskills`                        |
+| `src/infrastructure/transaction`   | Journal, prepare/verify/commit/rollback/recovery                     |
+| `src/infrastructure/observability` | Eventos locales y render humano con redacción                        |
+| `src/infrastructure/traceability`  | Validador de trazabilidad requisito ↔ propiedad ↔ test               |
+| `src/infrastructure/benchmark`     | Arnés de benchmark reproducible                                      |
 
 ---
 
@@ -199,10 +253,12 @@ flowchart LR
 
 - Detecta tecnologías a partir de evidencia local sin enviar el proyecto a servicios remotos.
 - Recomienda CLIs relacionadas con el stack (`gh`, `supabase`, `vercel`, `playwright`), pero no las instala ni ejecuta.
-- Configura servidores MCP de workspace en `.kiro/settings/mcp.json` sin ejecutar los servidores.
-- Gestiona reglas portables en `AGENTS.md` y prompts en `.kiro/prompts/` con un índice JSON local.
+- Configura servidores MCP de workspace para los cuatro agentes en su ruta oficial, sin ejecutar los servidores.
+- Escribe reglas de agente (`.kiro/steering/auto-ai-setup.md`, `CLAUDE.md`, `AGENTS.md`), comandos slash y documentos de hooks según lo que cada agente soporta.
+- Edita `.codex/config.toml` como bloques de texto delimitados por marcadores: nunca se parsea como TOML y todo lo ajeno a los marcadores se preserva byte a byte.
 - Preserva campos de configuración desconocidos y contenido ajeno a los cambios aprobados.
 - Puede abrir, con autorización dedicada, la TUI oficial de `autoskills` para gestionar Skills de forma independiente.
+- Ofrece modos procesables (`--non-interactive`, `--json`) que previsualizan el plan sin aplicar cambios.
 
 ---
 
@@ -210,7 +266,7 @@ flowchart LR
 
 - **TypeScript estricto + ESM:** `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`. Salida en `dist/` con shebang portable vía `package.json#bin`.
 - **Dominio sin efectos:** el dominio no importa APIs de terminal, filesystem, proceso, red ni entorno; es 100 % determinista y testeable con fakes.
-- **JSON como único formato estructurado escrito.** Merge copy-on-write, serialización con estilo preservado, equivalencia profunda.
+- **JSON como único formato estructurado parseado y serializado.** Merge copy-on-write, serialización con estilo preservado, equivalencia profunda. Única excepción: `.codex/config.toml`, tratado como texto con marcadores.
 - **Plan inmutable con hash SHA-256:** ninguna mutación ocurre antes de que el plan completo sea aprobado. Las aprobaciones quedan ligadas al hash exacto.
 - **Transacción con journal:** staging → fsync → rename atómica → verificación → commit. Rollback inverso en cualquier punto de fallo.
 - **Idempotencia semántica:** re-ejecutar con el mismo estado produce cero cambios, sin duplicados.
@@ -232,7 +288,7 @@ Kiro Spec mode permitió formalizar el producto de forma incremental antes de es
 
 | Artefacto    | Ubicación                                   | Descripción                                                                                   |
 | ------------ | ------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Requisitos   | `.kiro/specs/auto-ai-setup/requirements.md` | 15 user stories con 150+ criterios de aceptación numerados                                    |
+| Requisitos   | `.kiro/specs/auto-ai-setup/requirements.md` | 15 user stories con 217 criterios de aceptación numerados                                     |
 | Diseño       | `.kiro/specs/auto-ai-setup/design.md`       | Arquitectura, interfaces, modelos de datos, propiedades de corrección y estrategia de pruebas |
 | Tareas       | `.kiro/specs/auto-ai-setup/tasks.md`        | 40+ tareas de implementación incrementales con dependencias explícitas                        |
 | Trazabilidad | `.kiro/specs/auto-ai-setup/traceability.md` | Mapa bidireccional requisito ↔ propiedad ↔ test                                               |
@@ -263,7 +319,7 @@ Se usaron las siguientes Skills de Kiro durante el desarrollo:
 - Implementación por capas respetando la dirección de dependencias en cada sesión
 - Revisión de límites arquitectónicos: el dominio nunca importa infraestructura
 - Generación y validación de 25 propiedades formales con fast-check
-- Verificación continua contra los 150+ criterios de aceptación del spec
+- Verificación continua contra los 217 criterios de aceptación del spec, validada por `pnpm run traceability` (217 requisitos, 930 referencias, 237 designaciones de cobertura)
 
 ---
 
@@ -364,7 +420,8 @@ El MVP detecta el stack localmente con reglas deterministas. La extensión natur
 | Idempotencia semántica                   | ✅              | ❌               | ❌                | Parcial           |
 | Preserva configuración existente         | ✅              | ❌               | ❌                | ❌                |
 | Redacción automática de secretos         | ✅              | ❌               | ❌                | ❌                |
-| MCP + reglas + comandos                  | ✅              | Manual           | Manual            | ❌                |
+| MCP + reglas + comandos + hooks          | ✅              | Manual           | Manual            | ❌                |
+| Cuatro agentes en su ruta oficial        | ✅              | Manual           | Parcial           | ❌                |
 | Arquitectura extensible por adaptadores  | ✅              | ❌               | ❌                | ❌                |
 
 ### Ventajas técnicas
@@ -420,7 +477,7 @@ Los cambios aprobados se preparan en staging, verifican y aplican con escrituras
 
 - Node.js 22 o superior
 - `npx`, incluido con npm
-- Terminal interactiva (TTY de entrada y salida)
+- Terminal interactiva (TTY de entrada y salida) para aplicar cambios; los modos `--non-interactive` y `--json` funcionan en tuberías pero solo previsualizan
 - Permisos de lectura y escritura sobre el proyecto objetivo
 - Conexión de red únicamente si se autoriza abrir la TUI oficial `npx autoskills`
 
@@ -482,7 +539,7 @@ El MVP es una CLI local e interactiva. No implementa ni invoca:
 - Instalación automática de CLIs recomendadas
 - Comandos arbitrarios o administración global del equipo
 
-Otras líneas futuras: modo headless auditable, adaptadores para más agentes (GitHub Copilot, Claude Code), políticas organizacionales firmadas y experiencia de recuperación asistida con Bedrock.
+Otras líneas futuras: adaptadores para más agentes (Cursor, GitHub Copilot, Gemini CLI, Windsurf, Amp), comandos slash de Codex, hooks de OpenCode, políticas organizacionales firmadas y experiencia de recuperación asistida con Bedrock.
 
 ---
 
