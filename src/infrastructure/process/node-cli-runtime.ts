@@ -31,8 +31,9 @@ import {
   createSessionOrchestrator,
 } from "../../application/session/orchestrator.js";
 import { createChangePlanner, ImmutableApprovalPolicy } from "../../domain/index.js";
-import { createInteractiveUserInteraction, runCli, type CliDependencies } from "../../cli/index.js";
+import { createInteractiveUserInteraction, runCli, type CliDependencies, type CliInteractionPreferences } from "../../cli/index.js";
 import type { CliTerminal } from "../../cli/terminal.js";
+import type { UserInteraction } from "../../application/session/contracts.js";
 
 export class NodeCliTerminal implements CliTerminal {
   public readonly inputIsTTY = Boolean(stdin.isTTY);
@@ -75,10 +76,14 @@ export const createDefaultCliDependencies = (): { readonly terminal: NodeCliTerm
   // Styling is a presentation preference resolved once, here at the composition root: a live output
   // TTY that has not opted out through NO_COLOR / TERM=dumb. Everything downstream stays plain text.
   const noColor = (env.NO_COLOR ?? "").length > 0 || env.TERM === "dumb";
-  const ui = createInteractiveUserInteraction(terminal, false, {
+  const presentation = {
     color: terminal.outputIsTTY && !noColor,
     unicode: /utf-?8/iu.test(env.LC_ALL ?? env.LC_CTYPE ?? env.LANG ?? "") || (env.WT_SESSION ?? "").length > 0,
-  });
+  };
+  // The interaction is built after the invocation is parsed, so `--verbose` reaches the renderer
+  // instead of being fixed at composition time.
+  const createUi = (preferences: CliInteractionPreferences): UserInteraction =>
+    createInteractiveUserInteraction(terminal, preferences.verbose, presentation);
   const projectGateway = new NodeProjectGateway();
   const registry = createDefaultDetectorRegistry();
   const processExecutor = createRegisteredAutoSkillsProcessAdapter();
@@ -139,13 +144,14 @@ export const createDefaultCliDependencies = (): { readonly terminal: NodeCliTerm
     terminal,
     dependencies: {
       session,
-      ui,
+      createUi,
       terminal,
-      // Machine-readable mode writes exactly one fully prepared, redacted JSON value.
+      // Machine-readable mode writes exactly one fully prepared, redacted JSON value; usage and
+      // version answers also belong to stdout because the user asked for them.
       stdout: (text: string) => {
         stdout.write(text);
       },
-      // Diagnostics, usage, and version never contaminate the data stream.
+      // Diagnostics never contaminate the data stream.
       stderr: (text: string) => {
         stderr.write(text);
       },

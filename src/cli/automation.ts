@@ -26,6 +26,8 @@ import { asSha256, SecretRedactor } from "../domain/index.js";
 export interface AutomationInteractionOptions {
   /** Optional human-readable sink. The JSON mode leaves it undefined so stdout carries one value. */
   readonly write?: (line: string) => void;
+  /** Adds the redacted event context to the human-readable sink, mirroring `--verbose`. */
+  readonly verbose?: boolean;
   readonly redactor?: Redactor;
 }
 
@@ -97,6 +99,28 @@ export class AutomationUserInteraction implements UserInteraction {
     if (this.options.write === undefined) return;
     const prefix = event.level === "error" ? "ERROR" : event.level === "warn" ? "WARN" : "INFO";
     this.options.write(`${prefix}: ${String(this.redactor.redact(event.message))}`);
+    if (this.options.verbose === true && event.context !== undefined)
+      this.options.write(JSON.stringify(this.redactor.redact(event.context)));
+    // The final summary carries the reason for every non-zero exit. Without it a human-readable
+    // automated run reported only `Estado: invalid-input`, leaving the cause visible in `--json`
+    // alone.
+    if (event.category === "session" && event.context !== undefined) this.renderSummary(event.context);
+  }
+
+  private renderSummary(context: Readonly<Record<string, unknown>>): void {
+    const labels: Readonly<Record<string, string>> = {
+      errors: "errores",
+      warnings: "avisos",
+      manualReviewPaths: "revisar a mano",
+      applied: "aplicado",
+      skipped: "omitido",
+    };
+    for (const [key, label] of Object.entries(labels)) {
+      const value = context[key];
+      if (!Array.isArray(value) || value.length === 0) continue;
+      const level = key === "errors" ? "ERROR" : key === "warnings" ? "WARN" : "INFO";
+      for (const entry of value) this.options.write?.(`${level}: ${label}: ${String(this.redactor.redact(String(entry)))}`);
+    }
   }
 }
 

@@ -39,7 +39,7 @@ Configurar un proyecto nuevo para trabajar con agentes de IA es un proceso manua
 | Hooks            | `.kiro/hooks/<id>.json`           | `.claude/settings.json`    | `.codex/hooks.json`  | fase posterior               |
 | Skills           | TUI externa `npx autoskills`      | TUI externa                | TUI externa          | TUI externa                  |
 
-Se configuran los agentes cuya huella ya está en el proyecto (`.kiro/`, `.claude/`, `.codex/`, `opencode.json`…) y los cuatro cuando no hay ninguna. 
+Se configuran los agentes cuya huella ya está en el proyecto (`.kiro/`, `.claude/`, `.codex/`, `opencode.json`…) y los cuatro cuando no hay ninguna.
 
 **`auto-ai-setup` convierte esa preparación en un flujo local y explicable:**
 
@@ -59,18 +59,31 @@ No requiere instalación global. La CLI solicita el proyecto si no se indica `--
 
 ### Opciones disponibles
 
-| Opción                | Descripción                                                                     |
-| --------------------- | ------------------------------------------------------------------------------- |
-| `--path <ruta>`       | Proyecto objetivo; si se omite, se solicita interactivamente.                   |
-| `--mode auto\|manual` | Fija el modo de selección; si se omite, la CLI lo solicita.                     |
-| `--verbose`           | Incluye evidencias de stack y decisiones de compatibilidad en los eventos.      |
-| `--recover`           | Busca y recupera una transacción incompleta del proyecto indicado.              |
-| `--non-interactive`   | No solicita nada; requiere `--path` y `--mode`. Previsualiza y no aplica nada.  |
-| `--json`              | Como `--non-interactive` y escribe un único resumen JSON redactado en `stdout`. |
-| `-h`, `--help`        | Muestra la ayuda de uso.                                                        |
-| `-V`, `--version`     | Muestra la versión.                                                             |
+| Opción                | Descripción                                                                                                                       |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--path <ruta>`       | Proyecto objetivo; si se omite, se solicita interactivamente. Obligatorio en `--non-interactive`, `--json` y `--recover` sin TTY. |
+| `--mode auto\|manual` | Fija el modo de selección; si se omite, la CLI lo solicita. `manual` exige una terminal interactiva.                              |
+| `--verbose`           | Incluye evidencias de stack y decisiones de compatibilidad en los eventos.                                                        |
+| `--recover`           | Busca y recupera una transacción incompleta del proyecto indicado.                                                                |
+| `--no-animation`      | Presentación estática, sin animaciones.                                                                                           |
+| `--non-interactive`   | No solicita nada; requiere `--path` y `--mode auto`. Previsualiza y no aplica nada.                                               |
+| `--json`              | Como `--non-interactive` y escribe un único resumen JSON redactado en `stdout`.                                                   |
+| `-h`, `--help`        | Muestra la ayuda de uso en `stdout`.                                                                                              |
+| `-V`, `--version`     | Muestra la versión en `stdout`.                                                                                                   |
 
 Cualquier argumento no listado se rechaza con código `2` y se imprime la ayuda en `stderr`.
+
+`--mode manual` solo es válido con una terminal interactiva: en `--non-interactive` y `--json` la
+selección componente por componente no se puede inferir, así que la ejecución termina con código `2`
+y el motivo en el resumen. Usa `--mode auto` para automatizar.
+
+### Variables de entorno
+
+| Variable                     | Efecto                                                   |
+| ---------------------------- | -------------------------------------------------------- |
+| `NO_COLOR` (no vacía)        | Desactiva el color ANSI; la salida queda en texto plano. |
+| `TERM=dumb`                  | Igual que `NO_COLOR`.                                    |
+| `AUTO_AI_SETUP_NO_ANIMATION` | Con un valor no vacío equivale a `--no-animation`.       |
 
 ## Ejemplos reproducibles
 
@@ -86,13 +99,20 @@ npx auto-ai-setup@0.1.0 --path . --mode auto
 npx auto-ai-setup@0.1.0 --path . --mode manual --verbose
 ```
 
+Requiere una terminal interactiva, porque la selección se hace componente por componente.
+
 ### Previsualización procesable (sin cambios)
 
 ```bash
 npx auto-ai-setup@0.1.0 --path . --mode auto --json
 ```
 
-Escribe un único resumen JSON redactado en `stdout` y no modifica el proyecto. Útil en CI para inspeccionar el plan y su hash.
+Escribe un único resumen JSON redactado en `stdout` y no modifica el proyecto. El documento contiene
+`status`, `exitCode`, `runId`, `applied`, `skipped`, `warnings`, `errors`, `manualReviewPaths` y,
+cuando hubo recuperación, `recovery`. No incluye el plan ni su huella: el plan se revisa en la
+ejecución interactiva, y su hash está ligado al `runId` y al instante de creación, así que identifica
+una ejecución concreta y no es comparable entre ejecuciones. En CI sirve para comprobar el código de
+salida, los avisos y los errores sin escribir nada en el proyecto.
 
 ## Requisitos previos
 
@@ -216,6 +236,7 @@ flowchart LR
     TX --> FS
     SM -. autorización\nindependiente .-> AUTOSKILLS([npx autoskills TUI])
 ```
+
 ---
 
 ## Capacidades del MVP
@@ -313,9 +334,14 @@ Se usaron las siguientes Skills de Kiro durante el desarrollo:
 | Cuatro agentes en su ruta oficial        | ✅              | Manual           | Parcial           | ❌                |
 | Arquitectura extensible por adaptadores  | ✅              | ❌               | ❌                | ❌                |
 
+Determinismo del plan: para la misma evidencia y la misma selección, `auto-ai-setup` produce el mismo
+conjunto ordenado y canonicalizado de cambios. La huella SHA-256 se calcula sobre ese plan más la
+identidad de la ejecución, así que sirve para ligar la aprobación a un plan concreto, no para comparar
+dos ejecuciones.
+
 ### Ventajas técnicas
 
-- **Consentimiento como dato:** cada aprobación queda ligada al `planHash` SHA-256, no a una confirmación ambigua
+- **Consentimiento como dato:** cada aprobación queda ligada al `planHash` SHA-256 de esa ejecución (incluye `runId` e instante de creación), no a una confirmación ambigua
 - **Seguridad transaccional:** staging → backup → fsync → rename atómica → rollback inverso forman parte del flujo normal
 - **Preservación semántica:** merge copy-on-write que solo toca campos gestionados, preservando todo lo demás
 - **Recomendaciones sin efectos ocultos:** detectar una oportunidad no instala ni ejecuta nada

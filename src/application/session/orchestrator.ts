@@ -282,7 +282,18 @@ export class SessionOrchestrator implements SessionOrchestratorPort {
           const summary = this.recoverySummary(runId, recovery);
           return this.finish(summary, ui, render);
         }
-        return this.finish(baseSummary(runId, "cancelled", 0), ui, render);
+        // A declined recovery must not look like a clean run: an automated caller never confirms, so
+        // without this warning the pending transaction would leave no trace in the summary.
+        return this.finish(
+          {
+            ...baseSummary(runId, "cancelled", 0),
+            warnings: [
+              `Hay una transacción incompleta pendiente (${lookup.journal.runId}); vuelve a ejecutar con --recover para restaurar el estado previo`,
+            ],
+          },
+          ui,
+          render,
+        );
       }
     }
 

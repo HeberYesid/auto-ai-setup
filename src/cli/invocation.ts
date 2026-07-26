@@ -12,6 +12,12 @@ import type { InvocationMode } from "../domain/tui/index.js";
 /** The recognized non-interactive switches. Both are additive and optional. */
 export const JSON_FLAG = "--json" as const;
 export const NON_INTERACTIVE_FLAG = "--non-interactive" as const;
+/**
+ * Presentation switch for the static, animation-free presentation. It selects no invocation mode, so
+ * it is recognized by the parser and resolved at the presentation boundary together with
+ * `AUTO_AI_SETUP_NO_ANIMATION`; see `./tui/animation-preference.ts` for the documented precedence.
+ */
+export const NO_ANIMATION_FLAG = "--no-animation" as const;
 
 /** Why a mode was selected; used for diagnostics and tests, never for control flow elsewhere. */
 export type InvocationReason = "json-flag" | "non-interactive-flag" | "redirected-stdin" | "redirected-stdout" | "interactive-tty";
@@ -63,10 +69,11 @@ export interface AutomationInput {
 
 /** The names of the inputs a non-interactive run requires but did not receive. */
 export const missingAutomationInput = (input: AutomationInput): readonly string[] => {
-  // A recovery run needs no selection decisions: it replays a persisted journal.
-  if (input.recover) return [];
   const missing: string[] = [];
+  // Every automated run needs a target: the session resolves the journal and the plan against a
+  // canonical root, so a recovery without `--path` would fail later with no usable diagnosis.
   if (input.targetPath === undefined || input.targetPath.length === 0) missing.push("--path");
-  if (input.mode !== "auto" && input.mode !== "manual") missing.push("--mode");
+  // A recovery needs no selection decisions: it replays a persisted journal.
+  if (!input.recover && input.mode !== "auto" && input.mode !== "manual") missing.push("--mode");
   return missing;
 };

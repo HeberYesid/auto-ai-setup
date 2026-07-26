@@ -2,7 +2,14 @@ import type { SessionInput, UserInteraction } from "../application/session/contr
 import type { ExecutionSummary } from "../domain/observability/models.js";
 import type { ExitCode } from "../domain/shared/types.js";
 import { InteractiveUserInteraction, type CliTerminal, type InteractionPresentationOptions } from "./terminal.js";
-import { JSON_FLAG, NON_INTERACTIVE_FLAG, missingAutomationInput, resolveInvocation, type ResolvedInvocation } from "./invocation.js";
+import {
+  JSON_FLAG,
+  NON_INTERACTIVE_FLAG,
+  NO_ANIMATION_FLAG,
+  missingAutomationInput,
+  resolveInvocation,
+  type ResolvedInvocation,
+} from "./invocation.js";
 import { writeJsonSummary } from "./json-output.js";
 import { createAutomationUserInteraction } from "./automation.js";
 
@@ -17,16 +24,29 @@ export type CliParseResult = { readonly ok: true; readonly value: SessionInput }
 export interface CliDependencies {
   readonly session?: { run(input: SessionInput, ui: UserInteraction): Promise<ExecutionSummary> };
   readonly ui?: UserInteraction;
+  /**
+   * Builds the interactive interaction once the invocation is parsed, so presentation preferences
+   * that live outside the session contract — such as `--verbose` — actually reach the renderer. It
+   * takes precedence over the pre-built {@link CliDependencies.ui}, which cannot observe them.
+   */
+  readonly createUi?: (preferences: CliInteractionPreferences) => UserInteraction;
   readonly terminal?: Pick<CliTerminal, "inputIsTTY" | "outputIsTTY">;
   /**
    * Sink for the machine-readable mode. It receives exactly one fully prepared, redacted, and
-   * validated JSON value, or nothing at all when preparation fails.
+   * validated JSON value, or nothing at all when preparation fails. Usage and version answers are
+   * also written here, because they are requested output rather than diagnostics.
    */
   readonly stdout?: (text: string) => void;
-  /** Diagnostic sink. Invocation errors, usage, and version are never mixed into stdout data. */
+  /** Diagnostic sink. Invocation errors are never mixed into stdout data. */
   readonly stderr?: (text: string) => void;
   /** Reported by `--version`; supplied by the composition root that owns the package metadata. */
   readonly version?: string;
+}
+
+/** Presentation preferences parsed from the invocation but owned by the CLI, not by the session. */
+export interface CliInteractionPreferences {
+  /** Adds stack evidence and decision context to every rendered event. */
+  readonly verbose: boolean;
 }
 
 export const HELP_FLAGS = ["--help", "-h"] as const;
@@ -42,13 +62,20 @@ export const usageText = (): string =>
     "",
     "Opciones:",
     "  --path <ruta>          Proyecto objetivo. Si se omite, se solicita interactivamente.",
+    "                         Obligatorio en --non-interactive, --json y --recover sin TTY.",
     "  --mode auto|manual     Modo de selección. Si se omite, se solicita interactivamente.",
+    "                         manual exige una terminal interactiva: en --non-interactive y",
+    "                         --json solo es válido auto.",
     "  --verbose              Añade evidencias y decisiones de compatibilidad a los eventos.",
     "  --recover              Busca y recupera una transacción incompleta del proyecto.",
-    "  --non-interactive      No solicita nada; requiere --path y --mode. No aplica cambios.",
-    "  --json                 Como --non-interactive y escribe un único resumen JSON.",
-    "  -h, --help             Muestra esta ayuda.",
-    "  -V, --version          Muestra la versión.",
+    "  --no-animation         Presentación estática, sin animaciones.",
+    "  --non-interactive      No solicita nada; requiere --path y --mode auto. No aplica cambios.",
+    "  --json                 Como --non-interactive y escribe un único resumen JSON en stdout.",
+    "  -h, --help             Muestra esta ayuda en stdout.",
+    "  -V, --version          Muestra la versión en stdout.",
+    "",
+    "Variables de entorno: NO_COLOR o TERM=dumb desactivan el color; AUTO_AI_SETUP_NO_ANIMATION",
+    "con un valor no vacío equivale a --no-animation.",
     "",
     "Códigos de salida: 0 correcto o cancelado, 1 revertido, 2 entrada inválida, 3 incompleto.",
   ].join("\n");
@@ -69,9 +96,10 @@ export const parseArgsResult = (args: readonly string[]): CliParseResult => {
       index += 1;
     } else if (argument === "--verbose") verbose = true;
     else if (argument === "--recover") recover = true;
-    else if (argument === JSON_FLAG || argument === NON_INTERACTIVE_FLAG) {
-      // Routing switches: recognized here so the existing parser does not reject them, and
-      // consumed by resolveInvocation rather than by the session input contract.
+    else if (argument === JSON_FLAG || argument === NON_INTERACTIVE_FLAG || argument === NO_ANIMATION_FLAG) {
+      // Routing and presentation switches: recognized here so the existing parser does not reject
+      // them, and consumed by resolveInvocation or by the presentation boundary rather than by the
+      // session input contract.
       continue;
     } else
       return {
@@ -111,14 +139,19 @@ export const parseArgs = (args: readonly string[] = []): SessionInput => {
  */
 export const runCli = async (args: readonly string[] = [], dependencies: CliDependencies = {}): Promise<ExitCode> => {
   const diagnose = (text: string): void => dependencies.stderr?.(`${text}\n`);
-  // Usage and version are answered first: they need no project, no session, and no terminal, and
-  // they must work in a pipe.
+  // Usage and version are requested output, not diagnostics: they go to stdout so `$(cli --version)`
+  // and `cli --help | less` work. They are answered first because they need no project, no session,
+  // and no terminal.
+  const answer = (text: string): void => {
+    if (dependencies.stdout === undefined) diagnose(text);
+    else dependencies.stdout(`${text}\n`);
+  };
   if (args.some((argument) => (HELP_FLAGS as readonly string[]).includes(argument))) {
-    diagnose(usageText());
+    answer(usageText());
     return 0;
   }
   if (args.some((argument) => (VERSION_FLAGS as readonly string[]).includes(argument))) {
-    diagnose(dependencies.version ?? "desconocida");
+    answer(dependencies.version ?? "desconocida");
     return 0;
   }
 
@@ -150,8 +183,9 @@ export const runCli = async (args: readonly string[] = [], dependencies: CliDepe
   // by the automation interaction, which never prompts and never authorizes a mutation on its own,
   // so `--json` and `--non-interactive` stay usable in a pipe instead of failing closed.
   const interaction = invocation.interactiveAllowed
-    ? dependencies.ui
+    ? (dependencies.createUi?.({ verbose: parsed.value.verbose }) ?? dependencies.ui)
     : createAutomationUserInteraction(parsed.value, {
+        verbose: parsed.value.verbose,
         ...(invocation.mode.kind === "json" || dependencies.stdout === undefined
           ? {}
           : { write: (line: string) => dependencies.stdout?.(`${line}\n`) }),

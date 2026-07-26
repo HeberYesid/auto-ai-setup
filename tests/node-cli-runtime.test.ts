@@ -12,7 +12,8 @@ describe("Node CLI runtime composition", () => {
     const { terminal, dependencies } = createDefaultCliDependencies();
     try {
       expect(dependencies.session).toBeDefined();
-      expect(dependencies.ui).toBeDefined();
+      expect(dependencies.createUi).toBeDefined();
+      expect(dependencies.createUi?.({ verbose: true })).toBeDefined();
       expect(dependencies.terminal).toBe(terminal);
       expect(typeof terminal.inputIsTTY).toBe("boolean");
       expect(typeof terminal.outputIsTTY).toBe("boolean");

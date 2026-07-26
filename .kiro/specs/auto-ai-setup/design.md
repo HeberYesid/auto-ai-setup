@@ -13,7 +13,7 @@ El diseño prioriza cuatro cualidades: (1) consentimiento verificable, (2) deter
 ### Alcance y límites del MVP
 
 - **Runtime:** Node.js 22 o superior, paquete ESM, salida compilada en `dist/`, ejecutable declarado mediante `package.json#bin` y shebang portable. `npx` ejecuta el binario publicado y pasa sus argumentos a la CLI, conforme a la [documentación oficial de npx](https://docs.npmjs.com/cli/v11/commands/npx).
-- **Interfaz:** TTY interactiva; argumentos iniciales `--path`, `--mode auto|manual`, `--verbose` y `--recover`. No se diseña todavía un modo headless.
+- **Interfaz:** TTY interactiva; argumentos iniciales `--path`, `--mode auto|manual`, `--verbose`, `--recover` y `--no-animation`. Los modos procesables `--non-interactive` y `--json` (enmienda `modern-tui-interface`) previsualizan el plan sin aplicar cambios y nunca solicitan entrada.
 - **Agentes soportados:** Kiro, Claude Code, OpenAI Codex y OpenCode. `agents.md` es la enmienda normativa que fija la matriz de soporte, las rutas oficiales de cada agente y las superficies diferidas; sustituye a esta línea. Un agente nuevo se añade mediante adaptadores sin cambiar el dominio.
 - **Skills:** se consultan e instalan exclusivamente mediante `npx autoskills`, la CLI de midudev; el MVP no descarga ni instala directamente los archivos de una Skill.
 - **MCP:** configuración de workspace en `.kiro/settings/mcp.json`; Kiro documenta configuración JSON a nivel workspace o usuario ([configuración MCP de Kiro](https://kiro.dev/docs/mcp/configuration/)). El MVP solo modifica el workspace objetivo.
