@@ -16,7 +16,6 @@ Analiza evidencia local, detecta el stack tecnológico, recomienda CLIs relacion
 | ---------------------------------- | ----------------------------------------------------- |
 | **Demo funcional**                 | 🔗 _(enlace pendiente — se publicará en AWS Amplify)_ |
 | **Video de presentación (≤5 min)** | 🎥 _(enlace pendiente — YouTube)_                     |
-| **Asciinema interactivo**          | 💻 _(enlace pendiente — asciinema.org)_               |
 
 ---
 
