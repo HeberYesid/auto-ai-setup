@@ -3,3 +3,4 @@ dist/
 coverage/
 .artifacts/
 .kiro/settings/mcp.json
+.npmrc
