@@ -30,13 +30,23 @@
     "auto-ai-setup": "dist/cli/bin.js"
   },
   "exports": {
-    ".": "./dist/index.js",
-    "./contracts": "./dist/domain/index.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./contracts": {
+      "types": "./dist/domain/index.d.ts",
+      "default": "./dist/domain/index.js"
+    }
   },
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
+    "prepublishOnly": "pnpm run build",
     "format": "pnpm exec prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \".github/**/*.yml\" \"*.{js,json,jsonc,md,yml,yaml}\"",
     "format:check": "pnpm exec prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \".github/**/*.yml\" \"*.{js,json,jsonc,md,yml,yaml}\"",
     "lint": "pnpm exec eslint . --max-warnings 0",
