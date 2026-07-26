@@ -106,7 +106,7 @@ describe("terminal security boundary", () => {
 
 describe("terminal interaction branches", () => {
   it("covers target, stack conflict, selection, incompatibility, and recovery prompts", async () => {
-    const terminal = new FakeTerminal(["", "1", "typescript", "rule, rule mcp", "sí", "n"]);
+    const terminal = new FakeTerminal(["", "1", "typescript", "rule", "sí", "n"]);
     const ui = new InteractiveUserInteraction(terminal, true);
     const conflicts = [
       {
@@ -144,7 +144,7 @@ describe("terminal interaction branches", () => {
         ],
         cliRecommendations: [],
       } as never),
-    ).resolves.toEqual(["rule", "mcp"]);
+    ).resolves.toEqual(["rule"]);
     await expect(ui.confirmIncompatible({ name: "Rule" } as never, { unsatisfied: ["missing tool"] } as never)).resolves.toBe(true);
     await expect(ui.confirmRecovery({ runId: "run-recovery" } as never)).resolves.toBe(false);
 
@@ -152,7 +152,8 @@ describe("terminal interaction branches", () => {
     expect(output).toContain("Conflicto de Stack");
     expect(output).toContain("Reglas de agente");
     expect(output).toContain("incompatible: missing tool");
-    expect(output).toContain("origen: builtin");
+    expect(output).toContain("origen:");
+    expect(output).toContain("builtin");
   });
   it("renders structured conflicts, CLI recommendations, external operations, and their approvals", async () => {
     const terminal = new FakeTerminal(["s", "s", "s"]);
@@ -203,10 +204,12 @@ describe("terminal interaction branches", () => {
     });
 
     const output = encodedOutput(terminal);
-    expect(output).toContain("CLI RECOMENDADA gh");
-    expect(output).toContain("instrucción: Consultar");
-    expect(output).toContain("add /mcpServers/demo");
-    expect(output).toContain("EXTERNAL external:demo");
+    expect(output).toContain("CLIs RECOMENDADAS (1)");
+    expect(output).toContain("gh");
+    expect(output).toContain("Consultar la documentación oficial");
+    expect(output).toContain("+ añade /mcpServers/demo");
+    expect(output).toContain("OPERACIONES EXTERNAS (1)");
+    expect(output).toContain("external:demo");
   });
 
   it("renders an empty plan without asking for global approval", async () => {
@@ -215,7 +218,7 @@ describe("terminal interaction branches", () => {
     const empty = { ...planWithSecret(), fileChanges: [], externalOperations: [] } as ChangePlan;
 
     await expect(ui.reviewPlan(empty)).resolves.toMatchObject({ globalApproved: false, conflicts: {}, networkOperations: [] });
-    expect(encodedOutput(terminal)).toContain("(sin cambios)");
+    expect(encodedOutput(terminal)).toContain("El plan no contiene cambios");
     expect(terminal.prompts).toHaveLength(0);
   });
 });

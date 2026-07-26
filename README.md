@@ -2,7 +2,7 @@
 
 > **CLI local e interactiva para preparar proyectos para flujos de trabajo con agentes de IA.**
 
-Analiza evidencia local, detecta el stack tecnológico, recomienda CLIs relacionadas y permite configurar servidores MCP, reglas de agente, comandos reutilizables, hooks y Skills mediante un plan determinista que requiere aprobación explícita antes de escribir cualquier archivo. Configura Kiro, Claude Code, OpenAI Codex y OpenCode, cada uno en su propia ruta oficial.
+Analiza evidencia local, detecta el stack tecnológico, recomienda CLIs relacionadas y permite configurar servidores MCP, reglas de agente, slash commands, hooks y Skills mediante un plan determinista que requiere aprobación explícita antes de escribir cualquier archivo. Configura Kiro, Claude Code, OpenAI Codex y OpenCode, cada uno en su propia ruta oficial.
 
 [![CI](https://github.com/HeberYesid/auto-ai-setup/actions/workflows/ci.yml/badge.svg)](https://github.com/HeberYesid/auto-ai-setup/actions)
 [![npm version](https://img.shields.io/npm/v/auto-ai-setup)](https://www.npmjs.com/package/auto-ai-setup)
@@ -16,9 +16,6 @@ Analiza evidencia local, detecta el stack tecnológico, recomienda CLIs relacion
 | ---------------------------------- | ----------------------------------------------------- |
 | **Demo funcional**                 | 🔗 _(enlace pendiente — se publicará en AWS Amplify)_ |
 | **Video de presentación (≤5 min)** | 🎥 _(enlace pendiente — YouTube)_                     |
-| **Asciinema interactivo**          | 💻 _(enlace pendiente — asciinema.org)_               |
-
-> Los enlaces se actualizarán al publicar los entregables finales del hackathon. La demo se desplegará en AWS Amplify; el asciinema mostrará la ejecución completa del flujo principal.
 
 ---
 
@@ -42,9 +39,9 @@ Configurar un proyecto nuevo para trabajar con agentes de IA es un proceso manua
 | Hooks            | `.kiro/hooks/<id>.json`           | `.claude/settings.json`    | `.codex/hooks.json`  | fase posterior               |
 | Skills           | TUI externa `npx autoskills`      | TUI externa                | TUI externa          | TUI externa                  |
 
-Se configuran los agentes cuya huella ya está en el proyecto (`.kiro/`, `.claude/`, `.codex/`, `opencode.json`…) y los cuatro cuando no hay ninguna. Cursor, GitHub Copilot, Gemini CLI, Windsurf y Amp quedan para fases posteriores; el detalle está en `.kiro/specs/auto-ai-setup/agents.md`.
+Se configuran los agentes cuya huella ya está en el proyecto (`.kiro/`, `.claude/`, `.codex/`, `opencode.json`…) y los cuatro cuando no hay ninguna. 
 
-**`auto-ai-setup` convierte esa preparación en un flujo local, explicable y recuperable:**
+**`auto-ai-setup` convierte esa preparación en un flujo local y explicable:**
 
 ```
 evidencia del proyecto → stack confirmado → selección → plan verificable → aprobación → resumen
@@ -73,13 +70,7 @@ No requiere instalación global. La CLI solicita el proyecto si no se indica `--
 | `-h`, `--help`        | Muestra la ayuda de uso.                                                        |
 | `-V`, `--version`     | Muestra la versión.                                                             |
 
-Una ejecución automatizada nunca puede aprobar una mutación: la aprobación explícita exige una
-persona en una terminal, así que `--non-interactive` y `--json` calculan y reportan el plan sin
-modificar el proyecto. Ambas requieren `--mode auto`, porque el modo manual necesita una selección
-interactiva. La ayuda, la versión y los errores de invocación se escriben en `stderr`, de modo que
-`stdout` conserva únicamente el valor JSON en el modo procesable.
-
----
+Cualquier argumento no listado se rechaza con código `2` y se imprime la ayuda en `stderr`.
 
 ## Ejemplos reproducibles
 
@@ -89,23 +80,67 @@ interactiva. La ayuda, la versión y los errores de invocación se escriben en `
 npx auto-ai-setup@0.1.0 --path . --mode auto
 ```
 
-Recomienda componentes compatibles con el stack detectado. El usuario puede retirar recomendaciones antes de revisar y aprobar el plan.
-
 ### Modo manual — con verbosidad
 
 ```bash
 npx auto-ai-setup@0.1.0 --path . --mode manual --verbose
 ```
 
-Muestra el inventario completo agrupado por tipo (MCP, reglas, comandos, Skills). Los incompatibles requieren confirmación específica y quedan marcados en el plan.
-
-### Recuperación de transacción incompleta
+### Previsualización procesable (sin cambios)
 
 ```bash
-npx auto-ai-setup@0.1.0 --path . --recover
+npx auto-ai-setup@0.1.0 --path . --mode auto --json
 ```
 
-Restaura el estado anterior a partir del journal en `.auto-ai-setup/transactions`.
+Escribe un único resumen JSON redactado en `stdout` y no modifica el proyecto. Útil en CI para inspeccionar el plan y su hash.
+
+## Requisitos previos
+
+- Node.js 22 o superior
+- `npx`, incluido con npm
+- Terminal interactiva (TTY de entrada y salida) para aplicar cambios; los modos `--non-interactive` y `--json` funcionan en tuberías pero solo previsualizan
+- Permisos de lectura y escritura sobre el proyecto objetivo
+- Conexión de red únicamente si se autoriza abrir la TUI oficial `npx autoskills`
+
+---
+
+## Desarrollo local
+
+```bash
+git clone https://github.com/HeberYesid/auto-ai-setup.git
+cd auto-ai-setup
+corepack enable
+pnpm install --frozen-lockfile
+```
+
+### Ejecutar localmente sin `npx`
+
+Si `npx` no está disponible, o si quieres probar la versión del repositorio sin
+publicarla en npm, compila primero el proyecto y ejecuta el archivo generado:
+
+```bash
+pnpm run build
+node dist/cli/bin.js --path . --mode auto
+```
+
+También puedes anteponer `pnpm exec` al runtime de Node si quieres mantener la
+invocación dentro del entorno de pnpm:
+
+```bash
+pnpm exec node dist/cli/bin.js --path . --mode auto
+```
+
+Para consultar la ayuda o ejecutar otros modos, reemplaza los argumentos del
+último comando; por ejemplo:
+
+```bash
+node dist/cli/bin.js --help
+node dist/cli/bin.js --path . --mode auto --json
+```
+
+El archivo `dist/cli/bin.js` se genera a partir del código fuente compilado, por
+lo que hay que volver a ejecutar `pnpm run build` después de cambiar el código.
+Estos comandos no publican el paquete ni requieren una instalación global.
 
 ---
 
@@ -144,7 +179,8 @@ flowchart LR
     end
 
     subgraph CLI["cli — presentación"]
-        FLAGS[Flag parsing\nTTY & prompts\nRender & exit codes]
+        FLAGS[Flag parsing\nRuteo de invocación\nRender & exit codes]
+        TUI[cli/tui\nSonda de capacidades\nAdaptador de terminal\nBucle interactivo]
     end
 
     subgraph APP["application/session — orquestación"]
@@ -152,12 +188,13 @@ flowchart LR
     end
 
     subgraph DOM["domain — lógica pura"]
-        PROJ[project\nValidación y clasificación]
-        STACK[stack\nDetección y conflictos]
+        PROJ[project\nValidación, evidencia y stack]
+        AG[agent\nMatriz de capacidades\npor agente]
         CAT[catalog\nValidación de Skills]
         PLAN[planning\nPlan determinista + hash]
         CFG[config\nParseo y merge JSON]
         SEC[security\nPolítica de rutas y red]
+        DTUI[tui\nReducer, layout,\nproyección y aprobación]
     end
 
     subgraph INFRA["infrastructure — adaptadores"]
@@ -166,59 +203,31 @@ flowchart LR
         PROC[process\nnpx autoskills\nregistrado]
         TX[transaction\nJournal · commit\nrollback · recovery]
         OBS[observability\nEventos locales\nredactados]
+        TRACE[traceability\nValidación del SDD]
+        BENCH[benchmark\nArnés reproducible]
     end
 
     U --> FLAGS
+    FLAGS --> TUI
     FLAGS --> SM
-    SM --> PROJ & STACK & CAT & PLAN & CFG & SEC
+    TUI --> DTUI
+    SM --> PROJ & AG & CAT & PLAN & CFG & SEC
     SM --> FS & AGENT & PROC & TX & OBS
     TX --> FS
     SM -. autorización\nindependiente .-> AUTOSKILLS([npx autoskills TUI])
 ```
-
-### Módulos
-
-| Módulo                             | Responsabilidad                                             |
-| ---------------------------------- | ----------------------------------------------------------- |
-| `src/cli`                          | Flags, TTY, interacción, render y códigos de proceso        |
-| `src/application/session`          | Máquina de estados y coordinación de casos de uso           |
-| `src/domain/project`               | Clasificación nuevo/existente, evidencia, stack, conflictos |
-| `src/domain/catalog`               | Validación de snapshots de Skills de autoskills             |
-| `src/domain/config`                | Parseo, merge, diff y equivalencia de JSON estructurado     |
-| `src/domain/planning`              | Plan determinista, aprobaciones, hash SHA-256               |
-| `src/domain/security`              | Contención de rutas, allowlists, política de red, redacción |
-| `src/infrastructure/fs`            | Escaneo acotado, staging, backups y escrituras atómicas     |
-| `src/infrastructure/agent`         | Adaptadores para Kiro, MCP, `AGENTS.md` y comandos          |
-| `src/infrastructure/process`       | Única invocación registrada: `npx autoskills`               |
-| `src/infrastructure/transaction`   | Journal, prepare/verify/commit/rollback/recovery            |
-| `src/infrastructure/observability` | Eventos locales y render humano con redacción               |
-
 ---
 
 ## Capacidades del MVP
 
 - Detecta tecnologías a partir de evidencia local sin enviar el proyecto a servicios remotos.
 - Recomienda CLIs relacionadas con el stack (`gh`, `supabase`, `vercel`, `playwright`), pero no las instala ni ejecuta.
-- Configura servidores MCP de workspace en `.kiro/settings/mcp.json` sin ejecutar los servidores.
-- Gestiona reglas portables en `AGENTS.md` y prompts en `.kiro/prompts/` con un índice JSON local.
+- Configura servidores MCP de workspace para los cuatro agentes en su ruta oficial, sin ejecutar los servidores.
+- Escribe reglas de agente (`.kiro/steering/auto-ai-setup.md`, `CLAUDE.md`, `AGENTS.md`), comandos slash y documentos de hooks según lo que cada agente soporta.
+- Edita `.codex/config.toml` como bloques de texto delimitados por marcadores: nunca se parsea como TOML y todo lo ajeno a los marcadores se preserva byte a byte.
 - Preserva campos de configuración desconocidos y contenido ajeno a los cambios aprobados.
 - Puede abrir, con autorización dedicada, la TUI oficial de `autoskills` para gestionar Skills de forma independiente.
-
----
-
-## Decisiones técnicas principales
-
-- **TypeScript estricto + ESM:** `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`. Salida en `dist/` con shebang portable vía `package.json#bin`.
-- **Dominio sin efectos:** el dominio no importa APIs de terminal, filesystem, proceso, red ni entorno; es 100 % determinista y testeable con fakes.
-- **JSON como único formato estructurado escrito.** Merge copy-on-write, serialización con estilo preservado, equivalencia profunda.
-- **Plan inmutable con hash SHA-256:** ninguna mutación ocurre antes de que el plan completo sea aprobado. Las aprobaciones quedan ligadas al hash exacto.
-- **Transacción con journal:** staging → fsync → rename atómica → verificación → commit. Rollback inverso en cualquier punto de fallo.
-- **Idempotencia semántica:** re-ejecutar con el mismo estado produce cero cambios, sin duplicados.
-- **Red denegada por defecto:** solo operaciones enumeradas y aprobadas en el plan pueden usar red.
-- **Redacción antes de cualquier sink:** tokens, PEM, credenciales y secretos se sustituyen por `[REDACTED]` antes de terminal o archivo.
-- **`pnpm` como gestor de desarrollo;** el usuario final ejecuta con `npx` sin instalación global.
-
-El SDD completo está en [`.kiro/specs/auto-ai-setup/`](.kiro/specs/auto-ai-setup/), con [requisitos](.kiro/specs/auto-ai-setup/requirements.md), [diseño](.kiro/specs/auto-ai-setup/design.md), [tareas](.kiro/specs/auto-ai-setup/tasks.md) y [trazabilidad](.kiro/specs/auto-ai-setup/traceability.md).
+- Ofrece modos procesables (`--non-interactive`, `--json`) que previsualizan el plan sin aplicar cambios.
 
 ---
 
@@ -232,7 +241,7 @@ Kiro Spec mode permitió formalizar el producto de forma incremental antes de es
 
 | Artefacto    | Ubicación                                   | Descripción                                                                                   |
 | ------------ | ------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Requisitos   | `.kiro/specs/auto-ai-setup/requirements.md` | 15 user stories con 150+ criterios de aceptación numerados                                    |
+| Requisitos   | `.kiro/specs/auto-ai-setup/requirements.md` | 15 user stories con 217 criterios de aceptación numerados                                     |
 | Diseño       | `.kiro/specs/auto-ai-setup/design.md`       | Arquitectura, interfaces, modelos de datos, propiedades de corrección y estrategia de pruebas |
 | Tareas       | `.kiro/specs/auto-ai-setup/tasks.md`        | 40+ tareas de implementación incrementales con dependencias explícitas                        |
 | Trazabilidad | `.kiro/specs/auto-ai-setup/traceability.md` | Mapa bidireccional requisito ↔ propiedad ↔ test                                               |
@@ -263,71 +272,7 @@ Se usaron las siguientes Skills de Kiro durante el desarrollo:
 - Implementación por capas respetando la dirección de dependencias en cada sesión
 - Revisión de límites arquitectónicos: el dominio nunca importa infraestructura
 - Generación y validación de 25 propiedades formales con fast-check
-- Verificación continua contra los 150+ criterios de aceptación del spec
-
----
-
-## AWS — Demostración e integración futura
-
-> **Nota de alcance:** el flujo principal del MVP es completamente local. Los servicios AWS descritos aquí son una **demostración independiente** (`Demostración_AWS` según el SDD) y trabajo futuro. El CLI funciona con o sin AWS disponible.
-
-### Demo actual: sitio estático en AWS Amplify + S3
-
-La demo funcional del hackathon se despliega como sitio estático usando **AWS Amplify**:
-
-```
-GitHub repo
-    └── AWS Amplify (CI/CD automático)
-            └── S3 (hosting estático)
-                    └── CloudFront (CDN opcional)
-```
-
-**¿Por qué Amplify?**
-
-- Despliegue automático desde GitHub en cada push a `main`
-- Hosting del asciinema interactivo y el video embed
-- Zero config: conecta el repo, detecta que es un sitio estático y despliega
-
-**Configuración en AWS Amplify:**
-
-1. Conectar el repositorio `HeberYesid/auto-ai-setup` en la consola de Amplify
-2. Branch: `main`, directorio de build: `docs/` (o `public/`)
-3. Amplify asigna automáticamente una URL `https://<id>.amplifyapp.com`
-
-### Arquitectura futura con AWS
-
-El diseño documenta estas extensiones como `Trabajo_Futuro` no implementado en el MVP:
-
-```mermaid
-flowchart LR
-    subgraph MVP["MVP local (actual)"]
-        CLI([npx auto-ai-setup])
-    end
-
-    subgraph FUTURO["Extensiones futuras con AWS"]
-        BEDROCK["Amazon Bedrock\nInferencia de recomendaciones\npor contexto del proyecto"]
-        LAMBDA["AWS Lambda\nAPI de recomendaciones\nsin servidor"]
-        S3["Amazon S3\nCatálogo de componentes\nversionado"]
-        RDS["Amazon RDS\nEstadísticas de uso\nanónimas y opt-in"]
-    end
-
-    CLI -.->|"Trabajo futuro\n(no implementado)"| LAMBDA
-    LAMBDA --> BEDROCK
-    LAMBDA --> S3
-    LAMBDA --> RDS
-```
-
-| Servicio AWS       | Rol futuro                                                                      | Estado                       |
-| ------------------ | ------------------------------------------------------------------------------- | ---------------------------- |
-| **Amazon Bedrock** | Inferencia de recomendaciones de componentes basada en el contexto del proyecto | Trabajo futuro               |
-| **AWS Lambda**     | API serverless de recomendaciones inteligentes                                  | Trabajo futuro               |
-| **Amazon S3**      | Hosting del catálogo de componentes versionado                                  | Demo actual (sitio estático) |
-| **AWS Amplify**    | CI/CD y hosting de la demo funcional                                            | **Activo en demo**           |
-| **Amazon RDS**     | Estadísticas de adopción anónimas opt-in                                        | Trabajo futuro               |
-
-**¿Por qué esta arquitectura tiene sentido?**
-
-El MVP detecta el stack localmente con reglas deterministas. La extensión natural es enriquecer esas recomendaciones con inferencia contextual vía **Amazon Bedrock**, manteniendo el mismo contrato: el usuario aprueba el plan antes de cualquier cambio. Lambda + S3 añadirían un catálogo dinámico sin romper la separación entre análisis local y ejecución remota aprobada.
+- Verificación continua contra los 217 criterios de aceptación del spec, validada por `pnpm run traceability` (217 requisitos, 930 referencias, 237 designaciones de cobertura)
 
 ---
 
@@ -364,7 +309,8 @@ El MVP detecta el stack localmente con reglas deterministas. La extensión natur
 | Idempotencia semántica                   | ✅              | ❌               | ❌                | Parcial           |
 | Preserva configuración existente         | ✅              | ❌               | ❌                | ❌                |
 | Redacción automática de secretos         | ✅              | ❌               | ❌                | ❌                |
-| MCP + reglas + comandos                  | ✅              | Manual           | Manual            | ❌                |
+| MCP + reglas + comandos + hooks          | ✅              | Manual           | Manual            | ❌                |
+| Cuatro agentes en su ruta oficial        | ✅              | Manual           | Parcial           | ❌                |
 | Arquitectura extensible por adaptadores  | ✅              | ❌               | ❌                | ❌                |
 
 ### Ventajas técnicas
@@ -383,106 +329,6 @@ El MVP detecta el stack localmente con reglas deterministas. La extensión natur
 ### Fuente confiable para Skills
 
 El MVP no mantiene un catálogo propio. La única fuente autorizada es la TUI oficial [`midudev/autoskills`](https://github.com/midudev/autoskills), invocada como `npx autoskills` **después de mostrar comando, propósito, uso de red y límite transaccional y recibir autorización explícita**.
-
-La CLI nunca descarga archivos de Skills directamente ni ejecuta scripts de ciclo de vida.
-
-### Protecciones locales
-
-| Protección     | Mecanismo                                                                                                        |
-| -------------- | ---------------------------------------------------------------------------------------------------------------- |
-| **Aprobación** | Ningún archivo cambia antes de mostrar y aprobar el plan. Conflictos requieren aprobación específica por archivo |
-| **Red**        | Denegada por defecto. Solo operaciones enumeradas en el plan con ID aprobado explícitamente                      |
-| **Secretos**   | Tokens, contraseñas, claves PEM y URLs con credenciales → `[REDACTED]` antes de cualquier terminal o archivo     |
-| **Rutas**      | Se rechazan rutas absolutas, traversal `..`, NUL, dispositivos y escapes por symlink                             |
-| **Procesos**   | Sin comandos de shell libres; solo adaptadores registrados; cero CLIs recomendadas se ejecutan automáticamente   |
-| **Datos**      | Análisis, logs y plan permanecen locales. Sin telemetría, login ni cloud sync                                    |
-
-No incluyas secretos literales en componentes o prompts. Usa referencias a variables de entorno: `${NOMBRE_VARIABLE}`.
-
----
-
-## Recuperación y códigos de salida
-
-Los cambios aprobados se preparan en staging, verifican y aplican con escrituras atómicas. El journal persiste en `.auto-ai-setup/transactions` hasta completar commit o rollback.
-
-| Código | Significado                                             | Acción                                             |
-| ------ | ------------------------------------------------------- | -------------------------------------------------- |
-| `0`    | Éxito, sin cambios o cancelación segura                 | Ninguna                                            |
-| `1`    | Fallo con estado anterior restaurado                    | Revisar error e intentar de nuevo                  |
-| `2`    | Entrada, ruta o configuración inválida antes de aplicar | Corregir los datos indicados                       |
-| `3`    | Ejecución o recuperación incompleta                     | Revisar `manualReviewPaths` y ejecutar `--recover` |
-
-> Si termina con código `3`, no asumas que el proyecto volvió a su estado anterior. Conserva `.auto-ai-setup/transactions` y revisa las rutas informadas.
-
----
-
-## Requisitos previos
-
-- Node.js 22 o superior
-- `npx`, incluido con npm
-- Terminal interactiva (TTY de entrada y salida)
-- Permisos de lectura y escritura sobre el proyecto objetivo
-- Conexión de red únicamente si se autoriza abrir la TUI oficial `npx autoskills`
-
----
-
-## Desarrollo local
-
-```bash
-git clone https://github.com/HeberYesid/auto-ai-setup.git
-cd auto-ai-setup
-corepack enable
-pnpm install --frozen-lockfile
-```
-
-### Comandos reproducibles
-
-| Objetivo                       | Comando                     |
-| ------------------------------ | --------------------------- |
-| Formatear                      | `pnpm run format`           |
-| Comprobar formato              | `pnpm run format:check`     |
-| Análisis estático              | `pnpm run lint`             |
-| Comprobar tipos                | `pnpm run typecheck`        |
-| Pruebas unitarias              | `pnpm run test:unit`        |
-| Pruebas de integración         | `pnpm run test:integration` |
-| Pruebas basadas en propiedades | `pnpm run test:property`    |
-| Todas las pruebas              | `pnpm run test`             |
-| Cobertura                      | `pnpm run test:coverage`    |
-| Compilar                       | `pnpm run build`            |
-| Empaquetar                     | `pnpm run pack`             |
-| Smoke test                     | `pnpm run smoke`            |
-| Validar trazabilidad SDD       | `pnpm run traceability`     |
-| Pipeline completo              | `pnpm run ci`               |
-
-El pipeline de CI ejecuta formato, lint, tipos, pruebas, cobertura mínima de 80 % en statements/lines/functions y 70 % en branches, compilación, empaquetado, smoke y trazabilidad. Las pruebas no dependen de red pública.
-
-### Benchmark reproducible
-
-```bash
-pnpm run build
-node benchmarks/run-benchmark.mjs \
-  --fixture .benchmark/fixture \
-  --generate --files 10000 --bytes 500000000 \
-  --cache warm --output .benchmark/report.json
-```
-
-Registra 10 ejecuciones, perfil del equipo, estado de caché, tiempo de escaneo → stack y RSS máxima. Consulta [`benchmarks/README.md`](benchmarks/README.md) para el procedimiento completo.
-
----
-
-## Límites del MVP y trabajo futuro
-
-El MVP es una CLI local e interactiva. No implementa ni invoca:
-
-- Inferencia mediante **Amazon Bedrock** _(trabajo futuro)_
-- Backend serverless en AWS _(trabajo futuro)_
-- Hooks de seguridad automáticos _(trabajo futuro)_
-- Telemetría, autenticación o sincronización cloud
-- Ejecución de servidores MCP
-- Instalación automática de CLIs recomendadas
-- Comandos arbitrarios o administración global del equipo
-
-Otras líneas futuras: modo headless auditable, adaptadores para más agentes (GitHub Copilot, Claude Code), políticas organizacionales firmadas y experiencia de recuperación asistida con Bedrock.
 
 ---
 

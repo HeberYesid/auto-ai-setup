@@ -1,7 +1,7 @@
 import type { SessionInput, UserInteraction } from "../application/session/contracts.js";
 import type { ExecutionSummary } from "../domain/observability/models.js";
 import type { ExitCode } from "../domain/shared/types.js";
-import { InteractiveUserInteraction, type CliTerminal } from "./terminal.js";
+import { InteractiveUserInteraction, type CliTerminal, type InteractionPresentationOptions } from "./terminal.js";
 import { JSON_FLAG, NON_INTERACTIVE_FLAG, missingAutomationInput, resolveInvocation, type ResolvedInvocation } from "./invocation.js";
 import { writeJsonSummary } from "./json-output.js";
 import { createAutomationUserInteraction } from "./automation.js";
@@ -170,5 +170,8 @@ export const runCli = async (args: readonly string[] = [], dependencies: CliDepe
   }
 };
 
-export const createInteractiveUserInteraction = (terminal: CliTerminal, verbose = false): UserInteraction =>
-  new InteractiveUserInteraction(terminal, verbose);
+export const createInteractiveUserInteraction = (
+  terminal: CliTerminal,
+  verbose = false,
+  presentation: InteractionPresentationOptions = {},
+): UserInteraction => new InteractiveUserInteraction(terminal, verbose, undefined, presentation);

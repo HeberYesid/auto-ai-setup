@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline/promises";
 import { createRequire } from "node:module";
-import { stdin, stdout, stderr } from "node:process";
+import { stdin, stdout, stderr, env } from "node:process";
 import type { CanonicalPath } from "../../domain/index.js";
 import {
   createAgentTargetResolver,
@@ -37,6 +37,9 @@ import type { CliTerminal } from "../../cli/terminal.js";
 export class NodeCliTerminal implements CliTerminal {
   public readonly inputIsTTY = Boolean(stdin.isTTY);
   public readonly outputIsTTY = Boolean(stdout.isTTY);
+  public get columns(): number | undefined {
+    return typeof stdout.columns === "number" ? stdout.columns : undefined;
+  }
   private readonly reader = createInterface({ input: stdin, output: stdout });
   public async question(prompt: string): Promise<string> {
     return this.reader.question(prompt);
@@ -69,7 +72,13 @@ const packageVersion = (): string | undefined => {
 
 export const createDefaultCliDependencies = (): { readonly terminal: NodeCliTerminal; readonly dependencies: CliDependencies } => {
   const terminal = new NodeCliTerminal();
-  const ui = createInteractiveUserInteraction(terminal);
+  // Styling is a presentation preference resolved once, here at the composition root: a live output
+  // TTY that has not opted out through NO_COLOR / TERM=dumb. Everything downstream stays plain text.
+  const noColor = (env.NO_COLOR ?? "").length > 0 || env.TERM === "dumb";
+  const ui = createInteractiveUserInteraction(terminal, false, {
+    color: terminal.outputIsTTY && !noColor,
+    unicode: /utf-?8/iu.test(env.LC_ALL ?? env.LC_CTYPE ?? env.LANG ?? "") || (env.WT_SESSION ?? "").length > 0,
+  });
   const projectGateway = new NodeProjectGateway();
   const registry = createDefaultDetectorRegistry();
   const processExecutor = createRegisteredAutoSkillsProcessAdapter();
