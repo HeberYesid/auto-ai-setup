@@ -14,8 +14,7 @@ Analiza evidencia local, detecta el stack tecnológico, recomienda CLIs relacion
 
 | Recurso                            | Enlace                                                |
 | ---------------------------------- | ----------------------------------------------------- |
-| **Demo funcional**                 | 🔗 _(enlace pendiente — se publicará en AWS Amplify)_ |
-| **Video de presentación (≤5 min)** | 🎥 _(enlace pendiente — YouTube)_                     |
+| **Video de presentación** | https://youtu.be/6mrmI47YVTs                     |
 
 ---
 
@@ -46,81 +45,6 @@ Se configuran los agentes cuya huella ya está en el proyecto (`.kiro/`, `.claud
 ```
 evidencia del proyecto → stack confirmado → selección → plan verificable → aprobación → resumen
 ```
-
----
-
-## Inicio rápido
-
-```bash
-npx auto-ai-setup@0.1.0
-```
-
-No requiere instalación global. La CLI solicita el proyecto si no se indica `--path`, detecta el stack, presenta un plan y aplica los cambios únicamente tras aprobación explícita.
-
-### Opciones disponibles
-
-| Opción                | Descripción                                                                                                                       |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `--path <ruta>`       | Proyecto objetivo; si se omite, se solicita interactivamente. Obligatorio en `--non-interactive`, `--json` y `--recover` sin TTY. |
-| `--mode auto\|manual` | Fija el modo de selección; si se omite, la CLI lo solicita. `manual` exige una terminal interactiva.                              |
-| `--verbose`           | Incluye evidencias de stack y decisiones de compatibilidad en los eventos.                                                        |
-| `--recover`           | Busca y recupera una transacción incompleta del proyecto indicado.                                                                |
-| `--no-animation`      | Presentación estática, sin animaciones.                                                                                           |
-| `--non-interactive`   | No solicita nada; requiere `--path` y `--mode auto`. Previsualiza y no aplica nada.                                               |
-| `--json`              | Como `--non-interactive` y escribe un único resumen JSON redactado en `stdout`.                                                   |
-| `-h`, `--help`        | Muestra la ayuda de uso en `stdout`.                                                                                              |
-| `-V`, `--version`     | Muestra la versión en `stdout`.                                                                                                   |
-
-Cualquier argumento no listado se rechaza con código `2` y se imprime la ayuda en `stderr`.
-
-`--mode manual` solo es válido con una terminal interactiva: en `--non-interactive` y `--json` la
-selección componente por componente no se puede inferir, así que la ejecución termina con código `2`
-y el motivo en el resumen. Usa `--mode auto` para automatizar.
-
-### Variables de entorno
-
-| Variable                     | Efecto                                                   |
-| ---------------------------- | -------------------------------------------------------- |
-| `NO_COLOR` (no vacía)        | Desactiva el color ANSI; la salida queda en texto plano. |
-| `TERM=dumb`                  | Igual que `NO_COLOR`.                                    |
-| `AUTO_AI_SETUP_NO_ANIMATION` | Con un valor no vacío equivale a `--no-animation`.       |
-
-## Ejemplos reproducibles
-
-### Modo automático — proyecto existente
-
-```bash
-npx auto-ai-setup@0.1.0 --path . --mode auto
-```
-
-### Modo manual — con verbosidad
-
-```bash
-npx auto-ai-setup@0.1.0 --path . --mode manual --verbose
-```
-
-Requiere una terminal interactiva, porque la selección se hace componente por componente.
-
-### Previsualización procesable (sin cambios)
-
-```bash
-npx auto-ai-setup@0.1.0 --path . --mode auto --json
-```
-
-Escribe un único resumen JSON redactado en `stdout` y no modifica el proyecto. El documento contiene
-`status`, `exitCode`, `runId`, `applied`, `skipped`, `warnings`, `errors`, `manualReviewPaths` y,
-cuando hubo recuperación, `recovery`. No incluye el plan ni su huella: el plan se revisa en la
-ejecución interactiva, y su hash está ligado al `runId` y al instante de creación, así que identifica
-una ejecución concreta y no es comparable entre ejecuciones. En CI sirve para comprobar el código de
-salida, los avisos y los errores sin escribir nada en el proyecto.
-
-## Requisitos previos
-
-- Node.js 22 o superior
-- `npx`, incluido con npm
-- Terminal interactiva (TTY de entrada y salida) para aplicar cambios; los modos `--non-interactive` y `--json` funcionan en tuberías pero solo previsualizan
-- Permisos de lectura y escritura sobre el proyecto objetivo
-- Conexión de red únicamente si se autoriza abrir la TUI oficial `npx autoskills`
 
 ---
 
@@ -161,6 +85,75 @@ node dist/cli/bin.js --path . --mode auto --json
 El archivo `dist/cli/bin.js` se genera a partir del código fuente compilado, por
 lo que hay que volver a ejecutar `pnpm run build` después de cambiar el código.
 Estos comandos no publican el paquete ni requieren una instalación global.
+
+## Inicio rápido (PROXIMAMENTE, actualmente solo disponible en local)
+
+```bash
+npx auto-ai-setup@0.1.0
+```
+
+No requiere instalación global. La CLI solicita el proyecto si no se indica `--path`, detecta el stack, presenta un plan y aplica los cambios únicamente tras aprobación explícita.
+
+### Opciones disponibles
+
+| Opción                | Descripción                                                                                                                       |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--path <ruta>`       | Proyecto objetivo; si se omite, se solicita interactivamente. Obligatorio en `--non-interactive`, `--json` y `--recover` sin TTY. |
+| `--mode auto\|manual` | Fija el modo de selección; si se omite, la CLI lo solicita. `manual` exige una terminal interactiva.                              |
+| `--verbose`           | Incluye evidencias de stack y decisiones de compatibilidad en los eventos.                                                        |
+| `--recover`           | Busca y recupera una transacción incompleta del proyecto indicado.                                                                |
+| `--no-animation`      | Presentación estática, sin animaciones.                                                                                           |
+| `--non-interactive`   | No solicita nada; requiere `--path` y `--mode auto`. Previsualiza y no aplica nada.                                               |
+| `--json`              | Como `--non-interactive` y escribe un único resumen JSON redactado en `stdout`.                                                   |
+| `-h`, `--help`        | Muestra la ayuda de uso en `stdout`.                                                                                              |
+| `-V`, `--version`     | Muestra la versión en `stdout`.                                                                                                   |
+
+Cualquier argumento no listado se rechaza con código `2` y se imprime la ayuda en `stderr`.
+
+`--mode manual` solo es válido con una terminal interactiva: en `--non-interactive` y `--json` la
+selección componente por componente no se puede inferir, así que la ejecución termina con código `2`
+y el motivo en el resumen. Usa `--mode auto` para automatizar.
+
+## Ejemplos reproducibles
+
+### Modo automático — proyecto existente
+
+```bash
+npx auto-ai-setup@0.1.0 --path . --mode auto
+```
+
+### Modo manual — con verbosidad
+
+```bash
+npx auto-ai-setup@0.1.0 --path . --mode manual --verbose
+```
+
+Requiere una terminal interactiva, porque la selección se hace componente por componente.
+
+### Previsualización procesable (sin cambios)
+
+```bash
+npx auto-ai-setup@0.1.0 --path . --mode auto --json
+```
+
+Escribe un único resumen JSON redactado en `stdout` y no modifica el proyecto. El documento contiene
+`status`, `exitCode`, `runId`, `applied`, `skipped`, `warnings`, `errors`, `manualReviewPaths` y,
+cuando hubo recuperación, `recovery`. No incluye el plan ni su huella: el plan se revisa en la
+ejecución interactiva, y su hash está ligado al `runId` y al instante de creación, así que identifica
+una ejecución concreta y no es comparable entre ejecuciones. En CI sirve para comprobar el código de
+salida, los avisos y los errores sin escribir nada en el proyecto.
+
+## Requisitos previos
+
+- Node.js 22 o superior
+- `npx`, incluido con npm
+- Terminal interactiva (TTY de entrada y salida) para aplicar cambios; los modos `--non-interactive` y `--json` funcionan en tuberías pero solo previsualizan
+- Permisos de lectura y escritura sobre el proyecto objetivo
+- Conexión de red únicamente si se autoriza abrir la TUI oficial `npx autoskills`
+
+---
+
+
 
 ---
 
