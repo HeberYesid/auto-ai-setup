@@ -1,4 +1,5 @@
 import type {
+  AgentId,
   ApprovalDecisions,
   ChangePlan,
   ComponentDefinition,
@@ -11,7 +12,7 @@ import type {
   StackConflict,
   UserInteraction,
 } from "../domain/index.js";
-import { asSha256, SecretRedactor } from "../domain/index.js";
+import { agentDescriptor, asSha256, SecretRedactor } from "../domain/index.js";
 import {
   createStyle,
   defaultPresentationOptions,
@@ -50,6 +51,14 @@ export interface InteractionPresentationOptions {
 
 const answerIsYes = (value: string): boolean => /^(y|yes|s|si|sí)$/iu.test(value.trim());
 const answerIsNo = (value: string): boolean => /^(n|no)$/iu.test(value.trim());
+
+/** Short capability names shown next to each agent in the selection prompt. */
+const COMPONENT_TYPE_SHORT: Readonly<Partial<Record<ComponentDefinition["type"], string>>> = {
+  "mcp-server": "MCP",
+  "agent-rule": "reglas",
+  "agent-command": "comandos",
+  "agent-hook": "hooks",
+};
 
 export class InteractiveUserInteraction implements UserInteraction {
   private readonly presentation: PresentationOptions;
@@ -114,9 +123,53 @@ export class InteractiveUserInteraction implements UserInteraction {
     return { items, resolvedConflicts: conflicts, digest: "" as ConfirmedStack["digest"] };
   }
 
+  async chooseAgents(view: import("../domain/index.js").AgentSelectionView): Promise<readonly AgentId[]> {
+    const detected = new Set(view.detected);
+    this.terminal.write("");
+    this.terminal.write(this.style.bold("Paso 2. Agentes de IA a configurar"));
+    this.terminal.write(this.style.dim("  Solo se preparará configuración para los agentes que elijas aquí."));
+    const numbered = view.candidates.map((agent, index) => ({ index: index + 1, id: String(agent) }));
+    view.candidates.forEach((agent, index) => {
+      const descriptor = agentDescriptor(agent);
+      const supported = (Object.entries(descriptor.capabilities) as [ComponentDefinition["type"], { status: string }][])
+        .filter(([type, capability]) => capability.status === "supported" && type !== "skill")
+        .map(([type]) => COMPONENT_TYPE_SHORT[type] ?? type);
+      const mark = detected.has(agent) ? this.style.green("ya presente en el proyecto") : this.style.dim("no detectado");
+      this.terminal.write(
+        `  ${this.style.dim(`[${String(index + 1)}]`)} ${this.style.bold(descriptor.label)} ${this.style.dim(`(${agent})`)} ${mark}`,
+      );
+      this.terminal.write(`      ${this.style.dim(`configura: ${supported.join(", ") || "nada en esta fase"}`)}`);
+    });
+    const defaults = view.detected.length > 0 ? view.detected : view.candidates;
+    this.terminal.write(this.style.dim("  Escribe los números o los ids, separados por comas. `todos` o `*` selecciona todos."));
+    this.terminal.write(
+      this.style.dim(
+        `  Enter usa ${view.detected.length > 0 ? "los agentes detectados" : "todos los agentes"}: ${defaults.join(", ")}. Escribe \`ninguno\` para no configurar nada.`,
+      ),
+    );
+    while (true) {
+      const answer = await this.terminal.question("  Agentes a configurar: ");
+      const trimmed = answer.trim();
+      if (trimmed === "") return defaults;
+      if (/^(ninguno|none|0)$/iu.test(trimmed)) return [];
+      const resolved = resolveSelectionAnswer(trimmed, numbered);
+      if (resolved.unknown.length > 0) {
+        this.terminal.write(
+          this.style.yellow(`  No reconozco: ${resolved.unknown.join(", ")}. Usa los números o los ids mostrados arriba.`),
+        );
+        continue;
+      }
+      if (resolved.ids.length === 0) {
+        this.terminal.write(this.style.yellow("  Selecciona al menos un agente o escribe `ninguno`."));
+        continue;
+      }
+      return resolved.ids as readonly AgentId[];
+    }
+  }
+
   async chooseMode(initial?: string): Promise<RunMode> {
     this.terminal.write("");
-    this.terminal.write(this.style.bold("Paso 2. Modo de selección"));
+    this.terminal.write(this.style.bold("Paso 3. Modo de selección"));
     this.terminal.write(this.style.dim("  auto   incluye todos los componentes compatibles con el stack detectado."));
     this.terminal.write(this.style.dim("  manual eliges tú, uno por uno, qué se configura."));
     while (true) {

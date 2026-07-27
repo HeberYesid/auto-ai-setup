@@ -1,6 +1,7 @@
 import type { SessionInput, UserInteraction } from "../application/session/contracts.js";
 import type { ExecutionSummary } from "../domain/observability/models.js";
 import type { ExitCode } from "../domain/shared/types.js";
+import { AGENT_IDS, type AgentId } from "../domain/agent/models.js";
 import { InteractiveUserInteraction, type CliTerminal, type InteractionPresentationOptions } from "./terminal.js";
 import {
   JSON_FLAG,
@@ -66,6 +67,9 @@ export const usageText = (): string =>
     "  --mode auto|manual     Modo de selección. Si se omite, se solicita interactivamente.",
     "                         manual exige una terminal interactiva: en --non-interactive y",
     "                         --json solo es válido auto.",
+    "  --agents <lista>       Agentes a configurar, separados por comas: kiro, claude-code,",
+    "                         codex, opencode. Si se omite, se solicitan interactivamente y,",
+    "                         sin terminal, se usan los agentes ya presentes en el proyecto.",
     "  --verbose              Añade evidencias y decisiones de compatibilidad a los eventos.",
     "  --recover              Busca y recupera una transacción incompleta del proyecto.",
     "  --no-animation         Presentación estática, sin animaciones.",
@@ -83,16 +87,36 @@ export const usageText = (): string =>
 export const parseArgsResult = (args: readonly string[]): CliParseResult => {
   let targetPath: string | undefined;
   let mode: string | undefined;
+  let agents: readonly AgentId[] | undefined;
   let verbose = false;
   let recover = false;
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
-    if (argument === "--path" || argument === "--mode") {
+    if (argument === "--path" || argument === "--mode" || argument === "--agents") {
       const next = args[index + 1];
       if (next === undefined || next.startsWith("--"))
         return { ok: false, error: { code: "CLI_INVALID_ARGUMENT", message: `${argument} requiere un valor`, argument } };
       if (argument === "--path") targetPath = next;
-      else mode = next;
+      else if (argument === "--mode") mode = next;
+      else {
+        const requested = next
+          .split(",")
+          .map((entry) => entry.trim().toLowerCase())
+          .filter((entry) => entry.length > 0);
+        const unknown = requested.filter((entry) => !(AGENT_IDS as readonly string[]).includes(entry));
+        if (unknown.length > 0)
+          return {
+            ok: false,
+            error: {
+              code: "CLI_INVALID_ARGUMENT",
+              message: `--agents solo acepta ${AGENT_IDS.join(", ")}; desconocido: ${unknown.join(", ")}`,
+              argument: next,
+            },
+          };
+        if (requested.length === 0)
+          return { ok: false, error: { code: "CLI_INVALID_ARGUMENT", message: "--agents requiere un valor", argument } };
+        agents = AGENT_IDS.filter((agent) => requested.includes(agent));
+      }
       index += 1;
     } else if (argument === "--verbose") verbose = true;
     else if (argument === "--recover") recover = true;
@@ -115,7 +139,13 @@ export const parseArgsResult = (args: readonly string[]): CliParseResult => {
     return { ok: false, error: { code: "CLI_INVALID_ARGUMENT", message: "--mode solo acepta auto o manual", argument: mode } };
   return {
     ok: true,
-    value: { ...(targetPath === undefined ? {} : { targetPath }), ...(mode === undefined ? {} : { mode }), verbose, recover },
+    value: {
+      ...(targetPath === undefined ? {} : { targetPath }),
+      ...(mode === undefined ? {} : { mode }),
+      ...(agents === undefined ? {} : { agents }),
+      verbose,
+      recover,
+    },
   };
 };
 

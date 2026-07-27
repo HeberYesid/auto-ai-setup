@@ -4,6 +4,7 @@ import { stdin, stdout, stderr, env } from "node:process";
 import type { CanonicalPath } from "../../domain/index.js";
 import {
   createAgentTargetResolver,
+  createFixedAgentTargetResolver,
   createClaudeCodeCommandAdapter,
   createClaudeCodeHookAdapter,
   createClaudeCodeMcpAdapter,
@@ -94,11 +95,12 @@ export const createDefaultCliDependencies = (): { readonly terminal: NodeCliTerm
     componentDefinitions: createBuiltinAgentComponents(),
     planner: createChangePlanner(),
     approvalPolicy: new ImmutableApprovalPolicy(),
-    projectionFactory: (root) => {
+    projectionFactory: (root, agents) => {
       const fileSystem = createRootFileSystem(root);
       // One resolver per projection: the target agents must be identical for every adapter in a run,
-      // otherwise the plan would not be deterministic.
-      const targets = createAgentTargetResolver(fileSystem);
+      // otherwise the plan would not be deterministic. An explicit user selection is honoured as-is;
+      // only without one does the run fall back to detecting footprints.
+      const targets = agents === undefined ? createAgentTargetResolver(fileSystem) : createFixedAgentTargetResolver(agents);
       return new ComponentInspectionProjection({
         fileSystem,
         adapters: [
@@ -139,6 +141,9 @@ export const createDefaultCliDependencies = (): { readonly terminal: NodeCliTerm
       });
     },
     recoveryFactory: (root) => new FileSystemRecoveryJournalReader(createRootFileSystem(root)),
+    // Detection only preselects the interactive answer, so the fallback is empty: "nothing detected"
+    // must be reported as such instead of as "every agent".
+    agentDetector: async (root) => [...(await createAgentTargetResolver(createRootFileSystem(root), []).targets())],
   });
   return {
     terminal,

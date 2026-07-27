@@ -27,6 +27,7 @@ import type {
   CatalogSnapshot,
 } from "../../domain/index.js";
 import {
+  AGENT_IDS,
   createComponentSelectionView,
   digestConfirmedItems,
   err,
@@ -38,6 +39,7 @@ import {
   SecretRedactor,
 } from "../../domain/index.js";
 import type { EvidenceError, ExitCode, Redactor } from "../../domain/index.js";
+import type { AgentId } from "../../domain/index.js";
 import type { ExecutionSummary, RedactedEvent } from "../../domain/observability/models.js";
 import type { SelectedComponent } from "./component-inspection.js";
 import { ComponentInspectionProjection } from "./component-inspection.js";
@@ -71,7 +73,10 @@ export interface SessionDependencies {
   readonly detectorRegistry?: StackDetectorRegistry;
   readonly catalogFactory?: (root: import("../../domain/index.js").CanonicalPath) => AutoSkillsGateway;
   readonly componentDefinitions?: readonly ComponentDefinition[];
-  readonly projectionFactory: (root: import("../../domain/index.js").CanonicalPath) => ComponentInspectionProjection;
+  readonly projectionFactory: (
+    root: import("../../domain/index.js").CanonicalPath,
+    agents?: readonly import("../../domain/index.js").AgentId[],
+  ) => ComponentInspectionProjection;
   readonly planner: ChangePlanner;
   readonly approvalPolicy: ApprovalPolicy;
   readonly transactionFactory: (
@@ -79,6 +84,13 @@ export interface SessionDependencies {
     context?: SessionTransactionContext,
   ) => TransactionEngine;
   readonly recoveryFactory?: (root: import("../../domain/index.js").CanonicalPath) => RecoveryJournalReader;
+  /**
+   * Reports which agents already have a documented footprint in the project. Used only to preselect
+   * the interactive answer; it never decides the target set on its own.
+   */
+  readonly agentDetector?: (
+    root: import("../../domain/index.js").CanonicalPath,
+  ) => Promise<readonly import("../../domain/index.js").AgentId[]>;
   readonly uuid?: UuidGenerator;
   readonly clock?: Clock;
   readonly scanPolicy?: ScanPolicy;
@@ -328,8 +340,40 @@ export class SessionOrchestrator implements SessionOrchestratorPort {
         render,
       );
     }
-    let catalog: CatalogSnapshot | undefined;
-    let catalogGateway: AutoSkillsGateway | undefined;
+    // Which agents a run configures is a user decision, not an inference: without this step every
+    // supported agent would receive configuration on a project that carries no footprint yet.
+    let agents: readonly AgentId[] | undefined;
+    try {
+      agents = await this.resolveAgents(root, input, ui);
+    } catch (cause) {
+      return this.finish(
+        withAnalysis(
+          baseSummary(
+            runId,
+            isCancellation(cause) ? "cancelled" : "invalid-input",
+            isCancellation(cause) ? 0 : 2,
+            isCancellation(cause) ? [] : [messageOf(cause)],
+          ),
+          analysis,
+        ),
+        ui,
+        render,
+      );
+    }
+    if (agents !== undefined) {
+      render("info", "project", "Agentes seleccionados", { agents });
+      if (agents.length === 0)
+        return this.finish(
+          withAnalysis(
+            { ...baseSummary(runId, "success", 0), warnings: ["No se seleccionó ningún agente; no hay nada que configurar"] },
+            analysis,
+          ),
+          ui,
+          render,
+        );
+    }
+
+    let catalog: CatalogSnapshot | undefined;    let catalogGateway: AutoSkillsGateway | undefined;
     const catalogWarnings: string[] = [];
     if (this.dependencies.catalogFactory !== undefined) {
       catalogGateway = this.dependencies.catalogFactory(root);
@@ -424,7 +468,7 @@ export class SessionOrchestrator implements SessionOrchestratorPort {
     if (selections.length === 0)
       return this.finish(withAnalysis({ ...baseSummary(runId, "success", 0), warnings: catalogWarnings }, analysis), ui, render);
 
-    const projection = await this.dependencies.projectionFactory(root).project({
+    const projection = await this.dependencies.projectionFactory(root, agents).project({
       root,
       stack,
       cliRecommendations: recommendations,
@@ -520,6 +564,32 @@ export class SessionOrchestrator implements SessionOrchestratorPort {
     const result = await transaction.apply(approved.value, new AbortController().signal);
     const summary = this.transactionSummary(runId, result, analysis, catalogWarnings);
     return this.finish(summary, ui, render);
+  }
+
+  /**
+   * Resolves the agents this run may configure. An explicit `--agents` list wins; otherwise the user
+   * is asked. Only when the interaction cannot ask — an automated run — is the answer left undefined,
+   * which preserves the existing footprint-detection fallback.
+   */
+  private async resolveAgents(
+    root: import("../../domain/index.js").CanonicalPath,
+    input: SessionInput,
+    ui: UserInteraction,
+  ): Promise<readonly AgentId[] | undefined> {
+    const normalize = (values: readonly string[]): readonly AgentId[] => {
+      const requested = new Set(values.map((value) => value.trim().toLowerCase()));
+      return AGENT_IDS.filter((agent) => requested.has(agent));
+    };
+    if (input.agents !== undefined) {
+      const unknown = input.agents.filter((agent) => !(AGENT_IDS as readonly string[]).includes(agent));
+      if (unknown.length > 0)
+        throw new Error(`Agente desconocido: ${unknown.join(", ")}. Los agentes válidos son ${AGENT_IDS.join(", ")}`);
+      return normalize(input.agents);
+    }
+    if (ui.chooseAgents === undefined) return undefined;
+    const detected = (await this.dependencies.agentDetector?.(root)) ?? [];
+    const chosen = await ui.chooseAgents({ candidates: AGENT_IDS, detected });
+    return normalize(chosen);
   }
 
   private async chooseMode(

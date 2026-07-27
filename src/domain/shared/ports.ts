@@ -21,6 +21,19 @@ export interface SessionInput {
   readonly mode?: string;
   readonly verbose: boolean;
   readonly recover: boolean;
+  /**
+   * Agents this run may configure, supplied non-interactively. When omitted the session asks the
+   * user, and only falls back to footprint detection when the interaction cannot ask.
+   */
+  readonly agents?: readonly import("../agent/models.js").AgentId[];
+}
+
+/** Everything the user needs to choose which agents a run configures. */
+export interface AgentSelectionView {
+  /** Every agent this CLI can configure, in registry order. */
+  readonly candidates: readonly import("../agent/models.js").AgentId[];
+  /** Agents whose documented footprint already exists in the project. */
+  readonly detected: readonly import("../agent/models.js").AgentId[];
 }
 
 export interface UserInteraction {
@@ -31,6 +44,11 @@ export interface UserInteraction {
     conflicts: readonly import("../project/models.js").StackConflict[],
   ): Promise<Readonly<Partial<Record<import("../project/models.js").StackCategory, string>>>>;
   chooseMode(initial?: string): Promise<RunMode>;
+  /**
+   * Chooses which agents the run configures. Optional so automated interactions, which never prompt,
+   * keep their current behaviour; when it is absent the session falls back to footprint detection.
+   */
+  chooseAgents?(view: AgentSelectionView): Promise<readonly import("../agent/models.js").AgentId[]>;
   selectComponents(view: import("../catalog/models.js").ComponentSelectionView, mode?: RunMode): Promise<readonly ComponentId[]>;
   confirmIncompatible?(component: ComponentDefinition, decision: import("../planning/models.js").CompatibilityDecision): Promise<boolean>;
   confirmExternal?(command: readonly string[], purpose: string): Promise<boolean>;
